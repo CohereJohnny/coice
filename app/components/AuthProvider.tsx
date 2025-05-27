@@ -1,140 +1,137 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
-import { User } from '@supabase/supabase-js'
+import { useEffect } from 'react'
 import { createSupabaseClient } from '@/lib/supabase'
 import { useAuthActions } from '@/lib/stores/auth'
-import { Database } from '@/lib/supabase'
-
-type Profile = Database['public']['Tables']['profiles']['Row']
-
-interface AuthContextType {
-  user: User | null
-  profile: Profile | null
-  loading: boolean
-}
-
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  profile: null,
-  loading: true,
-})
-
-export const useAuthContext = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuthContext must be used within an AuthProvider')
-  }
-  return context
-}
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 interface AuthProviderProps {
   children: React.ReactNode
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
-  
-  const { setUser: setStoreUser, setProfile: setStoreProfile, setLoading: setStoreLoading, setInitialized } = useAuthActions()
+  const { setUser, setProfile, setLoading, setInitialized } = useAuthActions()
   
   useEffect(() => {
+    console.log('AuthProvider: Starting initialization')
     const supabase = createSupabaseClient()
     
+    // Set a timeout to ensure initialization completes even if there are issues
+    const initTimeout = setTimeout(() => {
+      console.log('AuthProvider: Timeout reached, forcing initialization')
+      setLoading(false)
+      setInitialized(true)
+    }, 5000) // 5 second timeout
+    
+    // Always ensure we set initialized, even if something fails
+    const finishInit = () => {
+      setLoading(false)
+      setInitialized(true)
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       try {
+        console.log('AuthProvider: Getting initial session')
+        setLoading(true)
+        
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
-          console.error('Error getting session:', error)
-          setLoading(false)
-          setStoreLoading(false)
-          setInitialized(true)
+          console.error('AuthProvider: Error getting session:', error)
+          setUser(null)
+          setProfile(null)
+          finishInit()
           return
         }
         
+        console.log('AuthProvider: Session result:', { hasSession: !!session, userEmail: session?.user?.email })
+        
         if (session?.user) {
+          console.log('AuthProvider: Setting user from session')
           setUser(session.user)
-          setStoreUser(session.user)
           
-          // Fetch user profile
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          
-          if (profileError) {
-            console.error('Error fetching profile:', profileError)
-          } else if (profileData) {
-            setProfile(profileData)
-            setStoreProfile(profileData)
+          // Try to fetch user profile, but don't block on it
+          try {
+            console.log('AuthProvider: Fetching user profile')
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single()
+            
+            if (profileError) {
+              console.error('AuthProvider: Error fetching profile:', profileError)
+              setProfile(null)
+            } else if (profileData) {
+              console.log('AuthProvider: Profile fetched successfully:', profileData.email)
+              setProfile(profileData)
+            }
+          } catch (profileError) {
+            console.error('AuthProvider: Profile fetch failed:', profileError)
+            setProfile(null)
           }
+        } else {
+          console.log('AuthProvider: No session found, clearing user state')
+          setUser(null)
+          setProfile(null)
         }
       } catch (error) {
-        console.error('Error in getInitialSession:', error)
+        console.error('AuthProvider: Error in getInitialSession:', error)
+        setUser(null)
+        setProfile(null)
       } finally {
-        setLoading(false)
-        setStoreLoading(false)
-        setInitialized(true)
+        console.log('AuthProvider: Initialization complete, setting loading=false, initialized=true')
+        clearTimeout(initTimeout)
+        finishInit()
       }
     }
     
     getInitialSession()
     
     // Listen for auth changes
+    console.log('AuthProvider: Setting up auth state change listener')
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email)
+      async (event: AuthChangeEvent, session: Session | null) => {
+        console.log('AuthProvider: Auth state changed:', event, session?.user?.email)
         
-        if (session?.user) {
-          setUser(session.user)
-          setStoreUser(session.user)
-          
-          // Fetch user profile
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          
-          if (profileError) {
-            console.error('Error fetching profile:', profileError)
+        try {
+          if (session?.user) {
+            setUser(session.user)
+            
+            // Fetch user profile
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single()
+            
+            if (profileError) {
+              console.error('AuthProvider: Error fetching profile on auth change:', profileError)
+              setProfile(null)
+            } else if (profileData) {
+              console.log('AuthProvider: Profile updated on auth change:', profileData.email)
+              setProfile(profileData)
+            }
+          } else {
+            console.log('AuthProvider: Clearing user state on auth change')
+            setUser(null)
             setProfile(null)
-            setStoreProfile(null)
-          } else if (profileData) {
-            setProfile(profileData)
-            setStoreProfile(profileData)
           }
-        } else {
-          setUser(null)
-          setProfile(null)
-          setStoreUser(null)
-          setStoreProfile(null)
+        } catch (error) {
+          console.error('AuthProvider: Error in auth state change handler:', error)
+        } finally {
+          finishInit()
         }
-        
-        setLoading(false)
-        setStoreLoading(false)
-        setInitialized(true)
       }
     )
     
     return () => {
+      console.log('AuthProvider: Cleaning up auth subscription')
+      clearTimeout(initTimeout)
       subscription.unsubscribe()
     }
-  }, [setStoreUser, setStoreProfile, setStoreLoading, setInitialized])
+  }, [setUser, setProfile, setLoading, setInitialized])
   
-  const value = {
-    user,
-    profile,
-    loading,
-  }
-  
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <>{children}</>
 } 

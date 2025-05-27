@@ -26,19 +26,33 @@ export function AuthGuard({
   const router = useRouter()
   const [shouldRender, setShouldRender] = useState(false)
 
+  // Debug logging
+  console.log('AuthGuard state:', { 
+    loading, 
+    initialized, 
+    isAuthenticated, 
+    profile: profile?.email,
+    shouldRender 
+  })
+
   useEffect(() => {
+    console.log('AuthGuard useEffect triggered:', { initialized, isAuthenticated, requireAuth })
+    
     if (!initialized) {
+      console.log('Not initialized yet, waiting...')
       return
     }
 
     // If auth is not required, always render
     if (!requireAuth) {
+      console.log('Auth not required, rendering')
       setShouldRender(true)
       return
     }
 
     // If auth is required but user is not authenticated
     if (requireAuth && !isAuthenticated) {
+      console.log('Auth required but not authenticated, redirecting to:', redirectTo)
       router.push(redirectTo)
       return
     }
@@ -50,25 +64,30 @@ export function AuthGuard({
         : profile.role === requiredRole
 
       if (!hasRequiredRole) {
+        console.log('User does not have required role, redirecting to unauthorized')
         // Redirect to unauthorized page or home
         router.push('/unauthorized')
         return
       }
     }
 
+    console.log('All checks passed, rendering children')
     setShouldRender(true)
   }, [initialized, isAuthenticated, profile, requireAuth, requiredRole, router, redirectTo])
 
   // Show loading while checking auth state
   if (loading || !initialized) {
+    console.log('Showing loading fallback:', { loading, initialized })
     return <>{fallback}</>
   }
 
   // Don't render if auth check failed
   if (!shouldRender) {
+    console.log('Should not render, showing fallback')
     return <>{fallback}</>
   }
 
+  console.log('Rendering children')
   return <>{children}</>
 }
 

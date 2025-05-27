@@ -22,7 +22,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
+  // const [googleLoading, setGoogleLoading] = useState(false)
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -71,30 +71,31 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
     }
   }
 
-  const handleGoogleSignup = async () => {
-    setGoogleLoading(true)
-    
-    try {
-      const supabase = createSupabaseClient()
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/api/auth/callback`,
-        },
-      })
+  // Temporarily disabled Google OAuth
+  // const handleGoogleSignup = async () => {
+  //   setGoogleLoading(true)
+  //   
+  //   try {
+  //     const supabase = createSupabaseClient()
+  //     
+  //     const { error } = await supabase.auth.signInWithOAuth({
+  //       provider: 'google',
+  //       options: {
+  //         redirectTo: `${window.location.origin}/api/auth/callback`,
+  //       },
+  //     })
 
-      if (error) {
-        toast.error(error.message)
-        setGoogleLoading(false)
-      }
-      // Don't set loading to false here as the page will redirect
-    } catch (error) {
-      console.error('Google signup error:', error)
-      toast.error('An unexpected error occurred')
-      setGoogleLoading(false)
-    }
-  }
+  //     if (error) {
+  //       toast.error(error.message)
+  //       setGoogleLoading(false)
+  //     }
+  //     // Don't set loading to false here as the page will redirect
+  //   } catch (error) {
+  //     console.error('Google signup error:', error)
+  //     toast.error('An unexpected error occurred')
+  //     setGoogleLoading(false)
+  //   }
+  // }
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -188,7 +189,8 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
           </Button>
         </form>
 
-        <div className="relative">
+        {/* Temporarily disabled Google OAuth */}
+        {/* <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
           </div>
@@ -205,7 +207,11 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
           disabled={googleLoading}
         >
           {googleLoading ? 'Redirecting...' : 'Continue with Google'}
-        </Button>
+        </Button> */}
+
+        <div className="text-center text-sm text-muted-foreground">
+          Google OAuth temporarily disabled. Use email/password registration.
+        </div>
 
         {onSwitchToLogin && (
           <div className="text-center text-sm">
