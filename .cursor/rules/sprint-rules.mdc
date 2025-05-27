@@ -1,0 +1,118 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Streamlined Sprint Workflow - Vision Deck
+
+This document defines a simplified sprint workflow for managing development sprints in the COICE project, optimized for collaboration between the User and the AI Assistant (Gemini). It aims to reduce overhead and work around AI tool limitations.
+
+## 1. **Sprint Initialization**
+
+1.  **AI Action:** Create the Git branch for the sprint (e.g., `git checkout -b v0.x.0`).
+2.  **AI Action:** Create the sprint directory (e.g., `mkdir sprints/v0.x.0`).
+3.  **AI Action:** Based on `sprintplan.md`, the AI generates the initial task list for the sprint goals.
+4.  **AI Action:** Create `sprints/v0.x.0/sprint_x_tasks.md`.  Add appropriate headers (`# Sprint X Tasks`, `## Goals`, `## Tasks`).
+        *   `sprint_x_tasks.md`: For the detailed task breakdown.
+        *   `sprint_x_updates.md`: For ongoing notes, context, and progress updates during the sprint.
+        *   `sprint_x_report.md`: For the final sprint summary (populated at the end).
+6.  **AI Action:** Generate a draft test plan based on tasks.
+7.  **AI Action:** Create `sprints/v0.x.0/sprint_x_testplan.md` 
+
+## 2.  **Sprint Planning:**
+    *   Review the master plan in `sprints/sprintplan.md` to understand the goals and high-level tasks for Sprint X.
+    *   Create a detailed, logical breakdown of all tasks required to meet the sprint goals.
+    *   Populate `sprints/sprint_x/sprint_x_tasks.md` with this detailed task list (e.g., using checkboxes `[ ] Task description`).
+
+## 3. **Sprint Execution**
+
+1.  **AI Action:** Implement code changes required to meet the sprint goals defined in `sprints/v0.x.0/sprint_x_tasks.md`.
+2.  **AI Action:** **Directly edit `sprints/v0.x.0/sprint_x_tasks.md`** throughout the sprint:
+    *   Mark tasks as complete using `[x]`.
+    *   Add progress notes, relevant code snippets, observations, or commit references directly under the corresponding task in a "Progress" section.
+3.  **AI Action:** Commit code changes *and* the updated `sprint_x_tasks.md` file frequently to the `v0.x.0` branch (e.g., `git add . && git commit -m "feat: Implement feature X (closes task Y)"`).
+
+## 4.  **Handling Deviations:**
+    *   If non-critical technical issues or necessary refactors are identified that deviate from the planned tasks, add them to `sprints/tech_debt.md` instead of addressing them immediately.
+    *   If new feature ideas, non-critical enhancements, or "nice-to-haves" arise, add them to `sprints/backlog.md`.
+    *   Only address critical blockers that prevent the completion of planned tasks. Document the deviation in `sprint_x_updates.md`.
+
+## 5. **Bug Swatting**
+
+1.  **AI Action:** If a critical bug blocking progress is found:
+    *   Pause work on sprint tasks.
+    *   Fix the bug.
+    *   Manually log the bug fix details in `sprints/bug_swatting.md` using the format:
+        ```markdown
+        ## Bug Entry: [Date]
+        - **ID**: BUG-XXX
+        - **Description**: ...
+        - **Discovered**: ...
+        - **Context**: Sprint X, Feature Y
+        - **Fix**: ...
+        - **Status**: Resolved
+        ```
+    *   Reference the Bug ID in the commit message (e.g., `fix: Resolve BUG-XXX affecting component Z`).
+    *   Resume work on sprint tasks.
+    *   For any significant deviations we will work in `v0.x.y` branch.
+
+## 4. Sprint Review (Lightweight)
+
+1.  **AI Action:** Near the end of the sprint, review the completed tasks in `sprints/v0.x.0/sprint_x_tasks.md`.
+2.  **User Action:** Manually execute key tests based on `sprints/v0.x.0/sprint_x_testplan.md` (if created).
+3.  **AI Action:** Run `pnpm run build` locally to check for build errors.
+4.  **AI Action:** Add a brief "## Sprint Review" section at the bottom of `sprints/v0.x.0/sprint_x_tasks.md`. Include notes on:
+    *   Demo Readiness: What key features are working?
+    *   Gaps/Issues: What's incomplete or needs refinement?
+    *   Next Steps: What should be carried over or addressed next?
+
+## 5. Sprint Completion
+
+1.  **AI Action:** AI reads the final committed version of `sprints/v0.x.0/sprint_x_tasks.md`.
+2.  **AI Action:** The AI generates a draft summary report in the chat, based *only* on the contents of `sprint_x_tasks.md` (task status, progress notes, review section).
+3.  **AI Action:** AI creates `sprints/v0.x.0/sprint_x_report.md`.
+4.  **AI Action:** Finalize `sprints/v0.x.0/sprint_x_testplan.md` (if used).
+5.  **AI Action:** Commit all final sprint documentation (`sprint_x_tasks.md`, `sprint_x_report.md`, `sprint_x_testplan.md`) to the `v0.x.0` branch.
+6. **AI Action:** Archive the sprint documentation only (not implementation files):
+      - ONLY move documentation files: `mv sprints/v0.x.0/*.md sprints/archive/v0.x.0/`
+      - DO NOT move or delete any application code, configuration files, or resource files
+7.  **User Action:** Create a pull request for `sprint-x`, verify checks pass (including `pnpm run build`), and merge into `main`.
+8.  **AI Action:** Tag the merge commit (`git tag v0.x.0 <commit-hash>`) and push the tag (`git push origin v0.x.0`).
+9.  **AI Action:** Confirm that all changes have been pushed to the branch and that the branch has been published to remote.
+10. **AI Action:** Perform a git checkout of the latest code from our remote after our latest PR and merge.
+11. **AI Action:** Branch Hygiene
+       - Confirm all changes have been committed and pushed: `git status`
+       - Verify the main branch contains all the implementation work: `git diff main..v0.x.0`
+
+## Key Files Per Sprint
+
+- `sprints/v0.x.0/sprint_x_tasks.md`: The primary file for tracking tasks, progress, and review notes. **User-maintained.**
+- `sprints/v0.x.0/sprint_x_testplan.md`: (Optional) Detailed test cases. User-maintained, AI can draft.
+- `sprints/v0.x.0/sprint_x_report.md`: Final summary report. AI drafts, User finalizes.
+
+## Central Logs
+
+- `sprints/sprintplan.md`: High-level plan for all sprints.
+- `sprints/bug_swatting.md`: Log for critical bug fixes.
+- `sprints/tech_debt.md`: Log for non-critical issues/refactors.
+- `sprints/backlog.md`: Log for new feature ideas.
+
+## File Safety Guidelines
+- IMPORTANT: Never delete implementation files or directories (like `/app`, `/components`, `/supabase`, etc.)
+- Only manage sprint documentation files in the `/sprints` directory
+- Always commit ALL changes before switching branches or completing sprints
+
+## Branch Management Safety
+- Always create feature branches from the current sprint branch, not main
+- Do not delete any directories outside of `/sprints/` during cleanup
+- Implementation files (code) remain in their respective directories even after sprint archival
+- Sprint archival only refers to moving documentation files to `/sprints/archive/`
+
+## Pre-Sprint Transition Checklist
+Before completing a sprint or switching branches:
+- [ ] All implementation files are committed
+- [ ] All documentation is updated and committed
+- [ ] Sprint branch has been pushed to remote
+- [ ] Required PR has been created and merged
+- [ ] No uncommitted changes remain in the working directory
+
