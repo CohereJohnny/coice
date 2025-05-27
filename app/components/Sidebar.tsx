@@ -6,14 +6,14 @@ export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false)
 
   return (
-    <aside className={`border-r bg-gray-50 transition-all duration-300 ${
+    <aside className={`border-r border-border bg-muted transition-all duration-300 ${
       isCollapsed ? 'w-16' : 'w-64'
     }`}>
       <div className="p-4">
         {/* Collapse Toggle */}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="mb-4 p-2 rounded hover:bg-gray-200 w-full flex justify-center"
+          className="mb-4 p-2 rounded hover:bg-background w-full flex justify-center text-muted-foreground hover:text-foreground transition-colors"
         >
           {isCollapsed ? '→' : '←'}
         </button>
@@ -22,34 +22,34 @@ export function Sidebar() {
           <div className="space-y-4">
             {/* Catalogs Section */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">
+              <h3 className="text-sm font-semibold text-foreground mb-2">
                 Catalogs
               </h3>
               <div className="space-y-1">
-                <div className="p-2 rounded hover:bg-gray-200 cursor-pointer">
+                <div className="p-2 rounded hover:bg-background cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <span>📁</span>
-                    <span className="text-sm">Oil & Gas</span>
+                    <span className="text-sm text-foreground">Oil & Gas</span>
                   </div>
                   <div className="ml-6 mt-1 space-y-1">
-                    <div className="p-1 rounded hover:bg-gray-200 cursor-pointer">
+                    <div className="p-1 rounded hover:bg-background cursor-pointer">
                       <div className="flex items-center space-x-2">
                         <span>📂</span>
-                        <span className="text-xs text-gray-600">Wells</span>
+                        <span className="text-xs text-muted-foreground">Wells</span>
                       </div>
                     </div>
-                    <div className="p-1 rounded hover:bg-gray-200 cursor-pointer">
+                    <div className="p-1 rounded hover:bg-background cursor-pointer">
                       <div className="flex items-center space-x-2">
                         <span>📂</span>
-                        <span className="text-xs text-gray-600">Pipelines</span>
+                        <span className="text-xs text-muted-foreground">Pipelines</span>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="p-2 rounded hover:bg-gray-200 cursor-pointer">
+                <div className="p-2 rounded hover:bg-background cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <span>📁</span>
-                    <span className="text-sm">Manufacturing</span>
+                    <span className="text-sm text-foreground">Manufacturing</span>
                   </div>
                 </div>
               </div>
@@ -57,20 +57,20 @@ export function Sidebar() {
 
             {/* GCS Buckets Section */}
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">
+              <h3 className="text-sm font-semibold text-foreground mb-2">
                 GCS Buckets
               </h3>
               <div className="space-y-1">
-                <div className="p-2 rounded hover:bg-gray-200 cursor-pointer">
+                <div className="p-2 rounded hover:bg-background cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <span>☁️</span>
-                    <span className="text-sm">coice-main</span>
+                    <span className="text-sm text-foreground">coice-main</span>
                   </div>
                 </div>
-                <div className="p-2 rounded hover:bg-gray-200 cursor-pointer">
+                <div className="p-2 rounded hover:bg-background cursor-pointer">
                   <div className="flex items-center space-x-2">
                     <span>☁️</span>
-                    <span className="text-sm">legacy-images</span>
+                    <span className="text-sm text-foreground">legacy-images</span>
                   </div>
                 </div>
               </div>
