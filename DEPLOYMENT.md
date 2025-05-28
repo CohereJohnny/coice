@@ -52,50 +52,27 @@ After adding the environment variables, trigger a new deployment in Vercel.
 
 ## 🔍 Testing Your Deployment
 
-### Test GCS Connection
+### Test Image Loading
 
-Visit: `https://your-app.vercel.app/api/debug/gcs-test`
+1. Navigate to your deployed app: `https://your-app.vercel.app`
+2. Log in and access a library with uploaded images
+3. Verify that images load properly in Card, List, and Carousel views
 
-This endpoint will show:
-- ✅ Configuration method being used
-- ✅ Environment variables status
-- ✅ GCS connection status
-- ✅ File listing capability
-- ✅ Signed URL generation
-
-### Expected Success Response:
-```json
-{
-  "success": true,
-  "diagnostics": {
-    "configMethod": "environment_variables",
-    "envCheck": {
-      "hasProjectId": true,
-      "hasBucketName": true,
-      "hasPrivateKey": true,
-      "hasClientEmail": true,
-      "hasClientId": true,
-      "hasPrivateKeyId": true
-    },
-    "gcsConnection": true,
-    "filesFound": 5
-  },
-  "results": {
-    "signedUrlTest": "Generated successfully"
-  }
-}
-```
+### Check for Successful Deployment
+- Images should display as thumbnails (not broken placeholders)
+- Full-size images should open in the carousel
+- No console errors related to GCS or image loading
 
 ## 🛠️ Common Issues & Solutions
 
-### Issue 1: "GCS connection failed"
+### Issue 1: "Images show as broken placeholders"
 **Cause:** Invalid service account credentials
 **Solution:** 
 1. Verify all GCS environment variables are set correctly
 2. Check that the private key includes proper newline characters
 3. Ensure the service account has Storage Object Admin permissions
 
-### Issue 2: "Failed to generate signed URL"
+### Issue 2: "Images don't load in production"
 **Cause:** Insufficient permissions or wrong bucket
 **Solution:**
 1. Verify the service account has access to the bucket
@@ -137,25 +114,26 @@ This endpoint will show:
 3. **Rotate credentials** regularly
 4. **Limit service account permissions** to minimum required
 5. **Monitor GCS access logs** for unusual activity
+6. **Remove debug endpoints** from production deployments
 
 ## 🐛 Debug Tools
 
-### Local Debug Commands
+### Local Development Only
 ```bash
-# Test GCS connection locally
-curl http://localhost:3000/api/debug/gcs-test
-
-# Check image metadata
+# Test GCS connection locally (only in development)
 curl http://localhost:3000/api/debug/image-metadata
+
+# Check build locally
+pnpm run build
 ```
 
-### Production Debug
+### Production Verification
 ```bash
-# Test GCS on Vercel
-curl https://your-app.vercel.app/api/debug/gcs-test
-
-# Check logs
+# Check Vercel logs for errors
 vercel logs your-app
+
+# Verify deployment status
+vercel inspect your-app
 ```
 
 ## 📞 Need Help?
@@ -164,7 +142,8 @@ If you're still experiencing issues:
 
 1. Check the Vercel function logs for detailed error messages
 2. Verify your GCS bucket permissions and policies
-3. Test the debug endpoints to isolate the problem
+3. Test image loading directly in the application
 4. Ensure all environment variables are properly formatted
+5. Verify your service account has the necessary GCS permissions
 
 The most common issue is incorrectly formatted private keys - make sure they include proper newlines and are wrapped in quotes! 
