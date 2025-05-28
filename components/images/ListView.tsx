@@ -343,6 +343,39 @@ export default function ListView({
     setRowSelection(newRowSelection);
   }, [selectedImages, images]);
 
+  const handleRowClick = (image: Image, event: React.MouseEvent) => {
+    // Don't trigger if clicking on interactive elements
+    if ((event.target as HTMLElement).closest('button, input, [role="checkbox"]')) {
+      return;
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      // Multi-select with Ctrl/Cmd
+      onImageSelect?.(image.id, !selectedImages.has(image.id));
+    } else if (event.shiftKey && selectedImages.size > 0) {
+      // Range select with Shift
+      const imageIds = images.map(img => img.id);
+      const currentIndex = imageIds.indexOf(image.id);
+      const lastSelectedIndex = imageIds.findIndex(id => selectedImages.has(id));
+      
+      if (lastSelectedIndex !== -1) {
+        const start = Math.min(currentIndex, lastSelectedIndex);
+        const end = Math.max(currentIndex, lastSelectedIndex);
+        
+        for (let i = start; i <= end; i++) {
+          onImageSelect?.(imageIds[i], true);
+        }
+      }
+    } else {
+      // Default: preview image
+      if (onImagePreview) {
+        onImagePreview(image);
+      } else {
+        onImageSelect?.(image.id, !selectedImages.has(image.id));
+      }
+    }
+  };
+
   const table = useReactTable({
     data: images,
     columns,
@@ -462,7 +495,8 @@ export default function ListView({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className="hover:bg-muted/50"
+                  className="hover:bg-muted/50 cursor-pointer"
+                  onClick={(e) => handleRowClick(row.original, e)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

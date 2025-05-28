@@ -472,6 +472,7 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
             loading={imagesLoading}
             selectedImages={selectedImages}
             onImageSelect={handleImageSelect}
+            onImagePreview={handleImageClick}
             onImageDownload={handleDownloadImage}
             onImageDelete={handleDeleteImage}
             gridSize={gridSize}
@@ -483,6 +484,7 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
             loading={imagesLoading}
             selectedImages={selectedImages}
             onImageSelect={handleImageSelect}
+            onImagePreview={handleImageClick}
             onImageDownload={handleDownloadImage}
             onImageDelete={handleDeleteImage}
             pageSize={20}
