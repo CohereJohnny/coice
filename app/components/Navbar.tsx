@@ -12,14 +12,27 @@ export function Navbar() {
 
   const handleSignOut = async () => {
     try {
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      })
-      if (response.ok) {
-        window.location.href = '/auth/login'
+      // Clear client-side storage first
+      localStorage.clear()
+      sessionStorage.clear()
+      
+      // Try to call the logout API
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+        })
+      } catch (apiError) {
+        console.log('Logout API error (continuing anyway):', apiError)
       }
+      
+      // Force redirect to login
+      window.location.href = '/auth/login'
     } catch (error) {
       console.error('Sign out error:', error)
+      // Force logout anyway
+      localStorage.clear()
+      sessionStorage.clear()
+      window.location.href = '/auth/login'
     }
   }
 
