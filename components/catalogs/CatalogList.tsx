@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog';
 import { 
   MoreHorizontal, 
   Edit, 
@@ -45,6 +46,10 @@ export function CatalogList({
   userRole
 }: CatalogListProps) {
   const [expandedActions, setExpandedActions] = useState<number | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    catalog: Catalog | null;
+  }>({ open: false, catalog: null });
 
   const canEdit = (catalog: Catalog) => {
     return userRole === 'admin' || catalog.user_id === currentUserId;
@@ -154,7 +159,7 @@ export function CatalogList({
                     {onDelete && canDelete(catalog) && (
                       <button
                         onClick={() => {
-                          onDelete(catalog);
+                          setDeleteDialog({ open: true, catalog });
                           setExpandedActions(null);
                         }}
                         className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
@@ -181,6 +186,20 @@ export function CatalogList({
           </CardContent>
         </Card>
       ))}
+      
+      <DeleteConfirmationDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, catalog: null })}
+        onConfirm={() => {
+          if (deleteDialog.catalog && onDelete) {
+            onDelete(deleteDialog.catalog);
+          }
+        }}
+        title="Delete Catalog"
+        description="Are you sure you want to delete the catalog"
+        itemName={deleteDialog.catalog?.name}
+        warningMessage="This action cannot be undone. All libraries and images in this catalog will also be deleted."
+      />
     </div>
   );
 } 

@@ -177,12 +177,12 @@ export default function Home() {
             <span className="text-sm font-medium text-green-600">✓ Complete</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm">Sidebar Navigation Enhancement</span>
-            <span className="text-sm font-medium text-yellow-600">🔄 In Progress</span>
+            <span className="text-sm">Confirmation Dialogs & UI Polish</span>
+            <span className="text-sm font-medium text-green-600">✓ Complete</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-sm">Admin Panel Foundation</span>
-            <span className="text-sm font-medium text-gray-500">⏳ Pending</span>
+            <span className="text-sm font-medium text-green-600">✓ Complete</span>
           </div>
         </div>
         
