@@ -7,18 +7,68 @@ export interface ImageMetadata {
   width?: number;
   height?: number;
   exif?: {
+    // Camera Information
     make?: string;
     model?: string;
+    software?: string;
     dateTime?: string;
+    dateTimeOriginal?: string;
+    dateTimeDigitized?: string;
+    
+    // Technical Settings
     orientation?: number;
     exposureTime?: string;
     fNumber?: string;
     iso?: number;
     focalLength?: string;
+    focalLengthIn35mm?: number;
+    
+    // Flash and Lighting
     flash?: string;
     whiteBalance?: string;
+    meteringMode?: string;
+    exposureMode?: string;
+    exposureProgram?: string;
+    exposureBias?: string;
+    
+    // Image Quality
+    colorSpace?: string;
+    pixelXDimension?: number;
+    pixelYDimension?: number;
+    compression?: string;
+    photometricInterpretation?: string;
+    
+    // GPS Information
     gpsLatitude?: number;
     gpsLongitude?: number;
+    gpsAltitude?: number;
+    gpsLatitudeRef?: string;
+    gpsLongitudeRef?: string;
+    gpsAltitudeRef?: number;
+    gpsTimeStamp?: string;
+    gpsDateStamp?: string;
+    
+    // Lens Information
+    lensModel?: string;
+    lensMake?: string;
+    lensSerialNumber?: string;
+    
+    // Additional Technical Data
+    sceneType?: string;
+    sceneCaptureType?: string;
+    contrast?: string;
+    saturation?: string;
+    sharpness?: string;
+    digitalZoomRatio?: number;
+    subjectDistance?: string;
+    subjectDistanceRange?: string;
+    
+    // Copyright and Artist
+    artist?: string;
+    copyright?: string;
+    imageDescription?: string;
+    userComment?: string;
+    
     [key: string]: any;
   };
 }
@@ -74,6 +124,25 @@ export function validateImage(file: File): ValidationResult {
 }
 
 /**
+ * Convert GPS coordinates from DMS (Degrees, Minutes, Seconds) to decimal degrees
+ */
+function convertDMSToDD(dms: number[], ref: string): number | null {
+  if (!dms || !Array.isArray(dms) || dms.length !== 3) {
+    return null;
+  }
+
+  const [degrees, minutes, seconds] = dms;
+  let dd = degrees + minutes / 60 + seconds / 3600;
+
+  // Apply direction (negative for South/West)
+  if (ref === 'S' || ref === 'W') {
+    dd = dd * -1;
+  }
+
+  return dd;
+}
+
+/**
  * Extract EXIF metadata from image file
  */
 export function extractExifMetadata(file: File): Promise<ImageMetadata> {
@@ -106,26 +175,96 @@ export function extractExifMetadata(file: File): Promise<ImageMetadata> {
         EXIF.getData(img as any, function() {
           const exifData: any = {};
           
-          // Get common EXIF tags
+          // Get comprehensive EXIF tags
           const tags = [
-            'Make', 'Model', 'DateTime', 'Orientation',
-            'ExposureTime', 'FNumber', 'ISO', 'FocalLength',
-            'Flash', 'WhiteBalance', 'GPSLatitude', 'GPSLongitude'
+            // Camera Information
+            'Make', 'Model', 'Software', 'DateTime', 'DateTimeOriginal', 'DateTimeDigitized',
+            
+            // Technical Settings
+            'Orientation', 'ExposureTime', 'FNumber', 'ISO', 'ISOSpeedRatings', 
+            'FocalLength', 'FocalLengthIn35mmFilm',
+            
+            // Flash and Lighting
+            'Flash', 'WhiteBalance', 'MeteringMode', 'ExposureMode', 
+            'ExposureProgram', 'ExposureBiasValue',
+            
+            // Image Quality
+            'ColorSpace', 'PixelXDimension', 'PixelYDimension', 'Compression',
+            'PhotometricInterpretation',
+            
+            // GPS Information
+            'GPSLatitude', 'GPSLongitude', 'GPSAltitude', 'GPSLatitudeRef', 
+            'GPSLongitudeRef', 'GPSAltitudeRef', 'GPSTimeStamp', 'GPSDateStamp',
+            
+            // Lens Information
+            'LensModel', 'LensMake', 'LensSerialNumber',
+            
+            // Additional Technical Data
+            'SceneType', 'SceneCaptureType', 'Contrast', 'Saturation', 'Sharpness',
+            'DigitalZoomRatio', 'SubjectDistance', 'SubjectDistanceRange',
+            
+            // Copyright and Artist
+            'Artist', 'Copyright', 'ImageDescription', 'UserComment'
           ];
 
           tags.forEach(tag => {
             const value = EXIF.getTag(img as any, tag);
             if (value !== undefined && value !== null) {
               // Convert tag name to camelCase
-              const camelTag = tag.charAt(0).toLowerCase() + tag.slice(1);
+              let camelTag = tag.charAt(0).toLowerCase() + tag.slice(1);
+              
+              // Handle special cases for better naming
+              if (tag === 'ISOSpeedRatings' && !exifData.iso) {
+                camelTag = 'iso';
+              }
+              if (tag === 'FocalLengthIn35mmFilm') {
+                camelTag = 'focalLengthIn35mm';
+              }
+              if (tag === 'ExposureBiasValue') {
+                camelTag = 'exposureBias';
+              }
+              
               exifData[camelTag] = value;
             }
           });
 
-          // Add all EXIF data
+          // Process GPS coordinates if available
+          if (exifData.gpsLatitude && exifData.gpsLongitude) {
+            // Convert GPS coordinates to decimal degrees
+            const lat = convertDMSToDD(exifData.gpsLatitude, exifData.gpsLatitudeRef);
+            const lon = convertDMSToDD(exifData.gpsLongitude, exifData.gpsLongitudeRef);
+            
+            if (lat !== null && lon !== null) {
+              exifData.gpsLatitude = lat;
+              exifData.gpsLongitude = lon;
+            }
+          }
+
+          // Format exposure time for better readability
+          if (exifData.exposureTime && typeof exifData.exposureTime === 'number') {
+            if (exifData.exposureTime < 1) {
+              exifData.exposureTime = `1/${Math.round(1 / exifData.exposureTime)}`;
+            } else {
+              exifData.exposureTime = `${exifData.exposureTime}s`;
+            }
+          }
+
+          // Format f-number
+          if (exifData.fNumber && typeof exifData.fNumber === 'number') {
+            exifData.fNumber = `f/${exifData.fNumber}`;
+          }
+
+          // Format focal length
+          if (exifData.focalLength && typeof exifData.focalLength === 'number') {
+            exifData.focalLength = `${exifData.focalLength}mm`;
+          }
+
+          // Add all EXIF data (including any additional tags)
           const allTags = EXIF.getAllTags(img as any);
           if (allTags && Object.keys(allTags).length > 0) {
             metadata.exif = { ...exifData, ...allTags };
+          } else if (Object.keys(exifData).length > 0) {
+            metadata.exif = exifData;
           }
 
           URL.revokeObjectURL(url);
