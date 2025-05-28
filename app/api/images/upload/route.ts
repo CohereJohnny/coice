@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase';
 import { uploadFile, generateStoragePath } from '@/lib/gcs';
 import { generateUniqueFileName } from '@/lib/image-utils';
+import { generateAndUploadThumbnail, getImageMetadata } from '@/lib/thumbnail';
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,11 +61,25 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    // Extract image metadata using Sharp
+    let imageMetadata;
+    try {
+      imageMetadata = await getImageMetadata(buffer);
+    } catch (error) {
+      console.error('Failed to extract image metadata:', error);
+      imageMetadata = {
+        width: null,
+        height: null,
+        format: null,
+        size: file.size,
+      };
+    }
+
     // Generate unique filename and storage path
     const uniqueFileName = generateUniqueFileName(file.name);
     const storagePath = generateStoragePath(catalogId, libraryId, uniqueFileName);
 
-    // Upload to GCS
+    // Upload original image to GCS
     const uploadResult = await uploadFile(buffer, {
       destination: storagePath,
       metadata: {
@@ -73,9 +88,31 @@ export async function POST(request: NextRequest) {
         catalogId,
         libraryId,
         contentType: file.type,
+        width: imageMetadata.width?.toString() || '',
+        height: imageMetadata.height?.toString() || '',
       },
       public: false, // Keep images private
     });
+
+    // Generate thumbnail
+    let thumbnailResult;
+    try {
+      thumbnailResult = await generateAndUploadThumbnail(
+        buffer,
+        catalogId,
+        libraryId,
+        uniqueFileName,
+        {
+          width: 300,
+          height: 300,
+          format: 'jpeg',
+          quality: 80,
+        }
+      );
+    } catch (error) {
+      console.error('Failed to generate thumbnail:', error);
+      thumbnailResult = null;
+    }
 
     // Store image record in database
     const { data: imageRecord, error: dbError } = await supabase
@@ -88,10 +125,20 @@ export async function POST(request: NextRequest) {
           original_filename: file.name,
           file_size: file.size,
           mime_type: file.type,
-          width: null, // Will be updated when metadata is extracted
-          height: null,
-          exif: null,
+          width: imageMetadata.width,
+          height: imageMetadata.height,
+          format: imageMetadata.format,
+          density: imageMetadata.density,
+          has_alpha: imageMetadata.hasAlpha,
+          orientation: imageMetadata.orientation,
           uploaded_by: user.id,
+          upload_date: new Date().toISOString(),
+          thumbnail: thumbnailResult ? {
+            path: thumbnailResult.thumbnailPath,
+            width: thumbnailResult.width,
+            height: thumbnailResult.height,
+            size: thumbnailResult.size,
+          } : null,
         },
       })
       .select()
@@ -109,6 +156,8 @@ export async function POST(request: NextRequest) {
       success: true,
       image: imageRecord,
       uploadResult,
+      thumbnail: thumbnailResult,
+      metadata: imageMetadata,
     });
 
   } catch (error) {
