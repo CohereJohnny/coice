@@ -30,8 +30,7 @@ export async function GET(request: NextRequest) {
         email,
         role,
         display_name,
-        created_at,
-        last_sign_in_at
+        created_at
       `)
       .order('created_at', { ascending: false });
 

@@ -25,7 +25,6 @@ interface User {
   role: 'admin' | 'manager' | 'end_user';
   display_name?: string;
   created_at: string;
-  last_sign_in_at?: string;
 }
 
 interface AdminPanelProps {
