@@ -140,10 +140,13 @@ export async function GET() {
     if (groupsError) {
       return NextResponse.json({ error: 'Failed to fetch groups', details: groupsError.message }, { status: 500 });
     }
-    // For each group, fetch members
+    // For each group, fetch members and catalogs
     const groupIds = groups.map((g: any) => g.id);
     let membersByGroup: Record<string, any[]> = {};
+    let catalogsByGroup: Record<string, any[]> = {};
+    
     if (groupIds.length > 0) {
+      // Fetch group memberships
       const { data: memberships, error: membershipsError } = await adminSupabase
         .from('user_groups')
         .select('group_id, user_id, profiles(id, email, role)');
@@ -158,8 +161,29 @@ export async function GET() {
           }
         }
       }
+
+      // Fetch group catalog assignments
+      const { data: catalogAssignments, error: catalogsError } = await adminSupabase
+        .from('catalog_groups')
+        .select('group_id, catalog_id, catalogs(id, name)');
+      if (catalogsError) {
+        return NextResponse.json({ error: 'Failed to fetch group catalogs', details: catalogsError.message }, { status: 500 });
+      }
+      if (catalogAssignments && Array.isArray(catalogAssignments)) {
+        for (const ca of catalogAssignments) {
+          if (ca && ca.group_id) {
+            if (!catalogsByGroup[ca.group_id]) catalogsByGroup[ca.group_id] = [];
+            if (ca.catalogs) catalogsByGroup[ca.group_id].push(ca.catalogs);
+          }
+        }
+      }
     }
-    const result = groups.map((g: any) => ({ ...g, members: membersByGroup[g.id] || [] }));
+    
+    const result = groups.map((g: any) => ({ 
+      ...g, 
+      members: membersByGroup[g.id] || [],
+      catalogs: catalogsByGroup[g.id] || []
+    }));
     return NextResponse.json(result);
   } catch (error) {
     console.error('Error in group list API:', error);

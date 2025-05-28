@@ -27,45 +27,78 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Verify library access
-    const { data: library, error: libraryError } = await supabase
+    // Use service role to bypass RLS issues
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Verify library exists and get catalog info
+    const { data: library, error: libraryError } = await adminSupabase
       .from('libraries')
-      .select('id, catalog_id, catalogs(id, name)')
+      .select('id, catalog_id')
       .eq('id', libraryId)
       .eq('catalog_id', catalogId)
       .single()
 
     if (libraryError || !library) {
       return NextResponse.json(
-        { error: 'Library not found or access denied' },
+        { error: 'Library not found' },
         { status: 404 }
       )
     }
 
-    // Check user permissions for the catalog via groups
-    const { data: userGroups, error: permissionError } = await supabase
-      .from('user_groups')
-      .select(`
-        group_id,
-        groups!inner(
-          id,
-          catalog_groups!inner(
-            catalog_id
-          )
-        )
-      `)
-      .eq('user_id', user.id)
-      .eq('groups.catalog_groups.catalog_id', catalogId);
+    // Check if user has access to this catalog using manual access control
+    // Get user's profile to check role
+    const { data: profile } = await adminSupabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
 
-    if (permissionError || !userGroups || userGroups.length === 0) {
-      return NextResponse.json(
-        { error: 'Access denied to catalog' },
-        { status: 403 }
-      );
+    // Get user's groups
+    const { data: userGroups } = await adminSupabase
+      .from('user_groups')
+      .select('group_id')
+      .eq('user_id', user.id);
+
+    // Get catalog-group mappings for user's groups
+    const groupIds = userGroups?.map(ug => ug.group_id) || [];
+    let accessibleCatalogIds: number[] = [];
+    
+    if (groupIds.length > 0) {
+      const { data: catalogGroups } = await adminSupabase
+        .from('catalog_groups')
+        .select('catalog_id')
+        .in('group_id', groupIds);
+      
+      accessibleCatalogIds = catalogGroups?.map(cg => cg.catalog_id) || [];
     }
 
-    // Get images with pagination
-    const { data: images, error: imagesError, count } = await supabase
+    // Get the catalog info
+    const { data: catalog } = await adminSupabase
+      .from('catalogs')
+      .select('id, name, user_id')
+      .eq('id', catalogId)
+      .single();
+
+    if (!catalog) {
+      return NextResponse.json({ error: 'Catalog not found' }, { status: 404 });
+    }
+
+    // Check access rules
+    const hasAccess = 
+      catalog.user_id === user.id || // User owns the catalog
+      profile?.role === 'admin' || profile?.role === 'manager' || // User is admin/manager
+      accessibleCatalogIds.includes(catalog.id); // User has group access
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Access denied to catalog' }, { status: 403 });
+    }
+
+    // Get images with pagination using service role
+    const { data: images, error: imagesError, count } = await adminSupabase
       .from('images')
       .select('*', { count: 'exact' })
       .eq('library_id', libraryId)

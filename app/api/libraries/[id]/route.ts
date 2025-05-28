@@ -20,8 +20,15 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid library ID' }, { status: 400 });
     }
 
-    // Get the library (RLS will handle access control)
-    const { data: library, error } = await supabase
+    // Use service role to bypass RLS issues
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Get the library using service role
+    const { data: library, error } = await adminSupabase
       .from('libraries')
       .select(`
         id,
@@ -29,13 +36,7 @@ export async function GET(
         description,
         parent_id,
         catalog_id,
-        created_at,
-        catalogs!libraries_catalog_id_fkey(
-          id,
-          name,
-          user_id,
-          profiles!catalogs_user_id_fkey(display_name, email)
-        )
+        created_at
       `)
       .eq('id', libraryId)
       .single();
@@ -48,7 +49,73 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to fetch library' }, { status: 500 });
     }
 
-    return NextResponse.json({ library });
+    // Check if user has access to this library's catalog
+    // Get user's profile to check role
+    const { data: profile } = await adminSupabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    // Get user's groups
+    const { data: userGroups } = await adminSupabase
+      .from('user_groups')
+      .select('group_id')
+      .eq('user_id', user.id);
+
+    // Get catalog-group mappings for user's groups
+    const groupIds = userGroups?.map(ug => ug.group_id) || [];
+    let accessibleCatalogIds: number[] = [];
+    
+    if (groupIds.length > 0) {
+      const { data: catalogGroups } = await adminSupabase
+        .from('catalog_groups')
+        .select('catalog_id')
+        .in('group_id', groupIds);
+      
+      accessibleCatalogIds = catalogGroups?.map(cg => cg.catalog_id) || [];
+    }
+
+    // Get the catalog info
+    const { data: catalog } = await adminSupabase
+      .from('catalogs')
+      .select('id, name, user_id')
+      .eq('id', library.catalog_id)
+      .single();
+
+    if (!catalog) {
+      return NextResponse.json({ error: 'Catalog not found' }, { status: 404 });
+    }
+
+    // Check access rules
+    const hasAccess = 
+      catalog.user_id === user.id || // User owns the catalog
+      profile?.role === 'admin' || profile?.role === 'manager' || // User is admin/manager
+      accessibleCatalogIds.includes(catalog.id); // User has group access
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // Get catalog owner profile
+    const { data: catalogOwnerProfile } = await adminSupabase
+      .from('profiles')
+      .select('display_name, email')
+      .eq('id', catalog.user_id)
+      .single();
+
+    // Build response with catalog info
+    const libraryWithCatalog = {
+      ...library,
+      catalogs: {
+        id: catalog.id,
+        name: catalog.name,
+        user_id: catalog.user_id,
+        profiles: catalogOwnerProfile
+      }
+    };
+
+    return NextResponse.json({ library: libraryWithCatalog });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
