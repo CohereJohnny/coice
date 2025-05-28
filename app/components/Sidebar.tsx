@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { useAuth } from '@/lib/stores/auth'
 import { Button } from '@/components/ui/button'
+import { CatalogNavigation } from '@/components/navigation/CatalogNavigation'
 
 interface SidebarProps {
   isCollapsed?: boolean
@@ -86,41 +87,13 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
 
       {/* Catalogs Section */}
       <div className="flex-1">
-        <div className="p-2">
-          <Button
-            variant="ghost"
-            className={`w-full justify-start ${isCollapsed ? 'px-2' : 'px-3'}`}
-            size="sm"
-            onClick={() => !isCollapsed && toggleSection('catalogs')}
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            {!isCollapsed && (
-              <>
-                <span className="ml-2">Catalogs</span>
-                <svg
-                  className={`ml-auto h-4 w-4 transition-transform ${
-                    expandedSections.includes('catalogs') ? 'rotate-90' : ''
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </>
-            )}
-          </Button>
-
-          {/* Catalog Items - Placeholder for now */}
-          {!isCollapsed && expandedSections.includes('catalogs') && (
-            <div className="ml-4 mt-1 space-y-1">
-              <div className="text-sm text-muted-foreground px-3 py-2">
-                No catalogs yet
-              </div>
+        <div className="border-b pb-2 mb-2">
+          {!isCollapsed && (
+            <div className="px-4 py-2">
+              <h3 className="text-sm font-medium text-muted-foreground">Catalogs</h3>
             </div>
           )}
+          <CatalogNavigation isCollapsed={isCollapsed} />
         </div>
       </div>
 

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog';
+import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { 
   Users, 
   UserPlus, 
@@ -40,6 +41,7 @@ export function AdminPanel({ className }: AdminPanelProps) {
     open: boolean;
     user: User | null;
   }>({ open: false, user: null });
+  const [createUserDialog, setCreateUserDialog] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -133,7 +135,7 @@ export function AdminPanel({ className }: AdminPanelProps) {
             className="pl-10"
           />
         </div>
-        <Button>
+        <Button onClick={() => setCreateUserDialog(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
           Add User
         </Button>
@@ -311,6 +313,14 @@ export function AdminPanel({ className }: AdminPanelProps) {
         description="Are you sure you want to delete the user"
         itemName={deleteDialog.user?.display_name || deleteDialog.user?.email}
         warningMessage="This action cannot be undone. The user will lose access to all catalogs and libraries."
+      />
+
+      <CreateUserDialog
+        open={createUserDialog}
+        onOpenChange={setCreateUserDialog}
+        onUserCreated={(newUser) => {
+          setUsers([newUser, ...users]);
+        }}
       />
     </div>
   );
