@@ -107,6 +107,10 @@ export function Carousel({
   const [thumbnailViewport, setThumbnailViewport] = useState({ start: 0, end: 20 });
   const thumbnailStripRef = useRef<HTMLDivElement>(null);
 
+  // Loading states
+  const [imageLoadingStates, setImageLoadingStates] = useState<Map<number, boolean>>(new Map());
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
   // Minimum swipe distance (in px)
   const minSwipeDistance = 50;
 
@@ -407,6 +411,30 @@ export function Carousel({
     setThumbnailViewport({ start, end });
   }, [selectedIndex, images.length]);
 
+  // Image loading handlers
+  const handleImageLoad = useCallback((index: number) => {
+    setImageLoadingStates(prev => {
+      const newMap = new Map(prev);
+      newMap.set(index, false);
+      return newMap;
+    });
+  }, []);
+
+  const handleImageLoadStart = useCallback((index: number) => {
+    setImageLoadingStates(prev => {
+      const newMap = new Map(prev);
+      newMap.set(index, true);
+      return newMap;
+    });
+  }, []);
+
+  // Transition effects
+  useEffect(() => {
+    setIsTransitioning(true);
+    const timer = setTimeout(() => setIsTransitioning(false), 300);
+    return () => clearTimeout(timer);
+  }, [selectedIndex]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -447,15 +475,29 @@ export function Carousel({
             {images.map((image, index) => (
               <div key={image.id} className="flex-[0_0_100%] min-w-0 relative">
                 <div className="flex items-center justify-center w-full h-full">
+                  {/* Loading Spinner */}
+                  {imageLoadingStates.get(index) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                      <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    </div>
+                  )}
+                  
                   <ImageErrorBoundary>
                     <img
                       src={image.signedUrls?.original || '/placeholder-image.jpg'}
                       alt={image.metadata.original_filename || `Image ${index + 1} of ${images.length}`}
-                      className="max-w-full max-h-full object-contain"
+                      className={cn(
+                        "max-w-full max-h-full object-contain transition-opacity duration-300",
+                        isTransitioning && index === selectedIndex ? "opacity-90" : "opacity-100",
+                        imageLoadingStates.get(index) ? "opacity-0" : "opacity-100"
+                      )}
                       loading={Math.abs(index - selectedIndex) <= 1 ? 'eager' : 'lazy'}
                       role="img"
                       aria-current={index === selectedIndex ? 'true' : 'false'}
                       aria-describedby={index === selectedIndex ? 'current-image-info' : undefined}
+                      onLoadStart={() => handleImageLoadStart(index)}
+                      onLoad={() => handleImageLoad(index)}
+                      onError={() => handleImageLoad(index)}
                     />
                   </ImageErrorBoundary>
                 </div>
@@ -590,7 +632,7 @@ export function Carousel({
           variant="ghost"
           size="lg"
           onClick={scrollPrev}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto"
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto transition-all duration-200 hover:scale-110"
           disabled={images.length <= 1}
           aria-label="Previous image"
           title="Previous image (Left arrow key)"
@@ -602,7 +644,7 @@ export function Carousel({
           variant="ghost"
           size="lg"
           onClick={scrollNext}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto"
+          className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto transition-all duration-200 hover:scale-110"
           disabled={images.length <= 1}
           aria-label="Next image"
           title="Next image (Right arrow key)"
