@@ -11,6 +11,7 @@ import CardView from '@/components/images/CardView';
 import ListView from '@/components/images/ListView';
 import ViewSwitcher, { ViewMode, GridSize, SortOption, SortDirection } from '@/components/images/ViewSwitcher';
 import MetadataDisplay from '@/components/images/MetadataDisplay';
+import Carousel from '@/components/images/Carousel';
 import { Grid, List, Download, Trash2, Eye, Calendar, FileImage, HardDrive, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -74,6 +75,8 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   const [showMetadataDialog, setShowMetadataDialog] = useState(false);
   const [selectedImageForMetadata, setSelectedImageForMetadata] = useState<Image | null>(null);
+  const [showCarousel, setShowCarousel] = useState(false);
+  const [carouselInitialIndex, setCarouselInitialIndex] = useState(0);
   
   // View state with URL persistence
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -364,13 +367,21 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
   };
 
   const handleImageClick = useCallback((image: Image) => {
-    setSelectedImageForMetadata(image);
-    setShowMetadataDialog(true);
-  }, []);
+    const imageIndex = filteredImages.findIndex(img => img.id === image.id);
+    if (imageIndex !== -1) {
+      setCarouselInitialIndex(imageIndex);
+      setShowCarousel(true);
+    }
+  }, [filteredImages]);
 
   const handleShowMetadata = useCallback((image: Image) => {
     setSelectedImageForMetadata(image);
     setShowMetadataDialog(true);
+  }, []);
+
+  const handleOpenCarousel = useCallback((imageIndex: number) => {
+    setCarouselInitialIndex(imageIndex);
+    setShowCarousel(true);
   }, []);
 
   if (loading) {
@@ -555,53 +566,38 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
             </DialogTitle>
           </DialogHeader>
           {selectedImageForMetadata && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Image Preview */}
-              <div className="space-y-4">
-                <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
-                  <img
-                    src={selectedImageForMetadata.signedUrls?.original || selectedImageForMetadata.signedUrls?.thumbnail || '/placeholder-image.jpg'}
-                    alt={selectedImageForMetadata.metadata.original_filename}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <div className="text-center">
-                  <h3 className="font-medium text-lg">{selectedImageForMetadata.metadata.original_filename}</h3>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <img
+                  src={selectedImageForMetadata.signedUrls?.original || selectedImageForMetadata.signedUrls?.thumbnail || '/placeholder-image.jpg'}
+                  alt={selectedImageForMetadata.metadata.original_filename}
+                  className="w-32 h-32 object-cover rounded"
+                />
+                <div>
+                  <h3 className="font-semibold">{selectedImageForMetadata.metadata.original_filename}</h3>
                   <p className="text-sm text-muted-foreground">
-                    Uploaded {new Date(selectedImageForMetadata.created_at).toLocaleDateString()}
+                    {selectedImageForMetadata.metadata.width} × {selectedImageForMetadata.metadata.height}
                   </p>
                 </div>
               </div>
-              
-              {/* Metadata Display */}
-              <div className="space-y-4">
-                <MetadataDisplay 
-                  metadata={selectedImageForMetadata.metadata}
-                  variant="panel"
-                />
-                
-                {/* Test Different Variants */}
-                <div className="space-y-4 border-t pt-4">
-                  <h4 className="font-medium">Compact Variant:</h4>
-                  <MetadataDisplay 
-                    metadata={selectedImageForMetadata.metadata}
-                    variant="compact"
-                    className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  />
-                  
-                  <h4 className="font-medium">Tooltip Variant:</h4>
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <MetadataDisplay 
-                      metadata={selectedImageForMetadata.metadata}
-                      variant="tooltip"
-                    />
-                  </div>
-                </div>
-              </div>
+              <MetadataDisplay 
+                metadata={selectedImageForMetadata.metadata}
+                variant="panel"
+              />
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Carousel */}
+      <Carousel
+        images={filteredImages}
+        initialIndex={carouselInitialIndex}
+        isOpen={showCarousel}
+        onClose={() => setShowCarousel(false)}
+        showMetadata={false}
+        autoplay={false}
+      />
     </div>
   );
 } 
