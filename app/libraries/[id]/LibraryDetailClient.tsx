@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ImageUpload from '@/components/images/ImageUpload';
 import CardView from '@/components/images/CardView';
 import ListView from '@/components/images/ListView';
 import ViewSwitcher, { ViewMode, GridSize, SortOption, SortDirection } from '@/components/images/ViewSwitcher';
-import { Grid, List, Download, Trash2, Eye, Calendar, FileImage, HardDrive } from 'lucide-react';
+import MetadataDisplay from '@/components/images/MetadataDisplay';
+import { Grid, List, Download, Trash2, Eye, Calendar, FileImage, HardDrive, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Library {
@@ -69,6 +71,9 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
   const [loading, setLoading] = useState(true);
   const [imagesLoading, setImagesLoading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
+  const [showMetadataDialog, setShowMetadataDialog] = useState(false);
+  const [selectedImageForMetadata, setSelectedImageForMetadata] = useState<Image | null>(null);
   
   // View state with URL persistence
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -89,7 +94,6 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
   const [showMetadata, setShowMetadata] = useState(() => {
     return searchParams.get('showMetadata') !== 'false';
   });
-  const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -359,6 +363,16 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
     toast.success(`Deleted ${selectedImageList.length} images`);
   };
 
+  const handleImageClick = useCallback((image: Image) => {
+    setSelectedImageForMetadata(image);
+    setShowMetadataDialog(true);
+  }, []);
+
+  const handleShowMetadata = useCallback((image: Image) => {
+    setSelectedImageForMetadata(image);
+    setShowMetadataDialog(true);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -489,6 +503,105 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
           </div>
         )}
       </div>
+
+      {/* Metadata Button */}
+      {selectedImages.size > 0 && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">
+            {selectedImages.size} selected
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const firstSelectedImage = images.find(img => selectedImages.has(img.id));
+              if (firstSelectedImage) {
+                handleShowMetadata(firstSelectedImage);
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            <Info className="h-4 w-4" />
+            View Metadata
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkDownload}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Download
+          </Button>
+        </div>
+      )}
+
+      {/* Upload Dialog */}
+      {showUpload && (
+        <ImageUpload
+          libraryId={libraryId}
+          catalogId={library.catalog_id.toString()}
+          onUploadComplete={handleUploadComplete}
+        />
+      )}
+
+      {/* Metadata Dialog */}
+      <Dialog open={showMetadataDialog} onOpenChange={setShowMetadataDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Image Metadata
+            </DialogTitle>
+          </DialogHeader>
+          {selectedImageForMetadata && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Image Preview */}
+              <div className="space-y-4">
+                <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
+                  <img
+                    src={selectedImageForMetadata.signedUrls?.original || selectedImageForMetadata.signedUrls?.thumbnail || '/placeholder-image.jpg'}
+                    alt={selectedImageForMetadata.metadata.original_filename}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="text-center">
+                  <h3 className="font-medium text-lg">{selectedImageForMetadata.metadata.original_filename}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Uploaded {new Date(selectedImageForMetadata.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Metadata Display */}
+              <div className="space-y-4">
+                <MetadataDisplay 
+                  metadata={selectedImageForMetadata.metadata}
+                  variant="panel"
+                />
+                
+                {/* Test Different Variants */}
+                <div className="space-y-4 border-t pt-4">
+                  <h4 className="font-medium">Compact Variant:</h4>
+                  <MetadataDisplay 
+                    metadata={selectedImageForMetadata.metadata}
+                    variant="compact"
+                    className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  />
+                  
+                  <h4 className="font-medium">Tooltip Variant:</h4>
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <MetadataDisplay 
+                      metadata={selectedImageForMetadata.metadata}
+                      variant="tooltip"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
