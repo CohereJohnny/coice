@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
-import { useCarouselState } from './hooks/useCarouselState';
 import { CarouselImage } from './CarouselImage';
 import { CarouselNavigation } from './CarouselNavigation';
 import { CarouselControls } from './CarouselControls';
 import { CarouselMetadata } from './CarouselMetadata';
 import { CarouselTouchHandler } from './CarouselTouchHandler';
+import { useCarouselState } from './hooks/useCarouselState';
 import type { CarouselProps } from './types';
 
 // Utility functions
@@ -88,8 +89,10 @@ export function Carousel({
     };
 
     emblaApi.on('select', onSelect);
-    return () => emblaApi.off('select', onSelect);
-  }, [emblaApi, carouselState]);
+    return () => {
+      emblaApi.off('select', onSelect);
+    };
+  }, [emblaApi, carouselState.selectedIndex, carouselState.setSelectedIndex]);
 
   // Handle navigation
   const handlePrevious = () => {

@@ -77,56 +77,58 @@ export interface CarouselAnalytics {
 export interface CarouselImageProps {
   image: CarouselImage;
   index: number;
-  isSelected: boolean;
-  isZoomed: boolean;
+  isActive: boolean;
   zoomLevel: number;
-  zoomCenter: { x: number; y: number };
   panOffset: { x: number; y: number };
-  onLoad: (index: number) => void;
-  onError: (index: number, error?: string) => void;
-  onZoom: (level: number, center: { x: number; y: number }) => void;
-  onPan: (deltaX: number, deltaY: number) => void;
+  onZoomLevelChange?: (zoomLevel: number) => void;
+  onPanOffsetChange?: (offset: { x: number; y: number }) => void;
+  onImageLoad?: (index: number, dimensions: { naturalWidth: number; naturalHeight: number }) => void;
+  onImageError?: (index: number, error: string) => void;
+  className?: string;
 }
 
 export interface CarouselNavigationProps {
   images: CarouselImage[];
-  selectedIndex: number;
-  onPrevious: () => void;
-  onNext: () => void;
-  onSelect: (index: number) => void;
-  showControls: boolean;
-  isMobile: boolean;
+  currentIndex: number;
+  onNavigate: (index: number) => void;
+  showThumbnails?: boolean;
+  showArrows?: boolean;
+  isMobile?: boolean;
+  className?: string;
 }
 
 export interface CarouselControlsProps {
+  onClose: () => void;
   isPlaying: boolean;
-  onPlayPause: () => void;
+  onToggleSlideshow: () => void;
   showMetadata: boolean;
   onToggleMetadata: () => void;
-  onClose: () => void;
-  slideshowSpeed: number;
-  onSpeedChange: (speed: number) => void;
-  showProgress: boolean;
-  onToggleProgress: () => void;
-  progress: number;
-  isMobile: boolean;
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
+  currentImage?: CarouselImage;
+  isMobile?: boolean;
+  className?: string;
 }
 
 export interface CarouselMetadataProps {
-  image: CarouselImage;
+  image?: CarouselImage;
   isVisible: boolean;
-  selectedIndex: number;
-  totalImages: number;
-  isMobile: boolean;
-  onClose: () => void;
+  isMobile?: boolean;
+  className?: string;
 }
 
 export interface CarouselTouchHandlerProps {
   children: React.ReactNode;
-  onSwipe: (direction: 'left' | 'right') => void;
-  onZoom: (level: number, center: { x: number; y: number }) => void;
-  onPan: (deltaX: number, deltaY: number) => void;
-  isZoomed: boolean;
-  zoomLevel: number;
-  disabled?: boolean;
+  onSwipeLeft?: () => void;
+  onSwipeRight?: () => void;
+  onPanStart?: (point: { x: number; y: number }) => void;
+  onPanMove?: (point: { x: number; y: number; deltaX: number; deltaY: number }) => void;
+  onPanEnd?: (point: { x: number; y: number; velocityX: number; velocityY: number }) => void;
+  onZoomStart?: (gesture: { centerX: number; centerY: number; distance: number }) => void;
+  onZoomMove?: (gesture: { centerX: number; centerY: number; distance: number; scale: number }) => void;
+  onZoomEnd?: (gesture: { finalScale: number }) => void;
+  onDoubleTap?: (point: { x: number; y: number }) => void;
+  isEnabled?: boolean;
+  minSwipeDistance?: number;
+  className?: string;
 } 
