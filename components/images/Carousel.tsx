@@ -19,6 +19,7 @@ import {
   Maximize,
   Minimize
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Image {
   id: number;
@@ -59,6 +60,25 @@ interface CarouselProps {
   autoplayDelay?: number;
 }
 
+// Utility functions
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+const formatDate = (dateString: string): string => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 export function Carousel({
   images,
   initialIndex = 0,
@@ -74,6 +94,17 @@ export function Carousel({
   const [showMetadataOverlay, setShowMetadataOverlay] = useState(showMetadata);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const hideControlsTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  
+  // Touch/swipe state
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
+  const [isSwiping, setIsSwiping] = useState(false);
+  
+  // Performance optimization - preloaded images
+  const [preloadedImages, setPreloadedImages] = useState<Set<number>>(new Set());
+
+  // Minimum swipe distance (in px)
+  const minSwipeDistance = 50;
 
   // Embla carousel setup
   const autoplayPlugin = useRef(
@@ -210,6 +241,106 @@ export function Carousel({
     }
   }, []);
 
+  // Touch/swipe handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    });
+    setIsSwiping(false);
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!touchStart) return;
+    
+    const currentTouch = {
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY
+    };
+    
+    const deltaX = Math.abs(currentTouch.x - touchStart.x);
+    const deltaY = Math.abs(currentTouch.y - touchStart.y);
+    
+    // If horizontal swipe is more significant than vertical, prevent default scrolling
+    if (deltaX > deltaY && deltaX > 10) {
+      e.preventDefault();
+      setIsSwiping(true);
+    }
+    
+    setTouchEnd(currentTouch);
+  }, [touchStart]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStart || !touchEnd) return;
+    
+    const deltaX = touchStart.x - touchEnd.x;
+    const deltaY = touchStart.y - touchEnd.y;
+    const isLeftSwipe = deltaX > minSwipeDistance;
+    const isRightSwipe = deltaX < -minSwipeDistance;
+    const isVerticalSwipe = Math.abs(deltaY) > Math.abs(deltaX);
+    
+    // Only process horizontal swipes
+    if (!isVerticalSwipe) {
+      if (isLeftSwipe && emblaApi) {
+        emblaApi.scrollNext();
+      } else if (isRightSwipe && emblaApi) {
+        emblaApi.scrollPrev();
+      }
+    }
+    
+    setTouchStart(null);
+    setTouchEnd(null);
+    setIsSwiping(false);
+  }, [touchStart, touchEnd, minSwipeDistance, emblaApi]);
+
+  // Image preloading for performance
+  const preloadImage = useCallback((imageIndex: number) => {
+    if (preloadedImages.has(imageIndex) || !images[imageIndex]) return;
+    
+    const image = images[imageIndex];
+    const imageUrl = image.signedUrls?.original;
+    
+    if (imageUrl) {
+      const img = new Image();
+      img.onload = () => {
+        setPreloadedImages(prev => new Set(prev).add(imageIndex));
+      };
+      img.onerror = () => {
+        console.warn(`Failed to preload image at index ${imageIndex}`);
+      };
+      img.src = imageUrl;
+    }
+  }, [images, preloadedImages]);
+
+  // Preload adjacent images when carousel opens or slide changes
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const preloadAdjacent = () => {
+      // Preload current image
+      preloadImage(selectedIndex);
+      
+      // Preload next 2 images
+      for (let i = 1; i <= 2; i++) {
+        const nextIndex = selectedIndex + i;
+        if (nextIndex < images.length) {
+          preloadImage(nextIndex);
+        }
+      }
+      
+      // Preload previous 2 images
+      for (let i = 1; i <= 2; i++) {
+        const prevIndex = selectedIndex - i;
+        if (prevIndex >= 0) {
+          preloadImage(prevIndex);
+        }
+      }
+    };
+    
+    preloadAdjacent();
+  }, [isOpen, selectedIndex, preloadImage, images.length]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -228,24 +359,40 @@ export function Carousel({
       className="fixed inset-0 z-50 bg-black"
       onMouseMove={handleMouseMove}
       onMouseLeave={() => setShowControls(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Image carousel"
+      aria-describedby="carousel-instructions"
     >
       {/* Main Carousel */}
-      <div className="relative w-full h-full overflow-hidden" ref={emblaRef}>
-        <div className="flex h-full">
-          {images.map((image, index) => (
-            <div key={image.id} className="flex-[0_0_100%] min-w-0 relative">
-              <div className="flex items-center justify-center w-full h-full">
-                <ImageErrorBoundary>
-                  <img
-                    src={image.signedUrls?.original || '/placeholder-image.jpg'}
-                    alt={image.metadata.original_filename}
-                    className="max-w-full max-h-full object-contain"
-                    loading={Math.abs(index - selectedIndex) <= 1 ? 'eager' : 'lazy'}
-                  />
-                </ImageErrorBoundary>
+      <div className="relative w-full h-full overflow-hidden">
+        <div 
+          className="embla__viewport h-full w-full" 
+          ref={emblaRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{ touchAction: isSwiping ? 'none' : 'auto' }}
+        >
+          <div className="flex h-full">
+            {images.map((image, index) => (
+              <div key={image.id} className="flex-[0_0_100%] min-w-0 relative">
+                <div className="flex items-center justify-center w-full h-full">
+                  <ImageErrorBoundary>
+                    <img
+                      src={image.signedUrls?.original || '/placeholder-image.jpg'}
+                      alt={image.metadata.original_filename || `Image ${index + 1} of ${images.length}`}
+                      className="max-w-full max-h-full object-contain"
+                      loading={Math.abs(index - selectedIndex) <= 1 ? 'eager' : 'lazy'}
+                      role="img"
+                      aria-current={index === selectedIndex ? 'true' : 'false'}
+                      aria-describedby={index === selectedIndex ? 'current-image-info' : undefined}
+                    />
+                  </ImageErrorBoundary>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
@@ -274,6 +421,8 @@ export function Carousel({
                 size="sm"
                 onClick={() => setShowMetadataOverlay(!showMetadataOverlay)}
                 className="text-white hover:bg-white/20"
+                aria-label={showMetadataOverlay ? "Hide image details" : "Show image details"}
+                title="Toggle image details (I key)"
               >
                 <Info className="h-4 w-4" />
               </Button>
@@ -283,6 +432,8 @@ export function Carousel({
                 size="sm"
                 onClick={togglePlayPause}
                 className="text-white hover:bg-white/20"
+                aria-label={isPlaying ? "Pause slideshow" : "Start slideshow"}
+                title={isPlaying ? "Pause slideshow (Space)" : "Start slideshow (Space)"}
               >
                 {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
@@ -292,6 +443,8 @@ export function Carousel({
                 size="sm"
                 onClick={toggleFullscreen}
                 className="text-white hover:bg-white/20"
+                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                title={isFullscreen ? "Exit fullscreen (F)" : "Enter fullscreen (F)"}
               >
                 {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
               </Button>
@@ -301,6 +454,8 @@ export function Carousel({
                 size="sm"
                 onClick={onClose}
                 className="text-white hover:bg-white/20"
+                aria-label="Close carousel"
+                title="Close carousel (Escape)"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -315,6 +470,8 @@ export function Carousel({
           onClick={scrollPrev}
           className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto"
           disabled={images.length <= 1}
+          aria-label="Previous image"
+          title="Previous image (Left arrow key)"
         >
           <ChevronLeft className="h-8 w-8" />
         </Button>
@@ -325,6 +482,8 @@ export function Carousel({
           onClick={scrollNext}
           className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto"
           disabled={images.length <= 1}
+          aria-label="Next image"
+          title="Next image (Right arrow key)"
         >
           <ChevronRight className="h-8 w-8" />
         </Button>
@@ -361,18 +520,58 @@ export function Carousel({
       {/* Metadata Overlay */}
       {showMetadataOverlay && currentImage && (
         <div className="absolute top-20 right-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto bg-black/80 backdrop-blur-sm rounded-lg p-4 pointer-events-auto">
-          <MetadataDisplay 
-            metadata={currentImage.metadata}
-            variant="panel"
-            className="text-white"
-          />
+          <div className="space-y-4 text-white">
+            <h3 className="font-semibold text-lg border-b border-white/20 pb-2">Image Details</h3>
+            
+            {/* Basic Info */}
+            <div className="space-y-2">
+              <h4 className="font-medium text-white/90">File Info</h4>
+              <div className="space-y-1 text-sm text-white/80">
+                <div><span className="text-white/60">Name:</span> {currentImage.metadata.original_filename}</div>
+                <div><span className="text-white/60">Size:</span> {currentImage.metadata.file_size ? formatFileSize(currentImage.metadata.file_size) : 'Unknown'}</div>
+                <div><span className="text-white/60">Type:</span> {currentImage.metadata.mime_type || 'Unknown'}</div>
+                <div><span className="text-white/60">Format:</span> {currentImage.metadata.format || 'Unknown'}</div>
+              </div>
+            </div>
+
+            {/* Dimensions */}
+            <div className="space-y-2">
+              <h4 className="font-medium text-white/90">Dimensions</h4>
+              <div className="space-y-1 text-sm text-white/80">
+                <div><span className="text-white/60">Resolution:</span> {currentImage.metadata.width && currentImage.metadata.height ? `${currentImage.metadata.width}×${currentImage.metadata.height}` : 'Unknown'}</div>
+                <div><span className="text-white/60">Aspect Ratio:</span> {currentImage.metadata.width && currentImage.metadata.height ? (currentImage.metadata.width / currentImage.metadata.height).toFixed(2) : 'Unknown'}</div>
+                <div><span className="text-white/60">Megapixels:</span> {currentImage.metadata.width && currentImage.metadata.height ? ((currentImage.metadata.width * currentImage.metadata.height) / 1000000).toFixed(1) + 'MP' : 'Unknown'}</div>
+              </div>
+            </div>
+
+            {/* Upload Info */}
+            <div className="space-y-2">
+              <h4 className="font-medium text-white/90">Upload Info</h4>
+              <div className="space-y-1 text-sm text-white/80">
+                <div><span className="text-white/60">Uploaded:</span> {formatDate(currentImage.created_at)}</div>
+                <div><span className="text-white/60">By:</span> {currentImage.metadata.uploaded_by || 'Unknown'}</div>
+                <div><span className="text-white/60">Position:</span> {selectedIndex + 1} of {images.length}</div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Keyboard Shortcuts Help */}
       <div className="absolute bottom-4 left-4 text-white/60 text-xs pointer-events-none">
-        <div>← → Navigate • Space Play/Pause • I Info • Esc Exit</div>
+        <div id="carousel-instructions">← → Navigate • Space Play/Pause • I Info • Esc Exit</div>
       </div>
+
+      {/* Screen Reader Current Image Info */}
+      {currentImage && (
+        <div id="current-image-info" className="sr-only">
+          Currently viewing {currentImage.metadata.original_filename || `image ${selectedIndex + 1}`}, 
+          image {selectedIndex + 1} of {images.length}. 
+          {currentImage.metadata.width && currentImage.metadata.height && 
+            `Dimensions: ${currentImage.metadata.width} by ${currentImage.metadata.height} pixels. `}
+          Use arrow keys to navigate, space to play or pause slideshow, I to toggle details, escape to close.
+        </div>
+      )}
     </div>
   );
 }
