@@ -67,8 +67,8 @@ export async function generateAndUploadThumbnail(
     const baseName = originalFileName.replace(/\.[^/.]+$/, '');
     const thumbnailFileName = `${baseName}_thumb.${fileExtension}`;
     
-    // Generate storage path for thumbnail
-    const thumbnailPath = generateStoragePath(catalogId, libraryId, `thumbnails/${thumbnailFileName}`);
+    // Generate storage path for thumbnail with proper directory structure
+    const thumbnailPath = `catalogs/${catalogId}/${libraryId}/thumbnails/${thumbnailFileName}`;
     
     // Upload thumbnail to GCS
     const uploadResult = await uploadFile(thumbnailBuffer, {

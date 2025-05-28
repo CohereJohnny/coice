@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase';
-import { deleteFile } from '@/lib/gcs';
+import { deleteFile, getSignedUrl } from '@/lib/gcs';
 
 export async function DELETE(
   request: NextRequest,
@@ -213,8 +213,45 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied to catalog' }, { status: 403 });
     }
 
+    // Generate signed URLs for the image and thumbnail
+    let signedUrls: { original?: string; thumbnail?: string } = {};
+    
+    try {
+      // Generate signed URL for original image
+      if (image.gcs_path) {
+        const fileName = image.gcs_path.replace('gs://' + process.env.GCS_BUCKET_NAME + '/', '');
+        signedUrls.original = await getSignedUrl(fileName, 'read', new Date(Date.now() + 60 * 60 * 1000)); // 1 hour
+      }
+
+      // Generate signed URL for thumbnail if exists
+      if (image.metadata && typeof image.metadata === 'object' && 'thumbnail' in image.metadata) {
+        const thumbnail = (image.metadata as any).thumbnail;
+        if (thumbnail && thumbnail.path) {
+          try {
+            const thumbnailFileName = thumbnail.path.replace('gs://' + process.env.GCS_BUCKET_NAME + '/', '');
+            signedUrls.thumbnail = await getSignedUrl(thumbnailFileName, 'read', new Date(Date.now() + 60 * 60 * 1000)); // 1 hour
+          } catch (thumbnailError) {
+            console.error('Failed to generate thumbnail signed URL, using original as fallback:', thumbnailError);
+            // Use original image as thumbnail fallback
+            signedUrls.thumbnail = signedUrls.original;
+          }
+        }
+      }
+      
+      // If no thumbnail was generated, use original as thumbnail
+      if (!signedUrls.thumbnail && signedUrls.original) {
+        signedUrls.thumbnail = signedUrls.original;
+      }
+    } catch (error) {
+      console.error('Failed to generate signed URLs:', error);
+      // Continue without signed URLs - they'll be generated on demand
+    }
+
     return NextResponse.json({
-      image,
+      image: {
+        ...image,
+        signedUrls
+      },
       userRole: profile?.role || 'end_user',
     });
 

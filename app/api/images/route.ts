@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     if (!libraryId || !catalogId) {
       return NextResponse.json(
-        { error: 'Missing required parameters: libraryId, catalogId' },
+        { error: 'Missing required parameters: libraryId and catalogId' },
         { status: 400 }
       )
     }
@@ -33,21 +33,6 @@ export async function GET(request: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-
-    // Verify library exists and get catalog info
-    const { data: library, error: libraryError } = await adminSupabase
-      .from('libraries')
-      .select('id, catalog_id')
-      .eq('id', libraryId)
-      .eq('catalog_id', catalogId)
-      .single()
-
-    if (libraryError || !library) {
-      return NextResponse.json(
-        { error: 'Library not found' },
-        { status: 404 }
-      )
-    }
 
     // Check if user has access to this catalog using manual access control
     // Get user's profile to check role
@@ -97,60 +82,92 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied to catalog' }, { status: 403 });
     }
 
-    // Get images with pagination using service role
+    // Fetch images with pagination
     const { data: images, error: imagesError, count } = await adminSupabase
       .from('images')
       .select('*', { count: 'exact' })
       .eq('library_id', libraryId)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1)
+      .range(offset, offset + limit - 1);
 
     if (imagesError) {
-      console.error('Images query error:', imagesError)
       return NextResponse.json(
-        { error: 'Failed to fetch images' },
+        { error: 'Failed to fetch images', details: imagesError.message },
         { status: 500 }
-      )
+      );
     }
 
-    // Generate signed URLs for images
-    const imagesWithUrls = await Promise.all(
+    // Generate signed URLs for all images
+    const imagesWithSignedUrls = await Promise.all(
       (images || []).map(async (image) => {
+        let signedUrls: { original?: string; thumbnail?: string } = {};
+        
         try {
-          // Extract filename from GCS path
-          const fileName = image.gcs_path.replace('gs://' + process.env.GCS_BUCKET_NAME + '/', '')
-          const signedUrl = await getSignedUrl(fileName, 'read')
+          console.log(`Processing image ${image.id}, metadata:`, JSON.stringify(image.metadata, null, 2));
           
-          return {
-            ...image,
-            signedUrl,
+          // Generate signed URL for thumbnail if exists (prioritize thumbnail for list view)
+          if (image.metadata && typeof image.metadata === 'object' && 'thumbnail' in image.metadata) {
+            const thumbnail = (image.metadata as any).thumbnail;
+            if (thumbnail && thumbnail.path) {
+              try {
+                const thumbnailFileName = thumbnail.path.replace('gs://' + process.env.GCS_BUCKET_NAME + '/', '');
+                console.log(`Generating thumbnail signed URL for: ${thumbnailFileName}`);
+                signedUrls.thumbnail = await getSignedUrl(thumbnailFileName, 'read', new Date(Date.now() + 60 * 60 * 1000)); // 1 hour
+                console.log(`Thumbnail signed URL generated successfully`);
+              } catch (thumbnailError) {
+                console.error(`Failed to generate thumbnail signed URL, will use original:`, thumbnailError);
+                // Thumbnail failed, we'll use original image below
+              }
+            }
           }
+
+          // Generate signed URL for original image (always try this as fallback)
+          if (image.gcs_path) {
+            const fileName = image.gcs_path.replace('gs://' + process.env.GCS_BUCKET_NAME + '/', '');
+            console.log(`Generating original signed URL for: ${fileName}`);
+            signedUrls.original = await getSignedUrl(fileName, 'read', new Date(Date.now() + 60 * 60 * 1000)); // 1 hour
+            console.log(`Original signed URL generated successfully`);
+            
+            // If no thumbnail URL was generated, use original as thumbnail too
+            if (!signedUrls.thumbnail) {
+              signedUrls.thumbnail = signedUrls.original;
+              console.log(`Using original image as thumbnail fallback`);
+            }
+          }
+          
+          console.log(`Final signedUrls for image ${image.id}:`, signedUrls);
         } catch (error) {
-          console.error(`Failed to generate signed URL for image ${image.id}:`, error)
-          return {
-            ...image,
-            signedUrl: null,
-          }
+          console.error(`Failed to generate signed URLs for image ${image.id}:`, error);
+          // Continue without signed URLs for this image
         }
+
+        return {
+          ...image,
+          signedUrls
+        };
       })
-    )
+    );
+
+    const totalPages = Math.ceil((count || 0) / limit);
 
     return NextResponse.json({
-      images: imagesWithUrls,
+      images: imagesWithSignedUrls,
       pagination: {
         page,
         limit,
         total: count || 0,
-        totalPages: Math.ceil((count || 0) / limit),
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
       },
-    })
+    });
 
   } catch (error) {
-    console.error('Images list error:', error)
+    console.error('Images fetch error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
-    )
+    );
   }
 }
 
