@@ -48,7 +48,7 @@ export function ResponsiveLayout({ children }: ResponsiveLayoutProps) {
           ${isAuthenticated && !isMobile && !isSidebarCollapsed ? 'ml-0' : ''}
           ${isAuthenticated && !isMobile && isSidebarCollapsed ? 'ml-0' : ''}
         `}>
-          <div className="container mx-auto p-6">
+          <div className="container mx-auto p-8 space-y-8">
             {children}
           </div>
         </main>
