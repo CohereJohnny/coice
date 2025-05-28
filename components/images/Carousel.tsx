@@ -132,7 +132,7 @@ export function Carousel({
       skipSnaps: false,
       dragFree: false
     },
-    isPlaying ? [autoplayPlugin.current] : []
+    [autoplayPlugin.current]
   );
 
   // Update selected index when carousel changes
@@ -148,10 +148,19 @@ export function Carousel({
     emblaApi.on('select', onSelect);
     onSelect();
 
+    // Initialize autoplay state
+    if (autoplayPlugin.current) {
+      if (isPlaying) {
+        autoplayPlugin.current.play();
+      } else {
+        autoplayPlugin.current.stop();
+      }
+    }
+
     return () => {
       emblaApi.off('select', onSelect);
     };
-  }, [emblaApi, onSelect]);
+  }, [emblaApi, onSelect, isPlaying]);
 
   // Handle initial index change
   useEffect(() => {
@@ -191,16 +200,19 @@ export function Carousel({
   }, [emblaApi]);
 
   const togglePlayPause = useCallback(() => {
-    if (!autoplayPlugin.current) return;
+    if (!autoplayPlugin.current || !emblaApi) return;
     
     const autoplay = autoplayPlugin.current;
     if (isPlaying) {
       autoplay.stop();
     } else {
-      autoplay.play();
+      // Only start autoplay if the carousel is properly initialized
+      if (emblaApi.canScrollNext() || emblaApi.canScrollPrev() || images.length > 1) {
+        autoplay.play();
+      }
     }
     setIsPlaying(!isPlaying);
-  }, [isPlaying]);
+  }, [isPlaying, emblaApi, images.length]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -391,6 +403,22 @@ export function Carousel({
       setSlideshowProgress(0);
     }
   }, [selectedIndex, isPlaying, showSlideshowProgress]);
+
+  // Update autoplay delay when speed changes
+  useEffect(() => {
+    if (autoplayPlugin.current && emblaApi) {
+      // Stop current autoplay
+      autoplayPlugin.current.stop();
+      
+      // Create new autoplay plugin with updated delay
+      autoplayPlugin.current = Autoplay({ delay: slideshowSpeed, stopOnInteraction: false });
+      
+      // Restart if playing
+      if (isPlaying) {
+        autoplayPlugin.current.play();
+      }
+    }
+  }, [slideshowSpeed, emblaApi, isPlaying]);
 
   // Virtual scrolling for thumbnails
   useEffect(() => {
