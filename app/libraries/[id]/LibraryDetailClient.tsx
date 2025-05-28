@@ -45,6 +45,10 @@ interface Image {
   library_id: number;
   metadata: ImageMetadata;
   created_at: string;
+  signedUrls?: {
+    original?: string;
+    thumbnail?: string;
+  };
 }
 
 interface LibraryDetailClientProps {
@@ -140,13 +144,16 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
   };
 
   const handleDownloadImage = async (image: Image) => {
-    if (!image.metadata.thumbnail?.path) {
+    // Use signed URL for download if available, otherwise try thumbnail path
+    const downloadUrl = image.signedUrls?.original || image.signedUrls?.thumbnail;
+    
+    if (!downloadUrl) {
       toast.error('Download URL not available');
       return;
     }
 
     try {
-      const response = await fetch(image.metadata.thumbnail.path);
+      const response = await fetch(downloadUrl);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -251,9 +258,9 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                 {images.map((image) => (
                   <div key={image.id} className="group relative aspect-square border rounded-lg overflow-hidden bg-muted">
-                    {image.metadata.thumbnail?.path ? (
+                    {image.signedUrls?.thumbnail || image.signedUrls?.original ? (
                       <img
-                        src={image.metadata.thumbnail.path}
+                        src={image.signedUrls.thumbnail || image.signedUrls.original}
                         alt={image.metadata.original_filename || 'Image'}
                         className="w-full h-full object-cover"
                       />
@@ -288,9 +295,9 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
                 {images.map((image) => (
                   <div key={image.id} className="flex items-center gap-4 p-4 border rounded-lg">
                     <div className="w-16 h-16 border rounded overflow-hidden bg-muted flex-shrink-0">
-                      {image.metadata.thumbnail?.path ? (
+                      {image.signedUrls?.thumbnail || image.signedUrls?.original ? (
                         <img
-                          src={image.metadata.thumbnail.path}
+                          src={image.signedUrls.thumbnail || image.signedUrls.original}
                           alt={image.metadata.original_filename || 'Image'}
                           className="w-full h-full object-cover"
                         />
