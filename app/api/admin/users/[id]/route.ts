@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export async function PUT(
   request: NextRequest,
@@ -60,6 +61,23 @@ export async function DELETE(
     const supabase = await createSupabaseServerClient();
     const { id } = await params;
     
+    // Create admin client for operations that need to bypass RLS
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json({ error: 'Service role key not configured' }, { status: 500 });
+    }
+    
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+    
     // Get current user and verify admin role
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -82,26 +100,39 @@ export async function DELETE(
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
     }
 
-    // Check if user exists
-    const { data: targetUser, error: userError } = await supabase
+    // Check if user exists using admin client
+    const { data: targetUser, error: userError } = await adminSupabase
       .from('profiles')
       .select('id, email')
       .eq('id', id)
       .single();
 
-    if (userError || !targetUser) {
+    if (userError) {
+      console.error('Error checking user existence:', userError);
+      return NextResponse.json({ error: 'Failed to check user existence', details: userError.message }, { status: 500 });
+    }
+
+    if (!targetUser) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Delete user profile (this will cascade to related data due to foreign key constraints)
-    const { error: deleteError } = await supabase
+    // Delete user profile using admin client (this will cascade to related data due to foreign key constraints)
+    const { error: deleteError } = await adminSupabase
       .from('profiles')
       .delete()
       .eq('id', id);
 
     if (deleteError) {
-      console.error('Error deleting user:', deleteError);
-      return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
+      console.error('Error deleting user profile:', deleteError);
+      return NextResponse.json({ error: 'Failed to delete user profile', details: deleteError.message }, { status: 500 });
+    }
+
+    // Also delete the auth user
+    const { error: authDeleteError } = await adminSupabase.auth.admin.deleteUser(id);
+    
+    if (authDeleteError) {
+      console.error('Error deleting auth user:', authDeleteError);
+      // Profile is already deleted, so we'll continue but log the error
     }
 
     return NextResponse.json({ message: 'User deleted successfully' });
