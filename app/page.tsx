@@ -162,23 +162,41 @@ export default function Home() {
 
       {/* Sprint Status */}
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="text-lg font-semibold mb-4">Sprint 2 Status</h3>
+        <h3 className="text-lg font-semibold mb-4">Sprint 4 Status</h3>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-sm">Authentication System</span>
+            <span className="text-sm">Catalog & Library API Routes</span>
             <span className="text-sm font-medium text-green-600">✓ Complete</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm">Database Schema</span>
+            <span className="text-sm">UI Components (Forms & Lists)</span>
             <span className="text-sm font-medium text-green-600">✓ Complete</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm">User Management</span>
+            <span className="text-sm">Role-Based Permissions</span>
+            <span className="text-sm font-medium text-green-600">✓ Complete</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm">Sidebar Navigation Enhancement</span>
             <span className="text-sm font-medium text-yellow-600">🔄 In Progress</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm">Protected Routes</span>
-            <span className="text-sm font-medium text-green-600">✓ Complete</span>
+            <span className="text-sm">Admin Panel Foundation</span>
+            <span className="text-sm font-medium text-gray-500">⏳ Pending</span>
+          </div>
+        </div>
+        
+        <div className="mt-4 pt-4 border-t">
+          <h4 className="text-sm font-medium mb-2">Previous Sprints</h4>
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <span>Sprint 2: Supabase Integration & Auth</span>
+              <span className="text-green-600">✓ Complete</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Sprint 3: Navigation & Layout</span>
+              <span className="text-green-600">✓ Complete</span>
+            </div>
           </div>
         </div>
       </div>
