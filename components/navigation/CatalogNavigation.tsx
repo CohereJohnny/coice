@@ -231,7 +231,7 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
           return (
             <div key={catalog.id}>
               <div
-                className={`flex items-center h-8 px-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                className={`group flex items-center h-8 px-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${
                   isActive ? 'bg-gray-100 dark:bg-gray-700' : ''
                 }`}
                 onContextMenu={(e) => handleContextMenu(e, 'catalog', catalog.id)}

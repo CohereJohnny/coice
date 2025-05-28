@@ -53,7 +53,7 @@ export function Navbar() {
         {/* Logo and Brand */}
         <div className="mr-4 hidden md:flex">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <img src="/assets/coice.svg" alt="COICE" className="h-8 w-8" />
+            <img src="/assets/coice.svg" alt="COICE" className="h-8 w-8 ml-2" />
             <span className="hidden font-bold sm:inline-block">Coice</span>
           </Link>
         </div>
@@ -61,7 +61,7 @@ export function Navbar() {
         {/* Mobile Logo */}
         <div className="mr-4 flex md:hidden">
           <Link href="/" className="flex items-center space-x-2">
-            <img src="/assets/coice.svg" alt="COICE" className="h-8 w-8" />
+            <img src="/assets/coice.svg" alt="COICE" className="h-8 w-8 ml-2" />
             <span className="font-bold">Coice</span>
           </Link>
         </div>
