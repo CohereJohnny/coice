@@ -14,7 +14,75 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const catalogId = searchParams.get('catalog_id');
 
-    let query = supabase
+    // Use service role to bypass RLS issues
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Get user's accessible catalogs first
+    const { data: allCatalogs } = await adminSupabase
+      .from('catalogs')
+      .select('id, name, user_id')
+      .order('created_at', { ascending: false });
+
+    // Get user's profile to check role
+    const { data: profile } = await adminSupabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    // Get user's groups
+    const { data: userGroups } = await adminSupabase
+      .from('user_groups')
+      .select('group_id')
+      .eq('user_id', user.id);
+
+    // Get catalog-group mappings for user's groups
+    const groupIds = userGroups?.map(ug => ug.group_id) || [];
+    let accessibleCatalogIds: number[] = [];
+    
+    if (groupIds.length > 0) {
+      const { data: catalogGroups } = await adminSupabase
+        .from('catalog_groups')
+        .select('catalog_id')
+        .in('group_id', groupIds);
+      
+      accessibleCatalogIds = catalogGroups?.map(cg => cg.catalog_id) || [];
+    }
+
+    // Filter catalogs based on access rules
+    const accessibleCatalogs = allCatalogs?.filter(catalog => {
+      // Rule 1: User owns the catalog
+      if (catalog.user_id === user.id) return true;
+      
+      // Rule 2: User is admin or manager
+      if (profile?.role === 'admin' || profile?.role === 'manager') return true;
+      
+      // Rule 3: User has group access
+      if (accessibleCatalogIds.includes(catalog.id)) return true;
+      
+      return false;
+    }) || [];
+
+    const accessibleCatalogIdsList = accessibleCatalogs.map(c => c.id);
+
+    // If a specific catalog is requested, check if user has access
+    if (catalogId) {
+      const catalogIdNum = parseInt(catalogId);
+      if (isNaN(catalogIdNum)) {
+        return NextResponse.json({ error: 'Invalid catalog ID' }, { status: 400 });
+      }
+      
+      if (!accessibleCatalogIdsList.includes(catalogIdNum)) {
+        return NextResponse.json({ error: 'Access denied to this catalog' }, { status: 403 });
+      }
+    }
+
+    // Fetch libraries using service role
+    let query = adminSupabase
       .from('libraries')
       .select(`
         id,
@@ -26,13 +94,16 @@ export async function GET(request: NextRequest) {
       `)
       .order('name');
 
-    // Filter by catalog if specified
+    // Filter by catalog if specified, otherwise get all accessible catalogs
     if (catalogId) {
-      const catalogIdNum = parseInt(catalogId);
-      if (isNaN(catalogIdNum)) {
-        return NextResponse.json({ error: 'Invalid catalog ID' }, { status: 400 });
+      query = query.eq('catalog_id', parseInt(catalogId));
+    } else {
+      if (accessibleCatalogIdsList.length > 0) {
+        query = query.in('catalog_id', accessibleCatalogIdsList);
+      } else {
+        // User has no accessible catalogs
+        return NextResponse.json({ libraries: [] });
       }
-      query = query.eq('catalog_id', catalogIdNum);
     }
 
     const { data: libraries, error } = await query;
@@ -46,7 +117,7 @@ export async function GET(request: NextRequest) {
     const librariesWithCatalogs = await Promise.all(
       (libraries || []).map(async (library) => {
         try {
-          const { data: catalog } = await supabase
+          const { data: catalog } = await adminSupabase
             .from('catalogs')
             .select('id, name')
             .eq('id', library.catalog_id)

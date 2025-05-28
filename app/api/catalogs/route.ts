@@ -11,8 +11,16 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's accessible catalogs based on RLS policies
-    const { data: catalogs, error } = await supabase
+    // Since RLS isn't working properly with auth.uid(), let's manually implement the access logic
+    // using the service role and then filter based on the user's permissions
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Get all catalogs and manually filter based on access rules
+    const { data: allCatalogs, error: catalogsError } = await adminSupabase
       .from('catalogs')
       .select(`
         id,
@@ -23,14 +31,54 @@ export async function GET() {
       `)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching catalogs:', error);
+    if (catalogsError) {
+      console.error('Error fetching catalogs:', catalogsError);
       return NextResponse.json({ error: 'Failed to fetch catalogs' }, { status: 500 });
     }
 
+    // Get user's profile to check role
+    const { data: profile } = await adminSupabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    // Get user's groups
+    const { data: userGroups } = await adminSupabase
+      .from('user_groups')
+      .select('group_id')
+      .eq('user_id', user.id);
+
+    // Get catalog-group mappings for user's groups
+    const groupIds = userGroups?.map(ug => ug.group_id) || [];
+    let accessibleCatalogIds: number[] = [];
+    
+    if (groupIds.length > 0) {
+      const { data: catalogGroups } = await adminSupabase
+        .from('catalog_groups')
+        .select('catalog_id')
+        .in('group_id', groupIds);
+      
+      accessibleCatalogIds = catalogGroups?.map(cg => cg.catalog_id) || [];
+    }
+
+    // Filter catalogs based on access rules
+    const accessibleCatalogs = allCatalogs?.filter(catalog => {
+      // Rule 1: User owns the catalog
+      if (catalog.user_id === user.id) return true;
+      
+      // Rule 2: User is admin or manager
+      if (profile?.role === 'admin' || profile?.role === 'manager') return true;
+      
+      // Rule 3: User has group access
+      if (accessibleCatalogIds.includes(catalog.id)) return true;
+      
+      return false;
+    }) || [];
+
     // Fetch profile data for each catalog owner
-    const profilePromises = catalogs.map(async (catalog) => {
-      const { data: profile } = await supabase
+    const profilePromises = accessibleCatalogs.map(async (catalog) => {
+      const { data: profile } = await adminSupabase
         .from('profiles')
         .select('display_name, email')
         .eq('id', catalog.user_id)

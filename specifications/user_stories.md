@@ -3,6 +3,8 @@ Epic 1: Authentication
 
 As an Administrator, I want to manage user accounts and roles to control app access.
 As an Administrator, I want to configure feature flags to enable/disable experimental features.
+As an Administrator, I want to create, edit, and delete groups to control access to catalogs and libraries.
+As an Administrator, I want to add or remove users from groups to manage group memberships.
 As a Manager, I want to log in securely to manage catalogs and pipelines.
 As an End User, I want to log in with Google OAuth for easy access.
 
@@ -15,8 +17,8 @@ As a user, I want to click a library to view images, metadata, and subfolders in
 
 Epic 3: Catalog and Library Management
 
-As a Manager, I want to create/delete catalogs to organize industries (e.g., “Oil & Gas”).
-As a Manager, I want to create/edit libraries within catalogs (e.g., “Wells”) to categorize images.
+As a Manager, I want to create/delete catalogs to organize industries (e.g., "Oil & Gas").
+As a Manager, I want to create/edit libraries within catalogs (e.g., "Wells") to categorize images.
 As an End User, I want to browse libraries in Card, List, or Carousel view.
 
 Epic 4: Image Management
@@ -36,7 +38,7 @@ As a Manager, I want to submit a job and track its progress to monitor analysis.
 Epic 6: Job Progress Monitoring
 
 As a user, I want toast notifications for job status changes and progress milestones to stay informed.
-As a user, I want to view a job’s details to see real-time progress (e.g., 50% for 10/20 images).
+As a user, I want to view a job's details to see real-time progress (e.g., 50% for 10/20 images).
 As a user, I want a progress bar in the job details view to visualize completion.
 As a user, I want to see stage-specific progress and results in the job details view.
 As a Manager, I want to view historical jobs to compare results and tune prompts.

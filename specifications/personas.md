@@ -8,12 +8,14 @@ Goals:
 Manage user accounts and roles for team access.
 Configure feature flags to control experimental features.
 Ensure secure access to Supabase and GCS.
+Manage groups and memberships to control access to catalogs and libraries.
 
 
 Pain Points:
 Needs simple UI for user management.
 Wants to control access to sensitive libraries.
 Struggles with complex admin tools.
+Finds group/membership management in other tools confusing or buried.
 
 
 Tech Savvy: Moderate; familiar with cloud platforms, prefers intuitive UIs.

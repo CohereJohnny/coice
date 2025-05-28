@@ -6,7 +6,7 @@ Elements: Email/password fields, Google OAuth button, sign-up link.
 Flow:
 User logs in via Supabase Auth.
 Success: Redirect to home page with navbar and sidebar.
-Error: Show “Invalid credentials”.
+Error: Show "Invalid credentials".
 
 
 
@@ -14,9 +14,9 @@ Error: Show “Invalid credentials”.
 
 Screen: Library dashboard
 Elements:
-Horizontal Navbar: Logo, “Libraries”, “Analysis”, “Search”; theme switcher, settings, profile.
+Horizontal Navbar: Logo, "Libraries", "Analysis", "Search"; theme switcher, settings, profile.
 Left Sidebar: Nested catalogs/libraries (file-explorer style).
-Main panel: Shows selected library’s images, metadata, subfolders.
+Main panel: Shows selected library's images, metadata, subfolders.
 View toggle (Card, List, Carousel).
 Admin panel button (Administrators).
 
@@ -69,6 +69,22 @@ Manage groups: Create groups for library access.
 Feature flags: Enable/disable features.
 Changes saved to Supabase; errors shown.
 
++Screen: Group Management
++Elements:
+  - List of groups (name, created_at)
+  - Expandable group rows to show members (users)
+  - Add user to group (by email)
+  - Remove user from group
+  - Create new group
+  - Delete group
++Flow:
+  - Admin clicks "Groups" tab in Admin panel.
+  - Sees all groups; can expand to view members.
+  - Can add a user to a group by entering email.
+  - Can remove a user from a group.
+  - Can create or delete groups.
+  - All changes update Supabase and show success/error feedback.
+
 
 
 7. Catalog and Library Management (Managers)
@@ -88,8 +104,8 @@ Flow:
 Managers: Create multi-stage pipelines with prompts (boolean, descriptive, keywords).
 Users: Select library/images, choose pipeline, submit job.
 Ad-hoc prompts: Enter custom prompt for one-off analysis.
-Job submission triggers toast notification (“Job submitted”).
-Errors: Alert for API failures (e.g., “Cohere rate limit”).
+Job submission triggers toast notification ("Job submitted").
+Errors: Alert for API failures (e.g., "Cohere rate limit").
 
 
 
@@ -102,7 +118,7 @@ Shows job metadata (pipeline, library, status, timestamps).
 Real-time progress bar: Percentage complete (e.g., 50% for 10/20 images).
 Metrics: Processed/total images, stage-specific progress.
 Results preview with link to full results.
-Toast notifications for status changes (e.g., “Running”) and milestones (e.g., 50% complete).
+Toast notifications for status changes (e.g., "Running") and milestones (e.g., 50% complete).
 
 
 Screen: Job History (/analysis/history)
