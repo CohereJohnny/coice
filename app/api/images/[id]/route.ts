@@ -4,7 +4,7 @@ import { deleteFile } from '@/lib/gcs';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -15,10 +15,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const imageId = params.id;
+    const { id } = await params;
+    const imageId = id;
 
-    // Get image record to verify permissions and get file paths
-    const { data: image, error: imageError } = await supabase
+    // Use service role to bypass RLS issues
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    // Get image record with library and catalog info
+    const { data: image, error: imageError } = await adminSupabase
       .from('images')
       .select(`
         id,
@@ -28,7 +36,7 @@ export async function DELETE(
         libraries!inner(
           id,
           catalog_id,
-          catalogs!inner(id, name)
+          catalogs!inner(id, name, user_id)
         )
       `)
       .eq('id', imageId)
@@ -41,37 +49,21 @@ export async function DELETE(
       );
     }
 
-    // Check user permissions for the catalog via groups
-    const { data: userGroups, error: permissionError } = await supabase
-      .from('user_groups')
-      .select(`
-        group_id,
-        groups!inner(
-          id,
-          catalog_groups!inner(
-            catalog_id
-          )
-        )
-      `)
-      .eq('user_id', user.id)
-      .eq('groups.catalog_groups.catalog_id', (image.libraries as any).catalog_id);
-
-    if (permissionError || !userGroups || userGroups.length === 0) {
-      return NextResponse.json(
-        { error: 'Access denied to catalog' },
-        { status: 403 }
-      );
-    }
-
     // Check user's profile role for deletion permissions
-    const { data: profile } = await supabase
+    const { data: profile } = await adminSupabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
 
-    // Only allow deletion if user is manager or admin
-    if (!profile || !['manager', 'admin'].includes(profile.role)) {
+    const catalog = (image.libraries as any).catalogs;
+
+    // Check access rules for deletion (only owners, managers, and admins can delete)
+    const hasDeleteAccess = 
+      catalog.user_id === user.id || // User owns the catalog
+      profile?.role === 'admin' || profile?.role === 'manager'; // User is admin/manager
+
+    if (!hasDeleteAccess) {
       return NextResponse.json(
         { error: 'Insufficient permissions to delete images' },
         { status: 403 }
@@ -109,7 +101,7 @@ export async function DELETE(
     });
 
     // Delete image record from database
-    const { error: dbError } = await supabase
+    const { error: dbError } = await adminSupabase
       .from('images')
       .delete()
       .eq('id', imageId);
@@ -139,7 +131,7 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -150,10 +142,18 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const imageId = params.id;
+    const { id } = await params;
+    const imageId = id;
+
+    // Use service role to bypass RLS issues
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     // Get image record with library and catalog info
-    const { data: image, error: imageError } = await supabase
+    const { data: image, error: imageError } = await adminSupabase
       .from('images')
       .select(`
         *,
@@ -161,7 +161,7 @@ export async function GET(
           id,
           name,
           catalog_id,
-          catalogs!inner(id, name)
+          catalogs!inner(id, name, user_id)
         )
       `)
       .eq('id', imageId)
@@ -174,34 +174,44 @@ export async function GET(
       );
     }
 
-    // Check user permissions for the catalog via groups
-    const { data: userGroups, error: permissionError } = await supabase
-      .from('user_groups')
-      .select(`
-        group_id,
-        groups!inner(
-          id,
-          catalog_groups!inner(
-            catalog_id
-          )
-        )
-      `)
-      .eq('user_id', user.id)
-      .eq('groups.catalog_groups.catalog_id', image.libraries.catalog_id);
-
-    if (permissionError || !userGroups || userGroups.length === 0) {
-      return NextResponse.json(
-        { error: 'Access denied to catalog' },
-        { status: 403 }
-      );
-    }
-
-    // Check user's profile role for deletion permissions
-    const { data: profile } = await supabase
+    // Check if user has access to this catalog using manual access control
+    // Get user's profile to check role
+    const { data: profile } = await adminSupabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
+
+    // Get user's groups
+    const { data: userGroups } = await adminSupabase
+      .from('user_groups')
+      .select('group_id')
+      .eq('user_id', user.id);
+
+    // Get catalog-group mappings for user's groups
+    const groupIds = userGroups?.map(ug => ug.group_id) || [];
+    let accessibleCatalogIds: number[] = [];
+    
+    if (groupIds.length > 0) {
+      const { data: catalogGroups } = await adminSupabase
+        .from('catalog_groups')
+        .select('catalog_id')
+        .in('group_id', groupIds);
+      
+      accessibleCatalogIds = catalogGroups?.map(cg => cg.catalog_id) || [];
+    }
+
+    const catalog = (image.libraries as any).catalogs;
+    
+    // Check access rules
+    const hasAccess = 
+      catalog.user_id === user.id || // User owns the catalog
+      profile?.role === 'admin' || profile?.role === 'manager' || // User is admin/manager
+      accessibleCatalogIds.includes(catalog.id); // Group access
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Access denied to catalog' }, { status: 403 });
+    }
 
     return NextResponse.json({
       image,

@@ -10,18 +10,23 @@ import { toast } from 'sonner';
 interface UploadFile {
   file: File;
   id: string;
-  status: 'pending' | 'uploading' | 'success' | 'error';
   progress: number;
+  status: 'pending' | 'uploading' | 'completed' | 'error';
   error?: string;
-  metadata?: ImageMetadata;
+  metadata?: unknown;
 }
 
 interface ImageUploadProps {
   catalogId: string;
   libraryId: string;
-  onUploadComplete?: (uploadedImages: any[]) => void;
+  onUploadComplete?: () => void;
   maxFiles?: number;
-  disabled?: boolean;
+}
+
+interface UploadResponse {
+  success: boolean;
+  image?: unknown;
+  error?: string;
 }
 
 export default function ImageUpload({
@@ -29,7 +34,6 @@ export default function ImageUpload({
   libraryId,
   onUploadComplete,
   maxFiles = 10,
-  disabled = false,
 }: ImageUploadProps) {
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -38,10 +42,8 @@ export default function ImageUpload({
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    if (!disabled) {
-      setIsDragOver(true);
-    }
-  }, [disabled]);
+    setIsDragOver(true);
+  }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -52,11 +54,9 @@ export default function ImageUpload({
     e.preventDefault();
     setIsDragOver(false);
     
-    if (disabled) return;
-
     const files = Array.from(e.dataTransfer.files);
     handleFiles(files);
-  }, [disabled]);
+  }, []);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -169,7 +169,7 @@ export default function ImageUpload({
         setUploadFiles(prev => 
           prev.map(f => 
             f.id === uploadFile.id 
-              ? { ...f, status: 'success', progress: 100 }
+              ? { ...f, status: 'completed', progress: 100 }
               : f
           )
         );
@@ -199,7 +199,7 @@ export default function ImageUpload({
     setIsUploading(false);
     
     if (uploadedImages.length > 0 && onUploadComplete) {
-      onUploadComplete(uploadedImages);
+      onUploadComplete();
     }
   }, [uploadFiles, isUploading, catalogId, libraryId, onUploadComplete]);
 
@@ -208,7 +208,7 @@ export default function ImageUpload({
   }, []);
 
   const pendingFiles = uploadFiles.filter(f => f.status === 'pending');
-  const completedFiles = uploadFiles.filter(f => f.status === 'success' || f.status === 'error');
+  const completedFiles = uploadFiles.filter(f => f.status === 'completed' || f.status === 'error');
 
   return (
     <div className="space-y-4">
@@ -220,12 +220,12 @@ export default function ImageUpload({
             ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
             : 'border-gray-300 dark:border-gray-600'
           }
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-gray-400'}
+          cursor-pointer hover:border-gray-400
         `}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => !disabled && fileInputRef.current?.click()}
+        onClick={() => fileInputRef.current?.click()}
       >
         <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         <p className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
@@ -246,7 +246,6 @@ export default function ImageUpload({
         accept="image/*"
         onChange={handleFileSelect}
         className="hidden"
-        disabled={disabled}
       />
 
       {/* Upload Queue */}
@@ -283,7 +282,7 @@ export default function ImageUpload({
                 className="flex items-center gap-3 p-3 border rounded-lg bg-white dark:bg-gray-800"
               >
                 <div className="flex-shrink-0">
-                  {uploadFile.status === 'success' ? (
+                  {uploadFile.status === 'completed' ? (
                     <CheckCircle className="h-5 w-5 text-green-500" />
                   ) : uploadFile.status === 'error' ? (
                     <AlertCircle className="h-5 w-5 text-red-500" />
@@ -302,12 +301,12 @@ export default function ImageUpload({
                     </span>
                   </div>
 
-                  {uploadFile.metadata && (
+                  {uploadFile.metadata && typeof uploadFile.metadata === 'object' && uploadFile.metadata !== null ? (
                     <p className="text-xs text-gray-500 mb-1">
-                      {uploadFile.metadata.width}×{uploadFile.metadata.height}
-                      {uploadFile.metadata.exif?.make && ` • ${uploadFile.metadata.exif.make}`}
+                      {(uploadFile.metadata as any).width}×{(uploadFile.metadata as any).height}
+                      {(uploadFile.metadata as any).exif?.make && ` • ${(uploadFile.metadata as any).exif.make}`}
                     </p>
-                  )}
+                  ) : null}
 
                   {uploadFile.status === 'uploading' && (
                     <Progress value={uploadFile.progress} className="h-1" />

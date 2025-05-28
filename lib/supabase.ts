@@ -25,23 +25,13 @@ export const createSupabaseServerClient = async () => {
       get(name: string) {
         return cookieStore.get(name)?.value
       },
-      set(name: string, value: string, options: any) {
-        try {
-          cookieStore.set({ name, value, ...options })
-        } catch {
-          // The `set` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
-        }
+      set: async (name: string, value: string, options: unknown) => {
+        const cookieStore = await cookies();
+        cookieStore.set({ name, value, ...options as Record<string, unknown> });
       },
-      remove(name: string, options: any) {
-        try {
-          cookieStore.set({ name, value: '', ...options })
-        } catch {
-          // The `delete` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
-        }
+      remove: async (name: string, options: unknown) => {
+        const cookieStore = await cookies();
+        cookieStore.set({ name, value: '', ...options as Record<string, unknown> });
       },
     },
   })

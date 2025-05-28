@@ -1,29 +1,50 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Upload, Grid, List, Trash2, Download, Eye } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import ImageUpload from '@/components/images/ImageUpload';
+import { Grid, List, Download, Trash2, Eye, Calendar, FileImage, HardDrive } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface LibraryInfo {
+interface Library {
   id: number;
   name: string;
   description?: string;
   catalog_id: number;
+  parent_id?: number;
+  created_at: string;
   catalogs: {
     id: number;
     name: string;
   };
 }
 
-interface ImageRecord {
-  id: string;
+interface ImageMetadata {
+  filename: string;
+  original_filename: string;
+  file_size: number;
+  mime_type: string;
+  width?: number;
+  height?: number;
+  format?: string;
+  uploaded_by: string;
+  upload_date: string;
+  thumbnail?: {
+    path: string;
+    width: number;
+    height: number;
+    size: number;
+  };
+}
+
+interface Image {
+  id: number;
   gcs_path: string;
-  metadata: any;
+  library_id: number;
+  metadata: ImageMetadata;
   created_at: string;
-  signedUrl?: string;
 }
 
 interface LibraryDetailClientProps {
@@ -31,8 +52,8 @@ interface LibraryDetailClientProps {
 }
 
 export default function LibraryDetailClient({ libraryId }: LibraryDetailClientProps) {
-  const [library, setLibrary] = useState<LibraryInfo | null>(null);
-  const [images, setImages] = useState<ImageRecord[]>([]);
+  const [library, setLibrary] = useState<Library | null>(null);
+  const [images, setImages] = useState<Image[]>([]);
   const [loading, setLoading] = useState(true);
   const [imagesLoading, setImagesLoading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
@@ -75,7 +96,7 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
     setImagesLoading(true);
     try {
       const response = await fetch(
-        `/api/images?libraryId=${libraryId}&catalogId=${library.catalog_id}&page=${page}&limit=20`
+        `/api/images?libraryId=${library.id}&catalogId=${library.catalog_id}&page=${page}&limit=20`
       );
       
       if (response.ok) {
@@ -93,13 +114,11 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
     }
   };
 
-  const handleUploadComplete = (uploadedImages: any[]) => {
-    toast.success(`${uploadedImages.length} image(s) uploaded successfully`);
-    setShowUpload(false);
+  const handleUploadComplete = () => {
     fetchImages(); // Refresh the images list
   };
 
-  const handleDeleteImage = async (imageId: string) => {
+  const handleDeleteImage = async (imageId: number) => {
     if (!confirm('Are you sure you want to delete this image?')) return;
 
     try {
@@ -120,19 +139,19 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
     }
   };
 
-  const handleDownloadImage = async (image: ImageRecord) => {
-    if (!image.signedUrl) {
+  const handleDownloadImage = async (image: Image) => {
+    if (!image.metadata.thumbnail?.path) {
       toast.error('Download URL not available');
       return;
     }
 
     try {
-      const response = await fetch(image.signedUrl);
+      const response = await fetch(image.metadata.thumbnail.path);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = image.metadata?.original_filename || `image-${image.id}`;
+      a.download = image.metadata.original_filename || `image-${image.id}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -176,7 +195,7 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
           )}
         </div>
         <Button onClick={() => setShowUpload(!showUpload)}>
-          <Upload className="h-4 w-4 mr-2" />
+          <FileImage className="h-4 w-4 mr-2" />
           Upload Images
         </Button>
       </div>
@@ -187,7 +206,7 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
           <h3 className="text-lg font-semibold mb-4">Upload Images</h3>
           <ImageUpload
             catalogId={library.catalog_id.toString()}
-            libraryId={libraryId}
+            libraryId={library.id.toString()}
             onUploadComplete={handleUploadComplete}
             maxFiles={20}
           />
@@ -222,7 +241,7 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
           </div>
         ) : images.length === 0 ? (
           <div className="text-center py-12 border-2 border-dashed rounded-lg">
-            <Upload className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <FileImage className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">No images in this library</p>
             <p className="text-sm text-muted-foreground">Upload some images to get started</p>
           </div>
@@ -232,10 +251,10 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                 {images.map((image) => (
                   <div key={image.id} className="group relative aspect-square border rounded-lg overflow-hidden bg-muted">
-                    {image.signedUrl ? (
+                    {image.metadata.thumbnail?.path ? (
                       <img
-                        src={image.signedUrl}
-                        alt={image.metadata?.original_filename || 'Image'}
+                        src={image.metadata.thumbnail.path}
+                        alt={image.metadata.original_filename || 'Image'}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -269,10 +288,10 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
                 {images.map((image) => (
                   <div key={image.id} className="flex items-center gap-4 p-4 border rounded-lg">
                     <div className="w-16 h-16 border rounded overflow-hidden bg-muted flex-shrink-0">
-                      {image.signedUrl ? (
+                      {image.metadata.thumbnail?.path ? (
                         <img
-                          src={image.signedUrl}
-                          alt={image.metadata?.original_filename || 'Image'}
+                          src={image.metadata.thumbnail.path}
+                          alt={image.metadata.original_filename || 'Image'}
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -284,14 +303,14 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
                     
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">
-                        {image.metadata?.original_filename || 'Unknown'}
+                        {image.metadata.original_filename || 'Unknown'}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {image.metadata?.width && image.metadata?.height 
+                        {image.metadata.width && image.metadata.height 
                           ? `${image.metadata.width}×${image.metadata.height}`
                           : 'Unknown dimensions'
                         }
-                        {image.metadata?.file_size && (
+                        {image.metadata.file_size && (
                           <> • {Math.round(image.metadata.file_size / 1024)} KB</>
                         )}
                       </p>

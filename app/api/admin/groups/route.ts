@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
       .select('id, name')
       .eq('name', group_name)
       .single();
+    
     if (groupError && groupError.code === 'PGRST116') {
       // Not found, create it
       const { data: newGroup, error: createGroupError } = await adminSupabase
@@ -77,14 +78,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Group not found or created' }, { status: 500 });
     }
     
-    let { data: userGroup, error: userGroupError } = await adminSupabase
+    const { data: existingUserGroup, error: checkUserGroupError } = await adminSupabase
       .from('user_groups')
       .select('user_id, group_id')
       .eq('user_id', targetUser.id)
       .eq('group_id', group.id)
       .single();
     
-    if (userGroupError && userGroupError.code === 'PGRST116') {
+    if (checkUserGroupError && checkUserGroupError.code === 'PGRST116') {
       // Not found, create
       const { data: newUserGroup, error: createUserGroupError } = await adminSupabase
         .from('user_groups')
@@ -94,12 +95,12 @@ export async function POST(request: NextRequest) {
       if (createUserGroupError) {
         return NextResponse.json({ error: 'Failed to add user to group', details: createUserGroupError.message }, { status: 500 });
       }
-      userGroup = newUserGroup;
-    } else if (userGroupError) {
-      return NextResponse.json({ error: 'Failed to fetch user-group', details: userGroupError.message }, { status: 500 });
+      return NextResponse.json({ group, user: targetUser, user_group: newUserGroup });
+    } else if (checkUserGroupError) {
+      return NextResponse.json({ error: 'Failed to fetch user-group', details: checkUserGroupError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ group, user: targetUser, user_group: userGroup });
+    return NextResponse.json({ group, user: targetUser, user_group: existingUserGroup });
   } catch (error) {
     console.error('Error in group creation API:', error);
     return NextResponse.json({ error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
@@ -142,8 +143,8 @@ export async function GET() {
     }
     // For each group, fetch members and catalogs
     const groupIds = groups.map((g: any) => g.id);
-    let membersByGroup: Record<string, any[]> = {};
-    let catalogsByGroup: Record<string, any[]> = {};
+    const membersByGroup: Record<string, any[]> = {};
+    const catalogsByGroup: Record<string, any[]> = {};
     
     if (groupIds.length > 0) {
       // Fetch group memberships
@@ -155,9 +156,9 @@ export async function GET() {
       }
       if (memberships && Array.isArray(memberships)) {
         for (const m of memberships) {
-          if (m && m.group_id) {
+          if (m && m.group_id && m.profiles) {
             if (!membersByGroup[m.group_id]) membersByGroup[m.group_id] = [];
-            if (m.profiles) membersByGroup[m.group_id].push(m.profiles);
+            membersByGroup[m.group_id].push(m.profiles);
           }
         }
       }
@@ -171,20 +172,21 @@ export async function GET() {
       }
       if (catalogAssignments && Array.isArray(catalogAssignments)) {
         for (const ca of catalogAssignments) {
-          if (ca && ca.group_id) {
+          if (ca && ca.group_id && ca.catalogs) {
             if (!catalogsByGroup[ca.group_id]) catalogsByGroup[ca.group_id] = [];
-            if (ca.catalogs) catalogsByGroup[ca.group_id].push(ca.catalogs);
+            catalogsByGroup[ca.group_id].push(ca.catalogs);
           }
         }
       }
     }
     
-    const result = groups.map((g: any) => ({ 
-      ...g, 
-      members: membersByGroup[g.id] || [],
-      catalogs: catalogsByGroup[g.id] || []
+    // Process each group to add members and catalogs
+    const groupsWithDetails = groups.map((group: any) => ({
+      ...group,
+      members: membersByGroup[group.id] || [],
+      catalogs: catalogsByGroup[group.id] || []
     }));
-    return NextResponse.json(result);
+    return NextResponse.json(groupsWithDetails);
   } catch (error) {
     console.error('Error in group list API:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

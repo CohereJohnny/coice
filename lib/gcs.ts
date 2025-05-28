@@ -77,8 +77,9 @@ export async function uploadFile(
 export async function deleteFile(fileName: string): Promise<void> {
   try {
     await bucket.file(fileName).delete();
-  } catch (error) {
-    throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  } catch (err) {
+    console.error('Error deleting file:', err);
+    throw err;
   }
 }
 

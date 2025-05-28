@@ -275,4 +275,23 @@ export function generateUniqueFileName(originalName: string): string {
   const baseName = originalName.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9]/g, '_');
   
   return `${baseName}_${timestamp}_${randomSuffix}.${extension}`;
+}
+
+export function extractExifData(exifData: unknown): Record<string, unknown> {
+  if (!exifData || typeof exifData !== 'object') {
+    return {};
+  }
+
+  const data = exifData as Record<string, unknown>;
+  const extracted: Record<string, unknown> = {};
+
+  if (data.GPS && typeof data.GPS === 'object') {
+    const gps = data.GPS as Record<string, unknown>;
+    if (gps.GPSLatitude && gps.GPSLongitude) {
+      extracted.gpsLatitude = gps.GPSLatitude;
+      extracted.gpsLongitude = gps.GPSLongitude;
+    }
+  }
+
+  return extracted;
 } 
