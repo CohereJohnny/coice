@@ -552,102 +552,6 @@ export function Carousel({
     };
   }, [images.length]);
 
-  // Accessibility Enhancements
-  const [announceText, setAnnounceText] = useState<string>('');
-  const [focusedElement, setFocusedElement] = useState<string | null>(null);
-
-  const announceToScreenReader = useCallback((text: string) => {
-    setAnnounceText(text);
-    setTimeout(() => setAnnounceText(''), 1000);
-  }, []);
-
-  const handleFocusManagement = useCallback((elementId: string) => {
-    setFocusedElement(elementId);
-    const element = document.getElementById(elementId);
-    if (element) {
-      element.focus();
-    }
-  }, []);
-
-  // Enhanced keyboard navigation with accessibility
-  const handleKeyboardNavigation = useCallback((event: KeyboardEvent) => {
-    if (!isOpen) return;
-
-    // Prevent default for handled keys
-    const handledKeys = ['ArrowLeft', 'ArrowRight', 'Escape', 'Space', 'Home', 'End', 'KeyI', 'Equal', 'Minus', 'Digit0'];
-    if (handledKeys.includes(event.code)) {
-      event.preventDefault();
-    }
-
-    switch (event.code) {
-      case 'ArrowLeft':
-        if (!isZoomed) {
-          scrollPrev();
-          announceToScreenReader(`Image ${selectedIndex} of ${images.length}`);
-        }
-        break;
-      case 'ArrowRight':
-        if (!isZoomed) {
-          scrollNext();
-          announceToScreenReader(`Image ${selectedIndex + 2} of ${images.length}`);
-        }
-        break;
-      case 'Escape':
-        onClose();
-        announceToScreenReader('Carousel closed');
-        break;
-      case 'Space':
-        togglePlayPause();
-        announceToScreenReader(isPlaying ? 'Slideshow paused' : 'Slideshow started');
-        break;
-      case 'KeyI':
-        toggleMetadataOverlay();
-        announceToScreenReader(showMetadataOverlay ? 'Metadata hidden' : 'Metadata shown');
-        break;
-      case 'Home':
-        if (!isZoomed) {
-          scrollTo(0);
-          announceToScreenReader('First image');
-        }
-        break;
-      case 'End':
-        if (!isZoomed) {
-          scrollTo(images.length - 1);
-          announceToScreenReader('Last image');
-        }
-        break;
-      case 'Equal':
-      case 'NumpadAdd':
-        if (!isMobile) {
-          const newZoom = Math.min(5, zoomLevel + 0.5);
-          handleZoom(newZoom, zoomCenter);
-          announceToScreenReader(`Zoomed to ${Math.round(newZoom * 100)}%`);
-        }
-        break;
-      case 'Minus':
-      case 'NumpadSubtract':
-        if (!isMobile) {
-          const newZoom = Math.max(1, zoomLevel - 0.5);
-          if (newZoom === 1) {
-            resetZoom();
-            announceToScreenReader('Zoom reset');
-          } else {
-            handleZoom(newZoom, zoomCenter);
-            announceToScreenReader(`Zoomed to ${Math.round(newZoom * 100)}%`);
-          }
-        }
-        break;
-      case 'Digit0':
-        if (!isMobile) {
-          resetZoom();
-          announceToScreenReader('Zoom reset');
-        }
-        break;
-    }
-  }, [isOpen, isZoomed, scrollPrev, scrollNext, onClose, togglePlayPause, toggleMetadataOverlay, 
-      scrollTo, images.length, selectedIndex, isPlaying, showMetadataOverlay, isMobile, 
-      zoomLevel, zoomCenter, handleZoom, resetZoom, announceToScreenReader]);
-
   // Update selected index when carousel changes
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
@@ -1098,28 +1002,6 @@ export function Carousel({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, emblaApi, onClose, images.length, togglePlayPause, scrollPrev, scrollNext, toggleMetadataOverlay, isZoomed, resetZoom, isMobile, handleZoom, zoomLevel, zoomCenter]);
-
-  // Theme Detection and Integration
-  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
-
-  useEffect(() => {
-    const detectTheme = () => {
-      if (theme === 'system') {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        setResolvedTheme(isDark ? 'dark' : 'light');
-      } else {
-        setResolvedTheme(theme);
-      }
-    };
-
-    detectTheme();
-    
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    mediaQuery.addEventListener('change', detectTheme);
-    
-    return () => mediaQuery.removeEventListener('change', detectTheme);
-  }, [theme]);
 
   // URL State Management for Deep Linking
   const [urlState, setUrlState] = useState({ imageIndex: selectedIndex, zoom: zoomLevel });
