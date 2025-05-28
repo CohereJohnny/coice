@@ -96,11 +96,29 @@ export function Carousel({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const hideControlsTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   
-  // Touch/swipe state
+  // Touch/swipe state with advanced gestures
   const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
   const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
   const [isSwiping, setIsSwiping] = useState(false);
   
+  // Advanced touch features
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomCenter, setZoomCenter] = useState({ x: 0, y: 0 });
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastTap, setLastTap] = useState<number>(0);
+  const [touchDistance, setTouchDistance] = useState(0);
+  const [initialTouchDistance, setInitialTouchDistance] = useState(0);
+  const [swipeVelocity, setSwipeVelocity] = useState({ x: 0, y: 0 });
+  const [lastTouchTime, setLastTouchTime] = useState(0);
+  const [lastTouchPosition, setLastTouchPosition] = useState({ x: 0, y: 0 });
+
+  // Touch momentum scrolling
+  const [momentum, setMomentum] = useState({ x: 0, y: 0 });
+  const momentumRef = useRef({ x: 0, y: 0 });
+  const animationFrameRef = useRef<number | undefined>(undefined);
+
   // Performance optimization - preloaded images
   const [preloadedImages, setPreloadedImages] = useState<Set<number>>(new Set());
 
@@ -170,6 +188,23 @@ export function Carousel({
     },
     [autoplayPlugin.current]
   );
+
+  // Advanced Touch Gesture Functions
+  
+  // Calculate distance between two touches for pinch-to-zoom
+  const calculateTouchDistance = useCallback((touch1: React.Touch, touch2: React.Touch): number => {
+    const deltaX = touch1.clientX - touch2.clientX;
+    const deltaY = touch1.clientY - touch2.clientY;
+    return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+  }, []);
+
+  // Calculate center point between two touches
+  const calculateTouchCenter = useCallback((touch1: React.Touch, touch2: React.Touch): { x: number; y: number } => {
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    };
+  }, []);
 
   // Enhanced animation functions
   const triggerButtonAnimation = useCallback((buttonId: string) => {
@@ -329,91 +364,199 @@ export function Carousel({
     triggerButtonAnimation('metadata');
   }, [handleOverlayAnimation, triggerButtonAnimation]);
 
-  // Keyboard navigation
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      switch (event.key) {
-        case 'ArrowLeft':
-          event.preventDefault();
-          scrollPrev();
-          break;
-        case 'ArrowRight':
-          event.preventDefault();
-          scrollNext();
-          break;
-        case 'Escape':
-          event.preventDefault();
-          onClose();
-          break;
-        case ' ':
-          event.preventDefault();
-          togglePlayPause();
-          break;
-        case 'Home':
-          event.preventDefault();
-          emblaApi?.scrollTo(0);
-          break;
-        case 'End':
-          event.preventDefault();
-          emblaApi?.scrollTo(images.length - 1);
-          break;
-        case 'i':
-        case 'I':
-          event.preventDefault();
-          toggleMetadataOverlay();
-          break;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, emblaApi, onClose, images.length, togglePlayPause, scrollPrev, scrollNext, toggleMetadataOverlay]);
-
-  // Fullscreen handling
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
-    triggerButtonAnimation('fullscreen');
-  }, [triggerButtonAnimation]);
-
-  // Touch/swipe handlers
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart({
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY
-    });
-    setIsSwiping(false);
+  // Reset zoom and pan to default state
+  const resetZoom = useCallback(() => {
+    setIsZoomed(false);
+    setZoomLevel(1);
+    setZoomCenter({ x: 0, y: 0 });
+    setPanOffset({ x: 0, y: 0 });
+    setIsPanning(false);
   }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!touchStart) return;
+  // Handle zoom with bounds checking
+  const handleZoom = useCallback((newZoomLevel: number, center: { x: number; y: number }) => {
+    const minZoom = 1;
+    const maxZoom = isMobile ? 3 : 5;
     
-    const currentTouch = {
-      x: e.targetTouches[0].clientX,
-      y: e.targetTouches[0].clientY
-    };
+    const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoomLevel));
     
-    const deltaX = Math.abs(currentTouch.x - touchStart.x);
-    const deltaY = Math.abs(currentTouch.y - touchStart.y);
+    if (clampedZoom === 1) {
+      resetZoom();
+    } else {
+      setIsZoomed(true);
+      setZoomLevel(clampedZoom);
+      setZoomCenter(center);
+    }
+  }, [isMobile, resetZoom]);
+
+  // Handle pan with bounds checking
+  const handlePan = useCallback((deltaX: number, deltaY: number) => {
+    if (!isZoomed || zoomLevel <= 1) return;
     
-    if (deltaX > deltaY && deltaX > 10) {
-      e.preventDefault();
-      setIsSwiping(true);
+    // Calculate bounds based on zoom level
+    const maxPanX = (zoomLevel - 1) * window.innerWidth / 2;
+    const maxPanY = (zoomLevel - 1) * window.innerHeight / 2;
+    
+    setPanOffset(prev => ({
+      x: Math.max(-maxPanX, Math.min(maxPanX, prev.x + deltaX)),
+      y: Math.max(-maxPanY, Math.min(maxPanY, prev.y + deltaY))
+    }));
+  }, [isZoomed, zoomLevel]);
+
+  // Calculate velocity for momentum scrolling
+  const calculateVelocity = useCallback((currentPos: { x: number; y: number }, currentTime: number) => {
+    const timeDelta = currentTime - lastTouchTime;
+    if (timeDelta === 0) return { x: 0, y: 0 };
+    
+    const velocityX = (currentPos.x - lastTouchPosition.x) / timeDelta;
+    const velocityY = (currentPos.y - lastTouchPosition.y) / timeDelta;
+    
+    return { x: velocityX, y: velocityY };
+  }, [lastTouchTime, lastTouchPosition]);
+
+  // Apply momentum scrolling
+  const applyMomentum = useCallback(() => {
+    if (Math.abs(momentumRef.current.x) < 0.1 && Math.abs(momentumRef.current.y) < 0.1) {
+      return;
     }
     
-    setTouchEnd(currentTouch);
-  }, [touchStart]);
+    // Apply momentum with decay
+    momentumRef.current.x *= 0.95;
+    momentumRef.current.y *= 0.95;
+    
+    if (isZoomed && zoomLevel > 1) {
+      handlePan(momentumRef.current.x * 10, momentumRef.current.y * 10);
+    }
+    
+    animationFrameRef.current = requestAnimationFrame(applyMomentum);
+  }, [isZoomed, zoomLevel, handlePan]);
+
+  // Start momentum scrolling
+  const startMomentum = useCallback((velocity: { x: number; y: number }) => {
+    momentumRef.current = velocity;
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    animationFrameRef.current = requestAnimationFrame(applyMomentum);
+  }, [applyMomentum]);
+
+  // Enhanced touch handlers with advanced gestures
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const currentTime = Date.now();
+    
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setTouchEnd(null);
+      setTouchStart({
+        x: touch.clientX,
+        y: touch.clientY
+      });
+      setIsSwiping(false);
+      setLastTouchTime(currentTime);
+      setLastTouchPosition({ x: touch.clientX, y: touch.clientY });
+      
+      // Double-tap detection
+      const timeSinceLastTap = currentTime - lastTap;
+      if (timeSinceLastTap < 300 && timeSinceLastTap > 0) {
+        // Double tap detected - toggle zoom
+        const rect = (e.target as HTMLElement).getBoundingClientRect();
+        const centerX = touch.clientX - rect.left;
+        const centerY = touch.clientY - rect.top;
+        
+        if (isZoomed) {
+          resetZoom();
+        } else {
+          handleZoom(2.5, { x: centerX, y: centerY });
+        }
+        
+        setLastTap(0); // Reset to prevent triple-tap
+      } else {
+        setLastTap(currentTime);
+      }
+    } else if (e.touches.length === 2) {
+      // Pinch-to-zoom start
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = calculateTouchDistance(touch1, touch2);
+      
+      setInitialTouchDistance(distance);
+      setTouchDistance(distance);
+      setZoomCenter(calculateTouchCenter(touch1, touch2));
+      
+      // Stop momentum
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    }
+  }, [lastTap, isZoomed, resetZoom, handleZoom, calculateTouchDistance, calculateTouchCenter]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const currentTime = Date.now();
+    
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const currentTouch = {
+        x: touch.clientX,
+        y: touch.clientY
+      };
+      
+      if (!touchStart) return;
+      
+      const deltaX = currentTouch.x - touchStart.x;
+      const deltaY = currentTouch.y - touchStart.y;
+      const absDeltaX = Math.abs(deltaX);
+      const absDeltaY = Math.abs(deltaY);
+      
+      if (isZoomed && zoomLevel > 1) {
+        // Pan the zoomed image
+        if (absDeltaX > 5 || absDeltaY > 5) {
+          e.preventDefault();
+          setIsPanning(true);
+          handlePan(deltaX - (lastTouchPosition.x - touchStart.x), deltaY - (lastTouchPosition.y - touchStart.y));
+        }
+      } else {
+        // Regular swipe navigation
+        if (absDeltaX > absDeltaY && absDeltaX > 10) {
+          e.preventDefault();
+          setIsSwiping(true);
+        }
+      }
+      
+      setTouchEnd(currentTouch);
+      
+      // Calculate velocity for momentum
+      const velocity = calculateVelocity(currentTouch, currentTime);
+      setSwipeVelocity(velocity);
+      setLastTouchTime(currentTime);
+      setLastTouchPosition(currentTouch);
+      
+    } else if (e.touches.length === 2) {
+      // Pinch-to-zoom
+      e.preventDefault();
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = calculateTouchDistance(touch1, touch2);
+      
+      if (initialTouchDistance > 0) {
+        const scale = distance / initialTouchDistance;
+        const newZoomLevel = Math.max(1, zoomLevel * scale);
+        const center = calculateTouchCenter(touch1, touch2);
+        
+        handleZoom(newZoomLevel, center);
+        setTouchDistance(distance);
+        setInitialTouchDistance(distance); // Update for next frame
+      }
+    }
+  }, [touchStart, isZoomed, zoomLevel, lastTouchPosition, handlePan, calculateVelocity, initialTouchDistance, calculateTouchDistance, calculateTouchCenter, handleZoom]);
 
   const handleTouchEnd = useCallback(() => {
-    if (!touchStart || !touchEnd) return;
+    if (!touchStart || !touchEnd) {
+      setTouchStart(null);
+      setTouchEnd(null);
+      setIsSwiping(false);
+      setIsPanning(false);
+      return;
+    }
     
     const deltaX = touchStart.x - touchEnd.x;
     const deltaY = touchStart.y - touchEnd.y;
@@ -421,7 +564,8 @@ export function Carousel({
     const isRightSwipe = deltaX < -minSwipeDistance;
     const isVerticalSwipe = Math.abs(deltaY) > Math.abs(deltaX);
     
-    if (!isVerticalSwipe) {
+    // Only navigate if not zoomed and not panning
+    if (!isZoomed && !isPanning && !isVerticalSwipe) {
       if (isLeftSwipe && emblaApi) {
         scrollNext();
       } else if (isRightSwipe && emblaApi) {
@@ -429,10 +573,22 @@ export function Carousel({
       }
     }
     
+    // Start momentum scrolling if there's sufficient velocity
+    if (Math.abs(swipeVelocity.x) > 0.5 || Math.abs(swipeVelocity.y) > 0.5) {
+      startMomentum(swipeVelocity);
+    }
+    
     setTouchStart(null);
     setTouchEnd(null);
     setIsSwiping(false);
-  }, [touchStart, touchEnd, minSwipeDistance, emblaApi, scrollNext, scrollPrev]);
+    setIsPanning(false);
+    setInitialTouchDistance(0);
+  }, [touchStart, touchEnd, minSwipeDistance, isZoomed, isPanning, emblaApi, scrollNext, scrollPrev, swipeVelocity, startMomentum]);
+
+  // Reset zoom when image changes
+  useEffect(() => {
+    resetZoom();
+  }, [selectedIndex, resetZoom]);
 
   // Image preloading for performance
   const preloadImage = useCallback((imageIndex: number) => {
@@ -563,6 +719,82 @@ export function Carousel({
     };
   }, []);
 
+  // Fullscreen handling
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+    triggerButtonAnimation('fullscreen');
+  }, [triggerButtonAnimation]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Reset zoom on escape for better UX
+      if (event.key === 'Escape' && isZoomed) {
+        event.preventDefault();
+        resetZoom();
+        return;
+      }
+      
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault();
+          if (!isZoomed) scrollPrev();
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          if (!isZoomed) scrollNext();
+          break;
+        case 'Escape':
+          event.preventDefault();
+          onClose();
+          break;
+        case ' ':
+          event.preventDefault();
+          if (!isZoomed) togglePlayPause();
+          break;
+        case 'Home':
+          event.preventDefault();
+          if (!isZoomed) emblaApi?.scrollTo(0);
+          break;
+        case 'End':
+          event.preventDefault();
+          if (!isZoomed) emblaApi?.scrollTo(images.length - 1);
+          break;
+        case 'i':
+        case 'I':
+          event.preventDefault();
+          toggleMetadataOverlay();
+          break;
+        case '+':
+        case '=':
+          event.preventDefault();
+          if (isMobile) break; // Only on desktop
+          handleZoom(zoomLevel * 1.2, { x: window.innerWidth / 2, y: window.innerHeight / 2 });
+          break;
+        case '-':
+          event.preventDefault();
+          if (isMobile) break; // Only on desktop
+          handleZoom(zoomLevel / 1.2, zoomCenter);
+          break;
+        case '0':
+          event.preventDefault();
+          resetZoom();
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, emblaApi, onClose, images.length, togglePlayPause, scrollPrev, scrollNext, toggleMetadataOverlay, isZoomed, resetZoom, isMobile, handleZoom, zoomLevel, zoomCenter]);
+
   if (!isOpen) return null;
 
   const currentImage = images[selectedIndex];
@@ -650,6 +882,17 @@ export function Carousel({
                           : "opacity-100 scale-100 filter blur-0",
                         imageLoadingStates.get(index) ? "opacity-0 scale-95" : "opacity-100 scale-100"
                       )}
+                      style={{
+                        transform: index === selectedIndex && isZoomed 
+                          ? `scale(${zoomLevel}) translate(${panOffset.x / zoomLevel}px, ${panOffset.y / zoomLevel}px)` 
+                          : undefined,
+                        transformOrigin: index === selectedIndex && isZoomed 
+                          ? `${zoomCenter.x}px ${zoomCenter.y}px` 
+                          : 'center',
+                        cursor: isZoomed && index === selectedIndex 
+                          ? (isPanning ? 'grabbing' : 'grab') 
+                          : 'default'
+                      }}
                       loading={Math.abs(index - selectedIndex) <= 1 ? 'eager' : 'lazy'}
                       role="img"
                       aria-current={index === selectedIndex ? 'true' : 'false'}
