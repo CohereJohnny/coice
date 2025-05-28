@@ -74,8 +74,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
     }
 
-    // Create or update the profile with the specified role
-    const { data: profileData, error: profileCreateError } = await supabase
+    // Create or update the profile with the specified role using admin client
+    const { data: profileData, error: profileCreateError } = await adminSupabase
       .from('profiles')
       .upsert({
         id: newUser.user.id,
