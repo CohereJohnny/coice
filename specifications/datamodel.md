@@ -15,7 +15,7 @@ Relationships: Referenced by catalogs, prompts, pipelines, jobs, user_groups.
 
 1.2 Catalogs
 
-Description: Top-level industry/domain containers (e.g., “Oil & Gas”).
+Description: Top-level industry/domain containers (e.g., "Oil & Gas").
 Attributes:
 id (serial, PK): Catalog identifier.
 name (varchar(255), not null): Catalog name.
@@ -28,7 +28,7 @@ Relationships: Contains libraries; owned by a profile.
 
 1.3 Libraries
 
-Description: Subcategories within catalogs (e.g., “Wells”).
+Description: Subcategories within catalogs (e.g., "Wells").
 Attributes:
 id (serial, PK): Library identifier.
 catalog_id (integer, FK to catalogs.id): Parent catalog.
@@ -58,7 +58,7 @@ Relationships: Belongs to a library; linked to job_results.
 Description: Reusable AI analysis prompts.
 Attributes:
 id (uuid, PK): Prompt identifier.
-name (text, not null): Prompt name (e.g., “Flare Detection”).
+name (text, not null): Prompt name (e.g., "Flare Detection").
 prompt (text, not null): Prompt text.
 type (text, check: boolean, descriptive, keywords): Prompt type.
 created_by (uuid, FK to profiles.id): Creator.
@@ -137,6 +137,7 @@ created_at (timestamptz, default now()): Creation time.
 
 
 Relationships: Referenced by user_groups, library_groups, catalog_groups.
+Managed in the Admin panel. Groups are used for access control to catalogs and libraries.
 
 1.11 User_Groups
 
@@ -148,6 +149,7 @@ Primary key: (user_id, group_id).
 
 
 Relationships: Links profiles to groups.
+Managed in the Admin panel. Membership in a group determines which catalogs/libraries a user can access.
 
 1.12 Library_Groups
 

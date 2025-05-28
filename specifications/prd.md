@@ -1,6 +1,6 @@
 Product Requirements Document (PRD): Coice
 1. Overview
-Coice (Cohere Image Catalog Explorer) is a Next.js web application for managing and analyzing image collections, with images stored in Google Cloud Storage (GCS) buckets and metadata in Supabase PostgreSQL. The UI, inspired by Apple Photos, Google Photos, and Adobe Lightroom, features three views (Card, List with TanStack Table, Carousel), a persistent horizontal navbar, and a left sidebar for navigating catalogs and libraries. It uses Cohere’s V2 Client for AI-powered image analysis via multi-stage pipelines, with job tracking and real-time progress monitoring. Role-based authentication supports Application Administrator, Library/Catalog Manager, and Application End User roles.
+Coice (Cohere Image Catalog Explorer) is a Next.js web application for managing and analyzing image collections, with images stored in Google Cloud Storage (GCS) buckets and metadata in Supabase PostgreSQL. The UI, inspired by Apple Photos, Google Photos, and Adobe Lightroom, features three views (Card, List with TanStack Table, Carousel), a persistent horizontal navbar, and a left sidebar for navigating catalogs and libraries. It uses Cohere's V2 Client for AI-powered image analysis via multi-stage pipelines, with job tracking and real-time progress monitoring. Role-based authentication supports Application Administrator, Library/Catalog Manager, and Application End User roles.
 1.1 Purpose
 
 Provide an intuitive interface for organizing and analyzing images in industry-specific catalogs and libraries.
@@ -41,11 +41,19 @@ End User: Browse libraries, run predefined pipelines, submit ad-hoc prompts, vie
 
 Login: Email/password or Google OAuth via Supabase Auth.
 
+2.1.1 Group and Membership Management (Admin)
+Administrators can:
+  - Create, edit, and delete groups.
+  - Add or remove users from groups (manage group memberships).
+  - Assign groups to catalogs and libraries for access control.
+  - View all groups and their memberships in the Admin panel.
+  - Group membership determines access to catalogs/libraries (RBAC).
+
 2.2 Navigation
 
 Horizontal Navbar (persistent):
 Left: Coice logo and name.
-Center: Links to “Libraries” (catalog/library view), “Analysis” (pipeline/job management), “Search” (metadata search).
+Center: Links to "Libraries" (catalog/library view), "Analysis" (pipeline/job management), "Search" (metadata search).
 Right: Theme switcher (light/dark), settings, profile icons.
 
 
@@ -57,7 +65,7 @@ Clicking a library shows images, metadata, and subfolders in the main panel.
 
 2.3 Catalog and Library Management
 
-Managers create/edit/delete catalogs (e.g., “Oil & Gas”) and libraries (e.g., “Wells”).
+Managers create/edit/delete catalogs (e.g., "Oil & Gas") and libraries (e.g., "Wells").
 Libraries are nested within catalogs, with optional sub-libraries.
 Browse in Card, List, or Carousel views.
 
@@ -71,7 +79,7 @@ List GCS buckets in sidebar for legacy data.
 2.5 Analysis Pipelines and Jobs
 
 Pipelines:
-Multi-stage workflows with chained prompts (e.g., Stage 1: “Are flares present?”; Stage 2: “Describe flares” for true results).
+Multi-stage workflows with chained prompts (e.g., Stage 1: "Are flares present?"; Stage 2: "Describe flares" for true results).
 Types: Boolean, descriptive, keywords.
 Library-specific or general-purpose, defined by Managers.
 
@@ -88,7 +96,7 @@ Ad-Hoc Prompts: End Users can run one-off prompts, saved as job results.
 2.6 Job Progress Monitoring
 
 Notifications:
-Toast notifications for status changes (e.g., “Job #123 running”) and milestones (e.g., 50% complete).
+Toast notifications for status changes (e.g., "Job #123 running") and milestones (e.g., 50% complete).
 Stackable, auto-dismiss after 3 seconds.
 
 
@@ -103,7 +111,7 @@ Preview of results with links to full results.
 2.7 Search
 
 Search catalogs, libraries, images, and job results (EXIF, AI descriptions).
-Accessible via navbar “Search” link.
+Accessible via navbar "Search" link.
 
 2.8 User Interface
 

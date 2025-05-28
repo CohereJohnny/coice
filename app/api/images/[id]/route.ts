@@ -41,23 +41,37 @@ export async function DELETE(
       );
     }
 
-    // Check user permissions for the catalog
-    const { data: userCatalog, error: permissionError } = await supabase
-      .from('user_catalogs')
-      .select('role')
+    // Check user permissions for the catalog via groups
+    const { data: userGroups, error: permissionError } = await supabase
+      .from('user_groups')
+      .select(`
+        group_id,
+        groups!inner(
+          id,
+          catalog_groups!inner(
+            catalog_id
+          )
+        )
+      `)
       .eq('user_id', user.id)
-      .eq('catalog_id', (image.libraries as any).catalog_id)
-      .single();
+      .eq('groups.catalog_groups.catalog_id', (image.libraries as any).catalog_id);
 
-    if (permissionError || !userCatalog) {
+    if (permissionError || !userGroups || userGroups.length === 0) {
       return NextResponse.json(
         { error: 'Access denied to catalog' },
         { status: 403 }
       );
     }
 
-    // Only allow deletion if user is Manager or Admin
-    if (!['Manager', 'Admin'].includes(userCatalog.role)) {
+    // Check user's profile role for deletion permissions
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    // Only allow deletion if user is manager or admin
+    if (!profile || !['manager', 'admin'].includes(profile.role)) {
       return NextResponse.json(
         { error: 'Insufficient permissions to delete images' },
         { status: 403 }
@@ -160,24 +174,38 @@ export async function GET(
       );
     }
 
-    // Check user permissions for the catalog
-    const { data: userCatalog, error: permissionError } = await supabase
-      .from('user_catalogs')
-      .select('role')
+    // Check user permissions for the catalog via groups
+    const { data: userGroups, error: permissionError } = await supabase
+      .from('user_groups')
+      .select(`
+        group_id,
+        groups!inner(
+          id,
+          catalog_groups!inner(
+            catalog_id
+          )
+        )
+      `)
       .eq('user_id', user.id)
-      .eq('catalog_id', (image.libraries as any).catalog_id)
-      .single();
+      .eq('groups.catalog_groups.catalog_id', image.libraries.catalog_id);
 
-    if (permissionError || !userCatalog) {
+    if (permissionError || !userGroups || userGroups.length === 0) {
       return NextResponse.json(
         { error: 'Access denied to catalog' },
         { status: 403 }
       );
     }
 
+    // Check user's profile role for deletion permissions
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
     return NextResponse.json({
       image,
-      userRole: userCatalog.role,
+      userRole: profile?.role || 'end_user',
     });
 
   } catch (error) {

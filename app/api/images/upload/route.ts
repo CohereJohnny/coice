@@ -42,15 +42,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check user permissions for the catalog
-    const { data: userCatalog, error: permissionError } = await supabase
-      .from('user_catalogs')
-      .select('role')
+    // Check user permissions for the catalog via groups
+    const { data: userGroups, error: permissionError } = await supabase
+      .from('user_groups')
+      .select(`
+        group_id,
+        groups!inner(
+          id,
+          catalog_groups!inner(
+            catalog_id
+          )
+        )
+      `)
       .eq('user_id', user.id)
-      .eq('catalog_id', catalogId)
-      .single();
+      .eq('groups.catalog_groups.catalog_id', catalogId);
 
-    if (permissionError || !userCatalog) {
+    if (permissionError || !userGroups || userGroups.length === 0) {
       return NextResponse.json(
         { error: 'Access denied to catalog' },
         { status: 403 }

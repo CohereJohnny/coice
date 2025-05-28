@@ -310,7 +310,55 @@ Response:
 
 
 
-15. GCS: List Buckets
+15. Admin: Manage Groups
+
+Endpoint: GET /api/admin/groups
+Description: List all groups and their members (Administrators).
+Response:
+200 OK: [
+  { "id": "uuid", "name": "Group 1", "created_at": "2025-05-27T11:00:00Z", "members": [
+    { "id": "uuid", "email": "user@example.com", "role": "manager" }
+  ] }
+]
+403 Forbidden: {"error": "Admin access required"}
+
+Endpoint: POST /api/admin/groups
+Description: Create a group and/or add a user to a group (Administrators).
+Request Body:
+{
+  "group_name": "Group 1",
+  "user_email": "user@example.com" // optional
+}
+Response:
+200 OK: { "group": { ... }, "user": { ... }, "user_group": { ... } }
+403 Forbidden: {"error": "Admin access required"}
+
+Endpoint: DELETE /api/admin/groups/membership
+Description: Remove a user from a group (Administrators).
+Request Body:
+{
+  "group_id": "uuid",
+  "user_id": "uuid"
+}
+Response:
+200 OK: { "message": "User removed from group" }
+403 Forbidden: {"error": "Admin access required"}
+
+Endpoint: DELETE /api/admin/groups
+Description: Delete a group (Administrators).
+Request Body:
+{
+  "group_id": "uuid"
+}
+Response:
+200 OK: { "message": "Group deleted" }
+403 Forbidden: {"error": "Admin access required"}
+
+
+
+
+
+16. GCS: List Buckets
 
 Endpoint: GET /api/buckets
 Description: List GCS buckets.
@@ -324,7 +372,7 @@ Response:
 
 
 
-16. Search
+17. Search
 
 Endpoint: GET /api/search?q=<query>
 Description: Search catalogs, libraries, images, job results.
