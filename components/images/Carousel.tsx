@@ -89,9 +89,9 @@ export function Carousel({
   autoplayDelay = 3000
 }: CarouselProps) {
   const [selectedIndex, setSelectedIndex] = useState(initialIndex);
+  const [showMetadataOverlay, setShowMetadataOverlay] = useState(showMetadata);
   const [isPlaying, setIsPlaying] = useState(autoplay);
   const [showControls, setShowControls] = useState(true);
-  const [showMetadataOverlay, setShowMetadataOverlay] = useState(showMetadata);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const hideControlsTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   
@@ -103,8 +103,18 @@ export function Carousel({
   // Performance optimization - preloaded images
   const [preloadedImages, setPreloadedImages] = useState<Set<number>>(new Set());
 
+  // Virtual scrolling for thumbnail strip
+  const [thumbnailViewport, setThumbnailViewport] = useState({ start: 0, end: 20 });
+  const thumbnailStripRef = useRef<HTMLDivElement>(null);
+
   // Minimum swipe distance (in px)
   const minSwipeDistance = 50;
+
+  // Slideshow enhancements
+  const [slideshowSpeed, setSlideshowSpeed] = useState(autoplayDelay || 3000);
+  const [showSlideshowProgress, setShowSlideshowProgress] = useState(false);
+  const [slideshowProgress, setSlideshowProgress] = useState(0);
+  const progressIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Embla carousel setup
   const autoplayPlugin = useRef(
@@ -341,11 +351,70 @@ export function Carousel({
     preloadAdjacent();
   }, [isOpen, selectedIndex, preloadImage, images.length]);
 
+  // Slideshow progress tracking
+  useEffect(() => {
+    if (!isPlaying || !showSlideshowProgress) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+      setSlideshowProgress(0);
+      return;
+    }
+
+    setSlideshowProgress(0);
+    const interval = 50; // Update every 50ms for smooth progress
+    const increment = (interval / slideshowSpeed) * 100;
+
+    progressIntervalRef.current = setInterval(() => {
+      setSlideshowProgress(prev => {
+        if (prev >= 100) {
+          return 0; // Reset when slide changes
+        }
+        return prev + increment;
+      });
+    }, interval);
+
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+    };
+  }, [isPlaying, showSlideshowProgress, slideshowSpeed]);
+
+  // Reset progress when slide changes
+  useEffect(() => {
+    if (isPlaying && showSlideshowProgress) {
+      setSlideshowProgress(0);
+    }
+  }, [selectedIndex, isPlaying, showSlideshowProgress]);
+
+  // Virtual scrolling for thumbnails
+  useEffect(() => {
+    if (images.length <= 20) return; // No need for virtual scrolling with small sets
+    
+    const buffer = 5; // Show 5 thumbnails on each side
+    const viewportSize = 20;
+    
+    // Center the viewport around the selected index
+    let start = Math.max(0, selectedIndex - Math.floor(viewportSize / 2));
+    let end = Math.min(images.length, start + viewportSize);
+    
+    // Adjust start if we're near the end
+    if (end === images.length) {
+      start = Math.max(0, end - viewportSize);
+    }
+    
+    setThumbnailViewport({ start, end });
+  }, [selectedIndex, images.length]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (hideControlsTimeoutRef.current) {
         clearTimeout(hideControlsTimeoutRef.current);
+      }
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
       }
     };
   }, []);
@@ -438,6 +507,49 @@ export function Carousel({
                 {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
               
+              {/* Slideshow Speed Control */}
+              {isPlaying && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSlideshowSpeed(Math.max(1000, slideshowSpeed - 1000))}
+                    className="text-white hover:bg-white/20 text-xs px-2"
+                    title="Slower slideshow"
+                  >
+                    -
+                  </Button>
+                  <span className="text-white text-xs px-1 min-w-[3rem] text-center">
+                    {(slideshowSpeed / 1000).toFixed(1)}s
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSlideshowSpeed(Math.min(10000, slideshowSpeed + 1000))}
+                    className="text-white hover:bg-white/20 text-xs px-2"
+                    title="Faster slideshow"
+                  >
+                    +
+                  </Button>
+                </div>
+              )}
+              
+              {/* Progress Indicator Toggle */}
+              {isPlaying && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSlideshowProgress(!showSlideshowProgress)}
+                  className={cn(
+                    "text-white hover:bg-white/20",
+                    showSlideshowProgress && "bg-white/20"
+                  )}
+                  title="Toggle progress indicator"
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              )}
+              
               <Button
                 variant="ghost"
                 size="sm"
@@ -462,6 +574,16 @@ export function Carousel({
             </div>
           </div>
         </div>
+
+        {/* Slideshow Progress Indicator */}
+        {isPlaying && showSlideshowProgress && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-black/30 pointer-events-none">
+            <div 
+              className="h-full bg-white transition-all duration-75 ease-linear"
+              style={{ width: `${slideshowProgress}%` }}
+            />
+          </div>
+        )}
 
         {/* Navigation Arrows */}
         <Button
@@ -492,25 +614,73 @@ export function Carousel({
         {images.length > 1 && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4 pointer-events-auto">
             <div className="flex justify-center">
-              <div className="flex gap-2 max-w-full overflow-x-auto scrollbar-hide">
-                {images.map((image, index) => (
-                  <button
-                    key={image.id}
-                    onClick={() => scrollTo(index)}
-                    className={cn(
-                      "flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden transition-all",
-                      index === selectedIndex 
-                        ? "border-white scale-110" 
-                        : "border-white/30 hover:border-white/60"
+              <div 
+                ref={thumbnailStripRef}
+                className="flex gap-2 max-w-full overflow-x-auto scrollbar-hide"
+              >
+                {/* Virtual scrolling for large image sets */}
+                {images.length > 20 ? (
+                  <>
+                    {/* Show indicator for hidden thumbnails on the left */}
+                    {thumbnailViewport.start > 0 && (
+                      <div className="flex-shrink-0 w-16 h-16 rounded border-2 border-white/30 flex items-center justify-center">
+                        <span className="text-white/60 text-xs">+{thumbnailViewport.start}</span>
+                      </div>
                     )}
-                  >
-                    <img
-                      src={image.signedUrls?.thumbnail || '/placeholder-image.jpg'}
-                      alt={image.metadata.original_filename}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))}
+                    
+                    {/* Render visible thumbnails */}
+                    {images.slice(thumbnailViewport.start, thumbnailViewport.end).map((image, index) => {
+                      const actualIndex = thumbnailViewport.start + index;
+                      return (
+                        <button
+                          key={image.id}
+                          onClick={() => scrollTo(actualIndex)}
+                          className={cn(
+                            "flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden transition-all",
+                            actualIndex === selectedIndex 
+                              ? "border-white scale-110" 
+                              : "border-white/30 hover:border-white/60"
+                          )}
+                        >
+                          <img
+                            src={image.signedUrls?.thumbnail || '/placeholder-image.jpg'}
+                            alt={image.metadata.original_filename}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </button>
+                      );
+                    })}
+                    
+                    {/* Show indicator for hidden thumbnails on the right */}
+                    {thumbnailViewport.end < images.length && (
+                      <div className="flex-shrink-0 w-16 h-16 rounded border-2 border-white/30 flex items-center justify-center">
+                        <span className="text-white/60 text-xs">+{images.length - thumbnailViewport.end}</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  /* Render all thumbnails for small sets */
+                  images.map((image, index) => (
+                    <button
+                      key={image.id}
+                      onClick={() => scrollTo(index)}
+                      className={cn(
+                        "flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden transition-all",
+                        index === selectedIndex 
+                          ? "border-white scale-110" 
+                          : "border-white/30 hover:border-white/60"
+                      )}
+                    >
+                      <img
+                        src={image.signedUrls?.thumbnail || '/placeholder-image.jpg'}
+                        alt={image.metadata.original_filename}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
