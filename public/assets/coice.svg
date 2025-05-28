@@ -1,38 +1,59 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-  <!-- Background (optional subtle gradient for depth) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Background circle with gradient -->
   <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#e0f7fa;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#b2ebf2;stop-opacity:1" />
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="imageGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#e5e7eb;stop-opacity:0.9" />
     </linearGradient>
   </defs>
-  <rect x="0" y="0" width="100" height="100" fill="url(#grad)" />
-
-  <!-- Horizontal Navbar (top bar) -->
-  <rect x="10" y="10" width="80" height="8" rx="2" fill="#0288d1" />
-
-  <!-- Left Sidebar (vertical bar) -->
-  <rect x="10" y="22" width="8" height="68" rx="2" fill="#0288d1" />
-
-  <!-- Main Panel (central area) -->
-  <rect x="22" y="22" width="68" height="68" rx="4" fill="none" stroke="#0288d1" stroke-width="2" />
-
-  <!-- Oil Rig (Oil & Gas) - Simplified -->
-  <g transform="translate(30, 30) scale(0.5)">
-    <path d="M10,40 L10,10 L20,10 L20,0 L30,0 L30,10 L40,10 L40,40 Z" fill="none" stroke="#01579b" stroke-width="3" />
-    <rect x="20" y="40" width="10" height="20" fill="none" stroke="#01579b" stroke-width="3" />
+  
+  <!-- Main background circle -->
+  <circle cx="60" cy="60" r="55" fill="url(#bgGrad)" stroke="#1e40af" stroke-width="2"/>
+  
+  <!-- Image grid representation (catalog) -->
+  <g transform="translate(25, 25)">
+    <!-- Grid of image thumbnails -->
+    <rect x="0" y="0" width="18" height="18" rx="2" fill="url(#imageGrad)" stroke="#3b82f6" stroke-width="1"/>
+    <rect x="22" y="0" width="18" height="18" rx="2" fill="url(#imageGrad)" stroke="#3b82f6" stroke-width="1"/>
+    <rect x="44" y="0" width="18" height="18" rx="2" fill="url(#imageGrad)" stroke="#3b82f6" stroke-width="1"/>
+    
+    <rect x="0" y="22" width="18" height="18" rx="2" fill="url(#imageGrad)" stroke="#3b82f6" stroke-width="1"/>
+    <rect x="22" y="22" width="18" height="18" rx="2" fill="url(#imageGrad)" stroke="#3b82f6" stroke-width="1"/>
+    <rect x="44" y="22" width="18" height="18" rx="2" fill="url(#imageGrad)" stroke="#3b82f6" stroke-width="1"/>
+    
+    <rect x="0" y="44" width="18" height="18" rx="2" fill="url(#imageGrad)" stroke="#3b82f6" stroke-width="1"/>
+    <rect x="22" y="44" width="18" height="18" rx="2" fill="url(#imageGrad)" stroke="#3b82f6" stroke-width="1"/>
+    <rect x="44" y="44" width="18" height="18" rx="2" fill="url(#imageGrad)" stroke="#3b82f6" stroke-width="1"/>
   </g>
-
-  <!-- Utility Pole (Utilities) - Simplified -->
-  <g transform="translate(60, 30) scale(0.5)">
-    <line x1="25" y1="0" x2="25" y2="60" stroke="#01579b" stroke-width="4" />
-    <line x1="15" y1="10" x2="35" y2="10" stroke="#01579b" stroke-width="3" />
-    <line x1="15" y1="20" x2="35" y2="20" stroke="#01579b" stroke-width="3" />
+  
+  <!-- AI/Analysis symbol (brain/neural network inspired) -->
+  <g transform="translate(75, 75)">
+    <!-- Central node -->
+    <circle cx="15" cy="15" r="3" fill="#fbbf24" stroke="#f59e0b" stroke-width="1"/>
+    
+    <!-- Connected nodes -->
+    <circle cx="5" cy="8" r="2" fill="#fbbf24" stroke="#f59e0b" stroke-width="1"/>
+    <circle cx="25" cy="8" r="2" fill="#fbbf24" stroke="#f59e0b" stroke-width="1"/>
+    <circle cx="8" cy="25" r="2" fill="#fbbf24" stroke="#f59e0b" stroke-width="1"/>
+    <circle cx="22" cy="25" r="2" fill="#fbbf24" stroke="#f59e0b" stroke-width="1"/>
+    
+    <!-- Connection lines -->
+    <line x1="15" y1="15" x2="5" y2="8" stroke="#fbbf24" stroke-width="1.5"/>
+    <line x1="15" y1="15" x2="25" y2="8" stroke="#fbbf24" stroke-width="1.5"/>
+    <line x1="15" y1="15" x2="8" y2="25" stroke="#fbbf24" stroke-width="1.5"/>
+    <line x1="15" y1="15" x2="22" y2="25" stroke="#fbbf24" stroke-width="1.5"/>
   </g>
-
-  <!-- Magnifying Glass (Analysis/Search) -->
-  <g transform="translate(72, 72) scale(0.3)">
-    <circle cx="15" cy="15" r="10" fill="none" stroke="#01579b" stroke-width="4" />
-    <line x1="20" y1="20" x2="30" y2="30" stroke="#01579b" stroke-width="4" />
+  
+  <!-- Search/magnifying glass icon -->
+  <g transform="translate(85, 25)">
+    <circle cx="8" cy="8" r="6" fill="none" stroke="#ffffff" stroke-width="2"/>
+    <line x1="12" y1="12" x2="18" y2="18" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
   </g>
+  
+  <!-- Letter "C" for COICE -->
+  <text x="60" y="105" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#1e40af">COICE</text>
 </svg>

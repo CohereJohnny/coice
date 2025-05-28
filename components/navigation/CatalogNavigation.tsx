@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { LibraryForm } from '@/components/libraries/LibraryForm';
 import { 
   ChevronRight, 
   ChevronDown,
@@ -14,11 +16,13 @@ import {
   Trash2
 } from 'lucide-react';
 import { useAuth } from '@/lib/stores/auth';
+import { toast } from 'sonner';
 
 interface Library {
   id: number;
   name: string;
-  parent_id: number | null;
+  parent_id?: number;
+  catalog_id: number;
   children?: Library[];
 }
 
@@ -43,6 +47,11 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
     x: number;
     y: number;
   } | null>(null);
+  const [libraryDialog, setLibraryDialog] = useState<{
+    open: boolean;
+    catalogId?: number;
+  }>({ open: false });
+  const [submitting, setSubmitting] = useState(false);
   
   const { profile } = useAuth();
   const pathname = usePathname();
@@ -98,7 +107,8 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
       libraryMap.set(lib.id, {
         id: lib.id,
         name: lib.name,
-        parent_id: lib.parent_id,
+        parent_id: lib.parent_id || undefined,
+        catalog_id: lib.catalog_id,
         children: []
       });
     });
@@ -152,6 +162,31 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
   };
 
   const canManage = profile?.role === 'admin' || profile?.role === 'manager';
+
+  const handleCreateLibrary = async (data: { name: string; description?: string; catalog_id: number; parent_id?: number }) => {
+    try {
+      setSubmitting(true);
+      const response = await fetch('/api/libraries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create library');
+      }
+
+      toast.success('Library created successfully');
+      setLibraryDialog({ open: false });
+      fetchCatalogs(); // Refresh the catalog data to show the new library
+    } catch (error) {
+      console.error('Error creating library:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create library');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const renderLibrary = (library: Library, level: number = 0) => {
     const isExpanded = expandedLibraries.has(library.id);
@@ -231,7 +266,7 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
           return (
             <div key={catalog.id}>
               <div
-                className={`flex items-center h-8 px-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                className={`group flex items-center h-8 px-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${
                   isActive ? 'bg-gray-100 dark:bg-gray-700' : ''
                 }`}
                 onContextMenu={(e) => handleContextMenu(e, 'catalog', catalog.id)}
@@ -260,28 +295,28 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
                     <span className="truncate font-medium">{catalog.name}</span>
                   )}
                 </Link>
+                
+                {/* Add Library button next to catalog name */}
+                {canManage && !isCollapsed && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setLibraryDialog({ open: true, catalogId: catalog.id });
+                    }}
+                    title="Add Library"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
               
               {isExpanded && !isCollapsed && (
                 <div className="ml-2">
                   {catalog.libraries.map(library => renderLibrary(library))}
-                  
-                  {canManage && (
-                    <div className="pl-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start h-8 px-2 text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          // TODO: Open create library dialog
-                          console.log('Create library in catalog', catalog.id);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        <span className="text-sm">Add Library</span>
-                      </Button>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
@@ -335,6 +370,27 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
           </button>
         </div>
       )}
+      
+      {/* Library Dialog */}
+      <Dialog open={libraryDialog.open} onOpenChange={(open: boolean) => setLibraryDialog({ ...libraryDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Library</DialogTitle>
+          </DialogHeader>
+          <LibraryForm
+            mode="create"
+            catalogs={catalogs}
+            libraries={catalogs.flatMap(c => c.libraries)}
+            onSubmit={handleCreateLibrary}
+            onCancel={() => setLibraryDialog({ open: false })}
+            isLoading={submitting}
+            initialData={libraryDialog.catalogId ? { 
+              name: '', 
+              catalog_id: libraryDialog.catalogId 
+            } : undefined}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
