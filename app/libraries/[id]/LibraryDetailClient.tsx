@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +60,9 @@ interface LibraryDetailClientProps {
 }
 
 export default function LibraryDetailClient({ libraryId }: LibraryDetailClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [library, setLibrary] = useState<Library | null>(null);
   const [images, setImages] = useState<Image[]>([]);
   const [filteredImages, setFilteredImages] = useState<Image[]>([]);
@@ -66,17 +70,80 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
   const [imagesLoading, setImagesLoading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   
-  // View state
-  const [viewMode, setViewMode] = useState<ViewMode>('card');
-  const [gridSize, setGridSize] = useState<GridSize>('medium');
-  const [sortBy, setSortBy] = useState<SortOption>('date');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showMetadata, setShowMetadata] = useState(true);
+  // View state with URL persistence
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    return (searchParams.get('view') as ViewMode) || 'card';
+  });
+  const [gridSize, setGridSize] = useState<GridSize>(() => {
+    return (searchParams.get('gridSize') as GridSize) || 'medium';
+  });
+  const [sortBy, setSortBy] = useState<SortOption>(() => {
+    return (searchParams.get('sortBy') as SortOption) || 'date';
+  });
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => {
+    return (searchParams.get('sortDirection') as SortDirection) || 'desc';
+  });
+  const [searchQuery, setSearchQuery] = useState(() => {
+    return searchParams.get('search') || '';
+  });
+  const [showMetadata, setShowMetadata] = useState(() => {
+    return searchParams.get('showMetadata') !== 'false';
+  });
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Update URL when view state changes
+  const updateURL = useCallback((updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    
+    const newURL = `${window.location.pathname}?${params.toString()}`;
+    router.replace(newURL, { scroll: false });
+  }, [router, searchParams]);
+
+  // Handle view mode change with URL update
+  const handleViewModeChange = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    updateURL({ view: mode });
+  }, [updateURL]);
+
+  // Handle grid size change with URL update
+  const handleGridSizeChange = useCallback((size: GridSize) => {
+    setGridSize(size);
+    updateURL({ gridSize: size });
+  }, [updateURL]);
+
+  // Handle sort change with URL update
+  const handleSortByChange = useCallback((sort: SortOption) => {
+    setSortBy(sort);
+    updateURL({ sortBy: sort });
+  }, [updateURL]);
+
+  const handleSortDirectionChange = useCallback((direction: SortDirection) => {
+    setSortDirection(direction);
+    updateURL({ sortDirection: direction });
+  }, [updateURL]);
+
+  // Handle search change with URL update
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query);
+    updateURL({ search: query || null });
+  }, [updateURL]);
+
+  // Handle metadata toggle with URL update
+  const handleShowMetadataChange = useCallback((show: boolean) => {
+    setShowMetadata(show);
+    updateURL({ showMetadata: show ? null : 'false' });
+  }, [updateURL]);
 
   // Fetch library information
   useEffect(() => {
@@ -346,20 +413,20 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
       {/* View Controls */}
       <ViewSwitcher
         viewMode={viewMode}
-        onViewModeChange={setViewMode}
+        onViewModeChange={handleViewModeChange}
         gridSize={gridSize}
-        onGridSizeChange={setGridSize}
+        onGridSizeChange={handleGridSizeChange}
         sortBy={sortBy}
-        onSortByChange={setSortBy}
+        onSortByChange={handleSortByChange}
         sortDirection={sortDirection}
-        onSortDirectionChange={setSortDirection}
+        onSortDirectionChange={handleSortDirectionChange}
         searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
         selectedCount={selectedImages.size}
         onBulkDownload={handleBulkDownload}
         onBulkDelete={handleBulkDelete}
         showMetadata={showMetadata}
-        onShowMetadataChange={setShowMetadata}
+        onShowMetadataChange={handleShowMetadataChange}
       />
 
       {/* Images Section */}
