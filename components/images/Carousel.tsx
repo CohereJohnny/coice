@@ -17,7 +17,8 @@ import {
   Info, 
   Settings,
   Maximize,
-  Minimize
+  Minimize,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -107,9 +108,16 @@ export function Carousel({
   const [thumbnailViewport, setThumbnailViewport] = useState({ start: 0, end: 20 });
   const thumbnailStripRef = useRef<HTMLDivElement>(null);
 
-  // Loading states
+  // Enhanced loading and animation states
   const [imageLoadingStates, setImageLoadingStates] = useState<Map<number, boolean>>(new Map());
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [imageLoadProgress, setImageLoadProgress] = useState<Map<number, number>>(new Map());
+  const [showLoadingSkeleton, setShowLoadingSkeleton] = useState<Map<number, boolean>>(new Map());
+
+  // Animation states
+  const [controlsAnimating, setControlsAnimating] = useState(false);
+  const [overlayAnimating, setOverlayAnimating] = useState(false);
+  const [buttonAnimations, setButtonAnimations] = useState<Map<string, boolean>>(new Map());
 
   // Minimum swipe distance (in px)
   const minSwipeDistance = 50;
@@ -135,11 +143,70 @@ export function Carousel({
     [autoplayPlugin.current]
   );
 
+  // Enhanced animation functions
+  const triggerButtonAnimation = useCallback((buttonId: string) => {
+    setButtonAnimations(prev => new Map(prev).set(buttonId, true));
+    setTimeout(() => {
+      setButtonAnimations(prev => new Map(prev).set(buttonId, false));
+    }, 150);
+  }, []);
+
+  const handleControlsAnimation = useCallback(() => {
+    setControlsAnimating(true);
+    setTimeout(() => setControlsAnimating(false), 300);
+  }, []);
+
+  const handleOverlayAnimation = useCallback(() => {
+    setOverlayAnimating(true);
+    setTimeout(() => setOverlayAnimating(false), 200);
+  }, []);
+
+  // Enhanced loading states with progress
+  const handleImageLoadStart = useCallback((index: number) => {
+    setImageLoadingStates(prev => {
+      const newMap = new Map(prev);
+      newMap.set(index, true);
+      return newMap;
+    });
+    setShowLoadingSkeleton(prev => new Map(prev).set(index, true));
+    setImageLoadProgress(prev => new Map(prev).set(index, 0));
+    
+    // Simulate loading progress for better UX
+    const progressInterval = setInterval(() => {
+      setImageLoadProgress(prev => {
+        const currentProgress = prev.get(index) || 0;
+        if (currentProgress < 90) {
+          return new Map(prev).set(index, currentProgress + 10);
+        }
+        clearInterval(progressInterval);
+        return prev;
+      });
+    }, 100);
+  }, []);
+
+  const handleImageLoad = useCallback((index: number) => {
+    setImageLoadingStates(prev => {
+      const newMap = new Map(prev);
+      newMap.set(index, false);
+      return newMap;
+    });
+    setImageLoadProgress(prev => new Map(prev).set(index, 100));
+    
+    // Hide skeleton with delay for smooth transition
+    setTimeout(() => {
+      setShowLoadingSkeleton(prev => new Map(prev).set(index, false));
+    }, 200);
+  }, []);
+
   // Update selected index when carousel changes
   const onSelect = useCallback(() => {
     if (!emblaApi) return;
-    setSelectedIndex(emblaApi.selectedScrollSnap());
-  }, [emblaApi]);
+    const newIndex = emblaApi.selectedScrollSnap();
+    if (newIndex !== selectedIndex) {
+      setSelectedIndex(newIndex);
+      handleControlsAnimation();
+    }
+  }, [emblaApi, selectedIndex, handleControlsAnimation]);
 
   // Initialize carousel
   useEffect(() => {
@@ -169,35 +236,48 @@ export function Carousel({
     }
   }, [emblaApi, initialIndex]);
 
-  // Auto-hide controls
+  // Auto-hide controls with enhanced animation
   const resetHideControlsTimer = useCallback(() => {
     if (hideControlsTimeoutRef.current) {
       clearTimeout(hideControlsTimeoutRef.current);
     }
     
+    if (!showControls) {
+      handleControlsAnimation();
+    }
     setShowControls(true);
     hideControlsTimeoutRef.current = setTimeout(() => {
       setShowControls(false);
+      handleControlsAnimation();
     }, 3000);
-  }, []);
+  }, [showControls, handleControlsAnimation]);
 
   // Mouse movement handler
   const handleMouseMove = useCallback(() => {
     resetHideControlsTimer();
   }, [resetHideControlsTimer]);
 
-  // Navigation functions
+  // Enhanced navigation functions with animations
   const scrollPrev = useCallback(() => {
-    if (emblaApi) emblaApi.scrollPrev();
-  }, [emblaApi]);
+    if (emblaApi) {
+      emblaApi.scrollPrev();
+      triggerButtonAnimation('prev');
+    }
+  }, [emblaApi, triggerButtonAnimation]);
 
   const scrollNext = useCallback(() => {
-    if (emblaApi) emblaApi.scrollNext();
-  }, [emblaApi]);
+    if (emblaApi) {
+      emblaApi.scrollNext();
+      triggerButtonAnimation('next');
+    }
+  }, [emblaApi, triggerButtonAnimation]);
 
   const scrollTo = useCallback((index: number) => {
-    if (emblaApi) emblaApi.scrollTo(index);
-  }, [emblaApi]);
+    if (emblaApi) {
+      emblaApi.scrollTo(index);
+      triggerButtonAnimation(`thumb-${index}`);
+    }
+  }, [emblaApi, triggerButtonAnimation]);
 
   const togglePlayPause = useCallback(() => {
     if (!autoplayPlugin.current || !emblaApi) return;
@@ -206,13 +286,20 @@ export function Carousel({
     if (isPlaying) {
       autoplay.stop();
     } else {
-      // Only start autoplay if the carousel is properly initialized
       if (emblaApi.canScrollNext() || emblaApi.canScrollPrev() || images.length > 1) {
         autoplay.play();
       }
     }
     setIsPlaying(!isPlaying);
-  }, [isPlaying, emblaApi, images.length]);
+    triggerButtonAnimation('playpause');
+  }, [isPlaying, emblaApi, images.length, triggerButtonAnimation]);
+
+  // Enhanced metadata overlay toggle
+  const toggleMetadataOverlay = useCallback(() => {
+    handleOverlayAnimation();
+    setShowMetadataOverlay(prev => !prev);
+    triggerButtonAnimation('metadata');
+  }, [handleOverlayAnimation, triggerButtonAnimation]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -222,11 +309,11 @@ export function Carousel({
       switch (event.key) {
         case 'ArrowLeft':
           event.preventDefault();
-          emblaApi?.scrollPrev();
+          scrollPrev();
           break;
         case 'ArrowRight':
           event.preventDefault();
-          emblaApi?.scrollNext();
+          scrollNext();
           break;
         case 'Escape':
           event.preventDefault();
@@ -247,14 +334,14 @@ export function Carousel({
         case 'i':
         case 'I':
           event.preventDefault();
-          setShowMetadataOverlay(prev => !prev);
+          toggleMetadataOverlay();
           break;
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, emblaApi, onClose, images.length, togglePlayPause]);
+  }, [isOpen, emblaApi, onClose, images.length, togglePlayPause, scrollPrev, scrollNext, toggleMetadataOverlay]);
 
   // Fullscreen handling
   const toggleFullscreen = useCallback(() => {
@@ -265,7 +352,8 @@ export function Carousel({
       document.exitFullscreen();
       setIsFullscreen(false);
     }
-  }, []);
+    triggerButtonAnimation('fullscreen');
+  }, [triggerButtonAnimation]);
 
   // Touch/swipe handlers
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -288,7 +376,6 @@ export function Carousel({
     const deltaX = Math.abs(currentTouch.x - touchStart.x);
     const deltaY = Math.abs(currentTouch.y - touchStart.y);
     
-    // If horizontal swipe is more significant than vertical, prevent default scrolling
     if (deltaX > deltaY && deltaX > 10) {
       e.preventDefault();
       setIsSwiping(true);
@@ -306,19 +393,18 @@ export function Carousel({
     const isRightSwipe = deltaX < -minSwipeDistance;
     const isVerticalSwipe = Math.abs(deltaY) > Math.abs(deltaX);
     
-    // Only process horizontal swipes
     if (!isVerticalSwipe) {
       if (isLeftSwipe && emblaApi) {
-        emblaApi.scrollNext();
+        scrollNext();
       } else if (isRightSwipe && emblaApi) {
-        emblaApi.scrollPrev();
+        scrollPrev();
       }
     }
     
     setTouchStart(null);
     setTouchEnd(null);
     setIsSwiping(false);
-  }, [touchStart, touchEnd, minSwipeDistance, emblaApi]);
+  }, [touchStart, touchEnd, minSwipeDistance, emblaApi, scrollNext, scrollPrev]);
 
   // Image preloading for performance
   const preloadImage = useCallback((imageIndex: number) => {
@@ -344,10 +430,8 @@ export function Carousel({
     if (!isOpen) return;
     
     const preloadAdjacent = () => {
-      // Preload current image
       preloadImage(selectedIndex);
       
-      // Preload next 2 images
       for (let i = 1; i <= 2; i++) {
         const nextIndex = selectedIndex + i;
         if (nextIndex < images.length) {
@@ -355,7 +439,6 @@ export function Carousel({
         }
       }
       
-      // Preload previous 2 images
       for (let i = 1; i <= 2; i++) {
         const prevIndex = selectedIndex - i;
         if (prevIndex >= 0) {
@@ -378,13 +461,13 @@ export function Carousel({
     }
 
     setSlideshowProgress(0);
-    const interval = 50; // Update every 50ms for smooth progress
+    const interval = 50;
     const increment = (interval / slideshowSpeed) * 100;
 
     progressIntervalRef.current = setInterval(() => {
       setSlideshowProgress(prev => {
         if (prev >= 100) {
-          return 0; // Reset when slide changes
+          return 0;
         }
         return prev + increment;
       });
@@ -407,13 +490,9 @@ export function Carousel({
   // Update autoplay delay when speed changes
   useEffect(() => {
     if (autoplayPlugin.current && emblaApi) {
-      // Stop current autoplay
       autoplayPlugin.current.stop();
-      
-      // Create new autoplay plugin with updated delay
       autoplayPlugin.current = Autoplay({ delay: slideshowSpeed, stopOnInteraction: false });
       
-      // Restart if playing
       if (isPlaying) {
         autoplayPlugin.current.play();
       }
@@ -422,16 +501,14 @@ export function Carousel({
 
   // Virtual scrolling for thumbnails
   useEffect(() => {
-    if (images.length <= 20) return; // No need for virtual scrolling with small sets
+    if (images.length <= 20) return;
     
-    const buffer = 5; // Show 5 thumbnails on each side
+    const buffer = 5;
     const viewportSize = 20;
     
-    // Center the viewport around the selected index
     let start = Math.max(0, selectedIndex - Math.floor(viewportSize / 2));
     let end = Math.min(images.length, start + viewportSize);
     
-    // Adjust start if we're near the end
     if (end === images.length) {
       start = Math.max(0, end - viewportSize);
     }
@@ -439,27 +516,10 @@ export function Carousel({
     setThumbnailViewport({ start, end });
   }, [selectedIndex, images.length]);
 
-  // Image loading handlers
-  const handleImageLoad = useCallback((index: number) => {
-    setImageLoadingStates(prev => {
-      const newMap = new Map(prev);
-      newMap.set(index, false);
-      return newMap;
-    });
-  }, []);
-
-  const handleImageLoadStart = useCallback((index: number) => {
-    setImageLoadingStates(prev => {
-      const newMap = new Map(prev);
-      newMap.set(index, true);
-      return newMap;
-    });
-  }, []);
-
-  // Transition effects
+  // Enhanced transition effects
   useEffect(() => {
     setIsTransitioning(true);
-    const timer = setTimeout(() => setIsTransitioning(false), 300);
+    const timer = setTimeout(() => setIsTransitioning(false), 400); // Increased duration for smoother effect
     return () => clearTimeout(timer);
   }, [selectedIndex]);
 
@@ -503,10 +563,36 @@ export function Carousel({
             {images.map((image, index) => (
               <div key={image.id} className="flex-[0_0_100%] min-w-0 relative">
                 <div className="flex items-center justify-center w-full h-full">
-                  {/* Loading Spinner */}
-                  {imageLoadingStates.get(index) && (
+                  {/* Enhanced Loading Skeleton */}
+                  {showLoadingSkeleton.get(index) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                      <div className="flex flex-col items-center gap-4">
+                        {/* Animated Loading Spinner */}
+                        <div className="relative">
+                          <div className="w-12 h-12 border-4 border-white/20 rounded-full"></div>
+                          <div className="absolute top-0 left-0 w-12 h-12 border-4 border-white border-r-transparent rounded-full animate-spin"></div>
+                        </div>
+                        
+                        {/* Loading Progress */}
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="w-32 h-1 bg-white/20 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-white rounded-full transition-all duration-300 ease-out"
+                              style={{ width: `${imageLoadProgress.get(index) || 0}%` }}
+                            />
+                          </div>
+                          <span className="text-white/80 text-sm font-medium">
+                            Loading image... {Math.round(imageLoadProgress.get(index) || 0)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Simple Loading Indicator for Quick Loads */}
+                  {imageLoadingStates.get(index) && !showLoadingSkeleton.get(index) && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                      <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <Loader2 className="h-8 w-8 text-white animate-spin" />
                     </div>
                   )}
                   
@@ -515,9 +601,11 @@ export function Carousel({
                       src={image.signedUrls?.original || '/placeholder-image.jpg'}
                       alt={image.metadata.original_filename || `Image ${index + 1} of ${images.length}`}
                       className={cn(
-                        "max-w-full max-h-full object-contain transition-opacity duration-300",
-                        isTransitioning && index === selectedIndex ? "opacity-90" : "opacity-100",
-                        imageLoadingStates.get(index) ? "opacity-0" : "opacity-100"
+                        "max-w-full max-h-full object-contain transition-all duration-500 ease-out",
+                        isTransitioning && index === selectedIndex 
+                          ? "opacity-95 scale-[0.98] filter blur-[1px]" 
+                          : "opacity-100 scale-100 filter blur-0",
+                        imageLoadingStates.get(index) ? "opacity-0 scale-95" : "opacity-100 scale-100"
                       )}
                       loading={Math.abs(index - selectedIndex) <= 1 ? 'eager' : 'lazy'}
                       role="img"
@@ -537,18 +625,28 @@ export function Carousel({
 
       {/* Navigation Controls */}
       <div className={cn(
-        "absolute inset-0 pointer-events-none transition-opacity duration-300",
-        showControls ? "opacity-100" : "opacity-0"
+        "absolute inset-0 pointer-events-none transition-all duration-500 ease-out",
+        showControls ? "opacity-100" : "opacity-0",
+        controlsAnimating && "transform scale-[1.02]"
       )}>
         {/* Top Bar */}
-        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/50 to-transparent p-4 pointer-events-auto">
+        <div className={cn(
+          "absolute top-0 left-0 right-0 bg-gradient-to-b from-black/60 via-black/30 to-transparent p-4 pointer-events-auto transition-all duration-300",
+          showControls ? "translate-y-0" : "-translate-y-full"
+        )}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Badge variant="secondary" className="bg-black/50 text-white">
+              <Badge variant="secondary" className={cn(
+                "bg-black/50 text-white border-white/20 transition-all duration-300",
+                isTransitioning && "animate-pulse"
+              )}>
                 {selectedIndex + 1} / {images.length}
               </Badge>
               {currentImage && (
-                <span className="text-white text-sm font-medium">
+                <span className={cn(
+                  "text-white text-sm font-medium transition-all duration-300",
+                  isTransitioning ? "opacity-70 translate-x-1" : "opacity-100 translate-x-0"
+                )}>
                   {currentImage.metadata.original_filename}
                 </span>
               )}
@@ -558,8 +656,12 @@ export function Carousel({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowMetadataOverlay(!showMetadataOverlay)}
-                className="text-white hover:bg-white/20"
+                onClick={toggleMetadataOverlay}
+                className={cn(
+                  "text-white hover:bg-white/20 transition-all duration-200 hover:scale-110",
+                  showMetadataOverlay && "bg-white/20 scale-105",
+                  buttonAnimations.get('metadata') && "animate-pulse scale-95"
+                )}
                 aria-label={showMetadataOverlay ? "Hide image details" : "Show image details"}
                 title="Toggle image details (I key)"
               >
@@ -570,33 +672,37 @@ export function Carousel({
                 variant="ghost"
                 size="sm"
                 onClick={togglePlayPause}
-                className="text-white hover:bg-white/20"
+                className={cn(
+                  "text-white hover:bg-white/20 transition-all duration-200 hover:scale-110",
+                  isPlaying && "bg-white/10",
+                  buttonAnimations.get('playpause') && "animate-pulse scale-95"
+                )}
                 aria-label={isPlaying ? "Pause slideshow" : "Start slideshow"}
                 title={isPlaying ? "Pause slideshow (Space)" : "Start slideshow (Space)"}
               >
                 {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
               
-              {/* Slideshow Speed Control */}
+              {/* Enhanced Slideshow Speed Control */}
               {isPlaying && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 animate-in slide-in-from-right-5 duration-300">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setSlideshowSpeed(Math.max(1000, slideshowSpeed - 1000))}
-                    className="text-white hover:bg-white/20 text-xs px-2"
+                    className="text-white hover:bg-white/20 text-xs px-2 transition-all duration-200 hover:scale-110"
                     title="Slower slideshow"
                   >
                     -
                   </Button>
-                  <span className="text-white text-xs px-1 min-w-[3rem] text-center">
+                  <span className="text-white text-xs px-1 min-w-[3rem] text-center font-mono">
                     {(slideshowSpeed / 1000).toFixed(1)}s
                   </span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setSlideshowSpeed(Math.min(10000, slideshowSpeed + 1000))}
-                    className="text-white hover:bg-white/20 text-xs px-2"
+                    className="text-white hover:bg-white/20 text-xs px-2 transition-all duration-200 hover:scale-110"
                     title="Faster slideshow"
                   >
                     +
@@ -611,8 +717,8 @@ export function Carousel({
                   size="sm"
                   onClick={() => setShowSlideshowProgress(!showSlideshowProgress)}
                   className={cn(
-                    "text-white hover:bg-white/20",
-                    showSlideshowProgress && "bg-white/20"
+                    "text-white hover:bg-white/20 transition-all duration-200 hover:scale-110",
+                    showSlideshowProgress && "bg-white/20 scale-105"
                   )}
                   title="Toggle progress indicator"
                 >
@@ -624,7 +730,10 @@ export function Carousel({
                 variant="ghost"
                 size="sm"
                 onClick={toggleFullscreen}
-                className="text-white hover:bg-white/20"
+                className={cn(
+                  "text-white hover:bg-white/20 transition-all duration-200 hover:scale-110",
+                  buttonAnimations.get('fullscreen') && "animate-pulse scale-95"
+                )}
                 aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
                 title={isFullscreen ? "Exit fullscreen (F)" : "Enter fullscreen (F)"}
               >
@@ -635,7 +744,7 @@ export function Carousel({
                 variant="ghost"
                 size="sm"
                 onClick={onClose}
-                className="text-white hover:bg-white/20"
+                className="text-white hover:bg-white/20 hover:bg-red-500/20 transition-all duration-200 hover:scale-110"
                 aria-label="Close carousel"
                 title="Close carousel (Escape)"
               >
@@ -645,22 +754,34 @@ export function Carousel({
           </div>
         </div>
 
-        {/* Slideshow Progress Indicator */}
+        {/* Enhanced Slideshow Progress Indicator */}
         {isPlaying && showSlideshowProgress && (
-          <div className="absolute top-0 left-0 right-0 h-1 bg-black/30 pointer-events-none">
-            <div 
-              className="h-full bg-white transition-all duration-75 ease-linear"
-              style={{ width: `${slideshowProgress}%` }}
-            />
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-black/40 via-black/20 to-black/40 pointer-events-none">
+            <div className="relative h-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 transition-all duration-100 ease-linear"
+                style={{ width: `${slideshowProgress}%` }}
+              />
+              <div 
+                className="absolute top-0 right-0 h-full w-8 bg-gradient-to-l from-white/40 to-transparent"
+                style={{ transform: `translateX(${slideshowProgress < 90 ? 0 : (slideshowProgress - 90) * 10}px)` }}
+              />
+            </div>
           </div>
         )}
 
-        {/* Navigation Arrows */}
+        {/* Enhanced Navigation Arrows */}
         <Button
           variant="ghost"
           size="lg"
           onClick={scrollPrev}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto transition-all duration-200 hover:scale-110"
+          className={cn(
+            "absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto",
+            "transition-all duration-300 hover:scale-125 hover:shadow-lg hover:shadow-white/20",
+            "backdrop-blur-sm border border-white/10 hover:border-white/30",
+            buttonAnimations.get('prev') && "animate-pulse scale-110",
+            showControls ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
+          )}
           disabled={images.length <= 1}
           aria-label="Previous image"
           title="Previous image (Left arrow key)"
@@ -672,7 +793,13 @@ export function Carousel({
           variant="ghost"
           size="lg"
           onClick={scrollNext}
-          className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto transition-all duration-200 hover:scale-110"
+          className={cn(
+            "absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto",
+            "transition-all duration-300 hover:scale-125 hover:shadow-lg hover:shadow-white/20",
+            "backdrop-blur-sm border border-white/10 hover:border-white/30",
+            buttonAnimations.get('next') && "animate-pulse scale-110",
+            showControls ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
+          )}
           disabled={images.length <= 1}
           aria-label="Next image"
           title="Next image (Right arrow key)"
@@ -680,21 +807,24 @@ export function Carousel({
           <ChevronRight className="h-8 w-8" />
         </Button>
 
-        {/* Bottom Thumbnail Strip */}
+        {/* Enhanced Bottom Thumbnail Strip */}
         {images.length > 1 && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-4 pointer-events-auto">
+          <div className={cn(
+            "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent p-4 pointer-events-auto transition-all duration-300",
+            showControls ? "translate-y-0" : "translate-y-full"
+          )}>
             <div className="flex justify-center">
               <div 
                 ref={thumbnailStripRef}
-                className="flex gap-2 max-w-full overflow-x-auto scrollbar-hide"
+                className="flex gap-3 max-w-full overflow-x-auto scrollbar-hide"
               >
                 {/* Virtual scrolling for large image sets */}
                 {images.length > 20 ? (
                   <>
-                    {/* Show indicator for hidden thumbnails on the left */}
+                    {/* Enhanced indicator for hidden thumbnails on the left */}
                     {thumbnailViewport.start > 0 && (
-                      <div className="flex-shrink-0 w-16 h-16 rounded border-2 border-white/30 flex items-center justify-center">
-                        <span className="text-white/60 text-xs">+{thumbnailViewport.start}</span>
+                      <div className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-white/30 flex items-center justify-center backdrop-blur-sm bg-black/40 transition-all duration-300 hover:border-white/50">
+                        <span className="text-white/80 text-xs font-semibold">+{thumbnailViewport.start}</span>
                       </div>
                     )}
                     
@@ -706,26 +836,28 @@ export function Carousel({
                           key={image.id}
                           onClick={() => scrollTo(actualIndex)}
                           className={cn(
-                            "flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden transition-all",
+                            "flex-shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden transition-all duration-300",
+                            "hover:scale-110 hover:shadow-lg hover:shadow-white/20 backdrop-blur-sm",
                             actualIndex === selectedIndex 
-                              ? "border-white scale-110" 
-                              : "border-white/30 hover:border-white/60"
+                              ? "border-white scale-110 shadow-lg shadow-white/30 ring-2 ring-white/50" 
+                              : "border-white/30 hover:border-white/60",
+                            buttonAnimations.get(`thumb-${actualIndex}`) && "animate-pulse scale-105"
                           )}
                         >
                           <img
                             src={image.signedUrls?.thumbnail || '/placeholder-image.jpg'}
                             alt={image.metadata.original_filename}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-all duration-300 hover:scale-105"
                             loading="lazy"
                           />
                         </button>
                       );
                     })}
                     
-                    {/* Show indicator for hidden thumbnails on the right */}
+                    {/* Enhanced indicator for hidden thumbnails on the right */}
                     {thumbnailViewport.end < images.length && (
-                      <div className="flex-shrink-0 w-16 h-16 rounded border-2 border-white/30 flex items-center justify-center">
-                        <span className="text-white/60 text-xs">+{images.length - thumbnailViewport.end}</span>
+                      <div className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-white/30 flex items-center justify-center backdrop-blur-sm bg-black/40 transition-all duration-300 hover:border-white/50">
+                        <span className="text-white/80 text-xs font-semibold">+{images.length - thumbnailViewport.end}</span>
                       </div>
                     )}
                   </>
@@ -736,16 +868,18 @@ export function Carousel({
                       key={image.id}
                       onClick={() => scrollTo(index)}
                       className={cn(
-                        "flex-shrink-0 w-16 h-16 rounded border-2 overflow-hidden transition-all",
+                        "flex-shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden transition-all duration-300",
+                        "hover:scale-110 hover:shadow-lg hover:shadow-white/20 backdrop-blur-sm",
                         index === selectedIndex 
-                          ? "border-white scale-110" 
-                          : "border-white/30 hover:border-white/60"
+                          ? "border-white scale-110 shadow-lg shadow-white/30 ring-2 ring-white/50" 
+                          : "border-white/30 hover:border-white/60",
+                        buttonAnimations.get(`thumb-${index}`) && "animate-pulse scale-105"
                       )}
                     >
                       <img
                         src={image.signedUrls?.thumbnail || '/placeholder-image.jpg'}
                         alt={image.metadata.original_filename}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-all duration-300 hover:scale-105"
                         loading="lazy"
                       />
                     </button>
@@ -757,49 +891,113 @@ export function Carousel({
         )}
       </div>
 
-      {/* Metadata Overlay */}
+      {/* Enhanced Metadata Overlay */}
       {showMetadataOverlay && currentImage && (
-        <div className="absolute top-20 right-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto bg-black/80 backdrop-blur-sm rounded-lg p-4 pointer-events-auto">
-          <div className="space-y-4 text-white">
-            <h3 className="font-semibold text-lg border-b border-white/20 pb-2">Image Details</h3>
+        <div className={cn(
+          "absolute top-20 right-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto pointer-events-auto",
+          "bg-black/80 backdrop-blur-lg rounded-xl border border-white/20 shadow-2xl",
+          "transition-all duration-500 ease-out",
+          overlayAnimating ? "scale-95 opacity-80" : "scale-100 opacity-100",
+          showMetadataOverlay 
+            ? "translate-x-0 opacity-100" 
+            : "translate-x-full opacity-0"
+        )}>
+          <div className="p-6 space-y-4 text-white">
+            <div className="flex items-center justify-between border-b border-white/20 pb-3">
+              <h3 className="font-semibold text-lg">Image Details</h3>
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            </div>
             
             {/* Basic Info */}
-            <div className="space-y-2">
-              <h4 className="font-medium text-white/90">File Info</h4>
-              <div className="space-y-1 text-sm text-white/80">
-                <div><span className="text-white/60">Name:</span> {currentImage.metadata.original_filename}</div>
-                <div><span className="text-white/60">Size:</span> {currentImage.metadata.file_size ? formatFileSize(currentImage.metadata.file_size) : 'Unknown'}</div>
-                <div><span className="text-white/60">Type:</span> {currentImage.metadata.mime_type || 'Unknown'}</div>
-                <div><span className="text-white/60">Format:</span> {currentImage.metadata.format || 'Unknown'}</div>
+            <div className="space-y-3">
+              <h4 className="font-medium text-white/90 text-sm uppercase tracking-wide">File Info</h4>
+              <div className="space-y-2 text-sm text-white/80">
+                <div className="flex justify-between">
+                  <span className="text-white/60">Name:</span> 
+                  <span className="font-mono text-xs bg-white/10 px-2 py-1 rounded">{currentImage.metadata.original_filename}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Size:</span> 
+                  <span>{currentImage.metadata.file_size ? formatFileSize(currentImage.metadata.file_size) : 'Unknown'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Type:</span> 
+                  <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-xs">{currentImage.metadata.mime_type || 'Unknown'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Format:</span> 
+                  <span>{currentImage.metadata.format || 'Unknown'}</span>
+                </div>
               </div>
             </div>
 
             {/* Dimensions */}
-            <div className="space-y-2">
-              <h4 className="font-medium text-white/90">Dimensions</h4>
-              <div className="space-y-1 text-sm text-white/80">
-                <div><span className="text-white/60">Resolution:</span> {currentImage.metadata.width && currentImage.metadata.height ? `${currentImage.metadata.width}×${currentImage.metadata.height}` : 'Unknown'}</div>
-                <div><span className="text-white/60">Aspect Ratio:</span> {currentImage.metadata.width && currentImage.metadata.height ? (currentImage.metadata.width / currentImage.metadata.height).toFixed(2) : 'Unknown'}</div>
-                <div><span className="text-white/60">Megapixels:</span> {currentImage.metadata.width && currentImage.metadata.height ? ((currentImage.metadata.width * currentImage.metadata.height) / 1000000).toFixed(1) + 'MP' : 'Unknown'}</div>
+            <div className="space-y-3">
+              <h4 className="font-medium text-white/90 text-sm uppercase tracking-wide">Dimensions</h4>
+              <div className="space-y-2 text-sm text-white/80">
+                <div className="flex justify-between">
+                  <span className="text-white/60">Resolution:</span> 
+                  <span className="font-mono">{currentImage.metadata.width && currentImage.metadata.height ? `${currentImage.metadata.width}×${currentImage.metadata.height}` : 'Unknown'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Aspect Ratio:</span> 
+                  <span>{currentImage.metadata.width && currentImage.metadata.height ? (currentImage.metadata.width / currentImage.metadata.height).toFixed(2) : 'Unknown'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Megapixels:</span> 
+                  <span className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs">{currentImage.metadata.width && currentImage.metadata.height ? ((currentImage.metadata.width * currentImage.metadata.height) / 1000000).toFixed(1) + 'MP' : 'Unknown'}</span>
+                </div>
               </div>
             </div>
 
             {/* Upload Info */}
-            <div className="space-y-2">
-              <h4 className="font-medium text-white/90">Upload Info</h4>
-              <div className="space-y-1 text-sm text-white/80">
-                <div><span className="text-white/60">Uploaded:</span> {formatDate(currentImage.created_at)}</div>
-                <div><span className="text-white/60">By:</span> {currentImage.metadata.uploaded_by || 'Unknown'}</div>
-                <div><span className="text-white/60">Position:</span> {selectedIndex + 1} of {images.length}</div>
+            <div className="space-y-3">
+              <h4 className="font-medium text-white/90 text-sm uppercase tracking-wide">Upload Info</h4>
+              <div className="space-y-2 text-sm text-white/80">
+                <div className="flex justify-between">
+                  <span className="text-white/60">Uploaded:</span> 
+                  <span className="text-xs">{formatDate(currentImage.created_at)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">By:</span> 
+                  <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded">{currentImage.metadata.uploaded_by || 'Unknown'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/60">Position:</span> 
+                  <span className="bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded text-xs">{selectedIndex + 1} of {images.length}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Keyboard Shortcuts Help */}
-      <div className="absolute bottom-4 left-4 text-white/60 text-xs pointer-events-none">
-        <div id="carousel-instructions">← → Navigate • Space Play/Pause • I Info • Esc Exit</div>
+      {/* Enhanced Keyboard Shortcuts Help */}
+      <div className={cn(
+        "absolute bottom-4 left-4 text-white/60 text-xs pointer-events-none transition-all duration-300",
+        showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+      )}>
+        <div id="carousel-instructions" className="bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/10">
+          <div className="flex items-center gap-4 text-xs">
+            <span className="flex items-center gap-1">
+              <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">←</kbd>
+              <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">→</kbd>
+              Navigate
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">Space</kbd>
+              Play/Pause
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">I</kbd>
+              Info
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">Esc</kbd>
+              Exit
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Screen Reader Current Image Info */}
