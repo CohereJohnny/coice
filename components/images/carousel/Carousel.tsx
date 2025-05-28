@@ -163,31 +163,22 @@ export function Carousel({
       {/* Main Carousel */}
       <div className="relative w-full h-full overflow-hidden">
         <CarouselTouchHandler
-          onSwipe={(direction) => {
-            if (direction === 'left') handleNext();
-            else handlePrevious();
-          }}
-          onZoom={carouselState.handleZoom}
-          onPan={carouselState.handlePan}
-          isZoomed={carouselState.isZoomed}
-          zoomLevel={carouselState.zoomLevel}
+          onSwipeLeft={handleNext}
+          onSwipeRight={handlePrevious}
         >
           <div className="embla__viewport h-full w-full" ref={emblaRef}>
             <div className="flex h-full">
               {images.map((image, index) => (
-                <div key={image.id} className="flex-[0_0_100%] min-w-0 relative">
+                <div key={image.id} className="flex-[0_0_100%] min-w-0 relative h-full">
                   <CarouselImage
                     image={image}
                     index={index}
-                    isSelected={index === carouselState.selectedIndex}
-                    isZoomed={carouselState.isZoomed}
+                    isActive={index === carouselState.selectedIndex}
                     zoomLevel={carouselState.zoomLevel}
-                    zoomCenter={carouselState.zoomCenter}
                     panOffset={carouselState.panOffset}
-                    onLoad={() => {}}
-                    onError={() => {}}
-                    onZoom={carouselState.handleZoom}
-                    onPan={carouselState.handlePan}
+                    onImageLoad={() => {}}
+                    onImageError={() => {}}
+                    className="w-full h-full"
                   />
                 </div>
               ))}
@@ -198,27 +189,24 @@ export function Carousel({
 
       {/* Controls */}
       <CarouselControls
+        onClose={onClose}
         isPlaying={carouselState.isPlaying}
-        onPlayPause={handlePlayPause}
+        onToggleSlideshow={handlePlayPause}
         showMetadata={carouselState.showMetadata}
         onToggleMetadata={carouselState.toggleMetadata}
-        onClose={onClose}
-        slideshowSpeed={carouselState.slideshowSpeed}
-        onSpeedChange={carouselState.setSlideshowSpeed}
-        showProgress={carouselState.showSlideshowProgress}
-        onToggleProgress={() => carouselState.setShowSlideshowProgress(!carouselState.showSlideshowProgress)}
-        progress={carouselState.slideshowProgress}
+        isFullscreen={false}
+        onToggleFullscreen={() => {}}
+        currentImage={currentImage}
         isMobile={isMobile}
       />
 
       {/* Navigation */}
       <CarouselNavigation
         images={images}
-        selectedIndex={carouselState.selectedIndex}
-        onPrevious={handlePrevious}
-        onNext={handleNext}
-        onSelect={handleGoToImage}
-        showControls={carouselState.showControls}
+        currentIndex={carouselState.selectedIndex}
+        onNavigate={handleGoToImage}
+        showThumbnails={true}
+        showArrows={true}
         isMobile={isMobile}
       />
 
@@ -226,10 +214,7 @@ export function Carousel({
       <CarouselMetadata
         image={currentImage}
         isVisible={carouselState.showMetadata}
-        selectedIndex={carouselState.selectedIndex}
-        totalImages={images.length}
         isMobile={isMobile}
-        onClose={() => carouselState.toggleMetadata()}
       />
 
       {/* Accessibility */}

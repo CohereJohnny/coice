@@ -136,7 +136,7 @@ export function CarouselImage({
     <div
       ref={containerRef}
       className={cn(
-        "relative flex items-center justify-center h-full overflow-hidden",
+        "relative w-full h-full flex items-center justify-center overflow-hidden",
         "cursor-zoom-in",
         zoomLevel > 1 && "cursor-grab",
         className
@@ -146,20 +146,20 @@ export function CarouselImage({
     >
       {/* Loading skeleton */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
           <div className="text-center">
-            <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Loading image...</p>
+            <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin text-white" />
+            <p className="text-sm text-white/70">Loading image...</p>
           </div>
         </div>
       )}
 
       {/* Error state */}
       {hasError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="text-center">
-            <AlertCircle className="w-12 h-12 mx-auto mb-2 text-destructive" />
-            <p className="text-sm text-muted-foreground mb-3">
+            <AlertCircle className="w-12 h-12 mx-auto mb-2 text-red-400" />
+            <p className="text-sm text-white/70 mb-3">
               Failed to load image
             </p>
             {retryCount < maxRetries && (
@@ -167,7 +167,7 @@ export function CarouselImage({
                 variant="outline"
                 size="sm"
                 onClick={handleRetry}
-                className="gap-2"
+                className="gap-2 bg-white/10 border-white/20 text-white hover:bg-white/20"
               >
                 <RotateCcw className="w-4 h-4" />
                 Retry
@@ -177,7 +177,7 @@ export function CarouselImage({
         </div>
       )}
 
-      {/* Main image */}
+      {/* Main image - properly centered with flex and visual offset */}
       <img
         ref={imageRef}
         src={imageUrl}
@@ -188,7 +188,7 @@ export function CarouselImage({
           hasError && "hidden"
         )}
         style={{
-          transform: `scale(${zoomLevel}) translate(${panOffset.x}px, ${panOffset.y}px)`,
+          transform: `translateY(48px) scale(${zoomLevel}) translate(${panOffset.x}px, ${panOffset.y}px)`,
           transformOrigin: 'center center'
         }}
         onLoad={handleImageLoad}
