@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import ImageUpload from '@/components/images/ImageUpload';
+import CardView from '@/components/images/CardView';
+import ListView from '@/components/images/ListView';
+import ViewSwitcher, { ViewMode, GridSize, SortOption, SortDirection } from '@/components/images/ViewSwitcher';
 import { Grid, List, Download, Trash2, Eye, Calendar, FileImage, HardDrive } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -58,10 +61,20 @@ interface LibraryDetailClientProps {
 export default function LibraryDetailClient({ libraryId }: LibraryDetailClientProps) {
   const [library, setLibrary] = useState<Library | null>(null);
   const [images, setImages] = useState<Image[]>([]);
+  const [filteredImages, setFilteredImages] = useState<Image[]>([]);
   const [loading, setLoading] = useState(true);
   const [imagesLoading, setImagesLoading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  
+  // View state
+  const [viewMode, setViewMode] = useState<ViewMode>('card');
+  const [gridSize, setGridSize] = useState<GridSize>('medium');
+  const [sortBy, setSortBy] = useState<SortOption>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showMetadata, setShowMetadata] = useState(true);
+  const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
+  
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -76,6 +89,58 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
       fetchImages();
     }
   }, [library, page]);
+
+  // Filter and sort images
+  useEffect(() => {
+    let filtered = [...images];
+
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(image =>
+        image.metadata.original_filename?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        image.metadata.mime_type?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (sortBy) {
+        case 'name':
+          aValue = a.metadata.original_filename || '';
+          bValue = b.metadata.original_filename || '';
+          break;
+        case 'size':
+          aValue = a.metadata.file_size || 0;
+          bValue = b.metadata.file_size || 0;
+          break;
+        case 'date':
+          aValue = new Date(a.created_at).getTime();
+          bValue = new Date(b.created_at).getTime();
+          break;
+        case 'dimensions':
+          aValue = (a.metadata.width || 0) * (a.metadata.height || 0);
+          bValue = (b.metadata.width || 0) * (b.metadata.height || 0);
+          break;
+        default:
+          aValue = a.created_at;
+          bValue = b.created_at;
+      }
+
+      if (typeof aValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      } else {
+        return sortDirection === 'asc' 
+          ? aValue - bValue
+          : bValue - aValue;
+      }
+    });
+
+    setFilteredImages(filtered);
+  }, [images, searchQuery, sortBy, sortDirection]);
 
   const fetchLibraryInfo = async () => {
     try {
@@ -100,7 +165,7 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
     setImagesLoading(true);
     try {
       const response = await fetch(
-        `/api/images?libraryId=${library.id}&catalogId=${library.catalog_id}&page=${page}&limit=20`
+        `/api/images?libraryId=${library.id}&catalogId=${library.catalog_id}&page=${page}&limit=100`
       );
       
       if (response.ok) {
@@ -133,6 +198,11 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
       if (response.ok) {
         toast.success('Image deleted successfully');
         fetchImages(); // Refresh the images list
+        setSelectedImages(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(imageId);
+          return newSet;
+        });
       } else {
         const error = await response.json();
         toast.error(error.error || 'Failed to delete image');
@@ -169,6 +239,59 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
     }
   };
 
+  const handleImageSelect = useCallback((imageId: number, selected: boolean) => {
+    setSelectedImages(prev => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(imageId);
+      } else {
+        newSet.delete(imageId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const handleBulkDownload = async () => {
+    const selectedImageList = filteredImages.filter(img => selectedImages.has(img.id));
+    
+    if (selectedImageList.length === 0) {
+      toast.error('No images selected');
+      return;
+    }
+
+    toast.info(`Downloading ${selectedImageList.length} images...`);
+    
+    for (const image of selectedImageList) {
+      await handleDownloadImage(image);
+      // Add small delay to avoid overwhelming the browser
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    toast.success(`Downloaded ${selectedImageList.length} images`);
+  };
+
+  const handleBulkDelete = async () => {
+    const selectedImageList = filteredImages.filter(img => selectedImages.has(img.id));
+    
+    if (selectedImageList.length === 0) {
+      toast.error('No images selected');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedImageList.length} images?`)) {
+      return;
+    }
+
+    toast.info(`Deleting ${selectedImageList.length} images...`);
+    
+    for (const image of selectedImageList) {
+      await handleDeleteImage(image.id);
+    }
+    
+    setSelectedImages(new Set());
+    toast.success(`Deleted ${selectedImageList.length} images`);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -195,7 +318,7 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{library.name}</h1>
           <p className="text-muted-foreground">
-            {library.catalogs.name} • {images.length} images
+            {library.catalogs.name} • {filteredImages.length} of {images.length} images
           </p>
           {library.description && (
             <p className="text-sm text-muted-foreground mt-1">{library.description}</p>
@@ -220,158 +343,73 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
         </div>
       )}
 
+      {/* View Controls */}
+      <ViewSwitcher
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        gridSize={gridSize}
+        onGridSizeChange={setGridSize}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
+        sortDirection={sortDirection}
+        onSortDirectionChange={setSortDirection}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        selectedCount={selectedImages.size}
+        onBulkDownload={handleBulkDownload}
+        onBulkDelete={handleBulkDelete}
+        showMetadata={showMetadata}
+        onShowMetadataChange={setShowMetadata}
+      />
+
       {/* Images Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Images</h2>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {imagesLoading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          </div>
-        ) : images.length === 0 ? (
-          <div className="text-center py-12 border-2 border-dashed rounded-lg">
-            <FileImage className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No images in this library</p>
-            <p className="text-sm text-muted-foreground">Upload some images to get started</p>
-          </div>
+        {viewMode === 'card' ? (
+          <CardView
+            images={filteredImages}
+            loading={imagesLoading}
+            selectedImages={selectedImages}
+            onImageSelect={handleImageSelect}
+            onImageDownload={handleDownloadImage}
+            onImageDelete={handleDeleteImage}
+            gridSize={gridSize}
+            showMetadata={showMetadata}
+          />
         ) : (
-          <>
-            {viewMode === 'grid' ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                {images.map((image) => (
-                  <div key={image.id} className="group relative aspect-square border rounded-lg overflow-hidden bg-muted">
-                    {image.signedUrls?.thumbnail || image.signedUrls?.original ? (
-                      <img
-                        src={image.signedUrls.thumbnail || image.signedUrls.original}
-                        alt={image.metadata.original_filename || 'Image'}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Eye className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                    )}
-                    
-                    {/* Overlay with actions */}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleDownloadImage(image)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteImage(image.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {images.map((image) => (
-                  <div key={image.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                    <div className="w-16 h-16 border rounded overflow-hidden bg-muted flex-shrink-0">
-                      {image.signedUrls?.thumbnail || image.signedUrls?.original ? (
-                        <img
-                          src={image.signedUrls.thumbnail || image.signedUrls.original}
-                          alt={image.metadata.original_filename || 'Image'}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Eye className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">
-                        {image.metadata.original_filename || 'Unknown'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {image.metadata.width && image.metadata.height 
-                          ? `${image.metadata.width}×${image.metadata.height}`
-                          : 'Unknown dimensions'
-                        }
-                        {image.metadata.file_size && (
-                          <> • {Math.round(image.metadata.file_size / 1024)} KB</>
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(image.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownloadImage(image)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteImage(image.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <ListView
+            images={filteredImages}
+            loading={imagesLoading}
+            selectedImages={selectedImages}
+            onImageSelect={handleImageSelect}
+            onImageDownload={handleDownloadImage}
+            onImageDelete={handleDeleteImage}
+            pageSize={20}
+          />
+        )}
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 pt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Page {page} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            )}
-          </>
+        {/* Pagination for Card view */}
+        {viewMode === 'card' && totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              Next
+            </Button>
+          </div>
         )}
       </div>
     </div>
