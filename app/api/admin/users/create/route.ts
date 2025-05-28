@@ -1,9 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
+    
+    // Create a service role client for admin operations
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json({ error: 'Service role key not configured' }, { status: 500 });
+    }
+    
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
     
     // Get current user and verify admin role
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -34,8 +52,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
-    // Create the user using Supabase Auth Admin API
-    const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+    // Create the user using Supabase Auth Admin API with service role
+    const { data: newUser, error: createError } = await adminSupabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true, // Auto-confirm email
@@ -72,7 +90,7 @@ export async function POST(request: NextRequest) {
     if (profileCreateError) {
       console.error('Error creating profile:', profileCreateError);
       // Try to clean up the auth user if profile creation failed
-      await supabase.auth.admin.deleteUser(newUser.user.id);
+      await adminSupabase.auth.admin.deleteUser(newUser.user.id);
       return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 });
     }
 
