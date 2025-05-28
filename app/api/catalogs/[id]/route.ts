@@ -27,8 +27,7 @@ export async function GET(
         name,
         description,
         created_at,
-        user_id,
-        profiles!catalogs_user_id_fkey(display_name, email)
+        user_id
       `)
       .eq('id', catalogId)
       .single();
@@ -41,7 +40,19 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to fetch catalog' }, { status: 500 });
     }
 
-    return NextResponse.json({ catalog });
+    // Manually fetch profile data
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('display_name, email')
+      .eq('id', catalog.user_id)
+      .single();
+
+    const catalogWithProfile = {
+      ...catalog,
+      profiles: profile
+    };
+
+    return NextResponse.json({ catalog: catalogWithProfile });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -114,8 +125,7 @@ export async function PUT(
         name,
         description,
         created_at,
-        user_id,
-        profiles!catalogs_user_id_fkey(display_name, email)
+        user_id
       `)
       .single();
 
@@ -124,7 +134,19 @@ export async function PUT(
       return NextResponse.json({ error: 'Failed to update catalog' }, { status: 500 });
     }
 
-    return NextResponse.json({ catalog });
+    // Manually fetch profile data
+    const { data: updatedProfile } = await supabase
+      .from('profiles')
+      .select('display_name, email')
+      .eq('id', catalog.user_id)
+      .single();
+
+    const catalogWithProfile = {
+      ...catalog,
+      profiles: updatedProfile
+    };
+
+    return NextResponse.json({ catalog: catalogWithProfile });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

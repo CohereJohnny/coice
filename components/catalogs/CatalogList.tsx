@@ -117,7 +117,25 @@ export function CatalogList({
                 <div className="flex items-center gap-2 mt-1">
                   <Badge variant="secondary" className="text-xs">
                     <User className="w-3 h-3 mr-1" />
-                    {catalog.profiles?.display_name || catalog.profiles?.email || 'Unknown'}
+                    {(() => {
+                      // Handle different possible data structures
+                      const profiles = catalog.profiles;
+                      
+                      // If profiles is an array (from foreign key join), take the first item
+                      if (Array.isArray(profiles) && profiles.length > 0) {
+                        const profile = profiles[0];
+                        return profile.display_name || profile.email || 'Unknown';
+                      }
+                      
+                      // If profiles is an object (direct join)
+                      if (profiles && typeof profiles === 'object') {
+                        return profiles.display_name || profiles.email || 'Unknown';
+                      }
+                      
+                      // Fallback
+                      console.log('Catalog profile data:', { catalogId: catalog.id, profiles });
+                      return 'Unknown';
+                    })()}
                   </Badge>
                 </div>
               </div>

@@ -160,31 +160,31 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
     return (
       <div key={library.id}>
         <div className={`group relative ${paddingLeft}`}>
-          <Button
-            variant={isActive ? "secondary" : "ghost"}
-            size="sm"
-            className="w-full justify-start h-8 px-2"
+          <div
+            className={`flex items-center h-8 px-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${
+              isActive ? 'bg-gray-100 dark:bg-gray-700' : ''
+            }`}
             onContextMenu={(e) => handleContextMenu(e, 'library', library.id)}
           >
+            {hasChildren && !isCollapsed && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleLibrary(library.id);
+                }}
+                className="mr-1 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )}
+              </button>
+            )}
+            {!hasChildren && !isCollapsed && <div className="w-4 mr-1" />}
+            
             <Link href={`/libraries/${library.id}`} className="flex items-center flex-1">
-              {hasChildren && !isCollapsed && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    toggleLibrary(library.id);
-                  }}
-                  className="mr-1 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-                >
-                  {isExpanded ? (
-                    <ChevronDown className="h-3 w-3" />
-                  ) : (
-                    <ChevronRight className="h-3 w-3" />
-                  )}
-                </button>
-              )}
-              {!hasChildren && !isCollapsed && <div className="w-4 mr-1" />}
-              
               {isExpanded || hasChildren ? (
                 <FolderOpen className="h-4 w-4 mr-2 flex-shrink-0" />
               ) : (
@@ -195,7 +195,7 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
                 <span className="truncate text-sm">{library.name}</span>
               )}
             </Link>
-          </Button>
+          </div>
         </div>
         
         {hasChildren && isExpanded && !isCollapsed && (
@@ -228,38 +228,37 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
           
           return (
             <div key={catalog.id}>
-              <Button
-                variant={isActive ? "secondary" : "ghost"}
-                size="sm"
-                className="w-full justify-start h-8 px-2"
-                onClick={() => !isCollapsed && toggleCatalog(catalog.id)}
+              <div
+                className={`flex items-center h-8 px-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                  isActive ? 'bg-gray-100 dark:bg-gray-700' : ''
+                }`}
                 onContextMenu={(e) => handleContextMenu(e, 'catalog', catalog.id)}
               >
+                {!isCollapsed && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleCatalog(catalog.id);
+                    }}
+                    className="mr-1 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-3 w-3" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3" />
+                    )}
+                  </button>
+                )}
+                
                 <Link href={`/catalogs/${catalog.id}`} className="flex items-center flex-1">
-                  {!isCollapsed && (
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleCatalog(catalog.id);
-                      }}
-                      className="mr-1 p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="h-3 w-3" />
-                      ) : (
-                        <ChevronRight className="h-3 w-3" />
-                      )}
-                    </button>
-                  )}
-                  
                   <FolderOpen className="h-4 w-4 mr-2 flex-shrink-0" />
                   
                   {!isCollapsed && (
                     <span className="truncate font-medium">{catalog.name}</span>
                   )}
                 </Link>
-              </Button>
+              </div>
               
               {isExpanded && !isCollapsed && (
                 <div className="ml-2">

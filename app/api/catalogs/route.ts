@@ -19,8 +19,7 @@ export async function GET(request: NextRequest) {
         name,
         description,
         created_at,
-        user_id,
-        profiles!catalogs_user_id_fkey(display_name, email)
+        user_id
       `)
       .order('created_at', { ascending: false });
 
@@ -29,7 +28,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch catalogs' }, { status: 500 });
     }
 
-    return NextResponse.json({ catalogs });
+    // Manually fetch profile data for each catalog
+    const catalogsWithProfiles = await Promise.all(
+      (catalogs || []).map(async (catalog) => {
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('display_name, email')
+            .eq('id', catalog.user_id)
+            .single();
+          
+          return {
+            ...catalog,
+            profiles: profile
+          };
+        } catch (profileError) {
+          console.error('Error fetching profile for catalog:', catalog.id, profileError);
+          return {
+            ...catalog,
+            profiles: null
+          };
+        }
+      })
+    );
+
+    return NextResponse.json({ catalogs: catalogsWithProfiles });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -90,8 +113,7 @@ export async function POST(request: NextRequest) {
         name,
         description,
         created_at,
-        user_id,
-        profiles!catalogs_user_id_fkey(display_name, email)
+        user_id
       `)
       .single();
 
@@ -100,7 +122,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create catalog' }, { status: 500 });
     }
 
-    return NextResponse.json({ catalog }, { status: 201 });
+    // Manually fetch profile data
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('display_name, email')
+      .eq('id', user.id)
+      .single();
+
+    const catalogWithProfile = {
+      ...catalog,
+      profiles: userProfile
+    };
+
+    return NextResponse.json({ catalog: catalogWithProfile }, { status: 201 });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

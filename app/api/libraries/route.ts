@@ -22,13 +22,7 @@ export async function GET(request: NextRequest) {
         description,
         parent_id,
         catalog_id,
-        created_at,
-        catalogs!libraries_catalog_id_fkey(
-          id,
-          name,
-          user_id,
-          profiles!catalogs_user_id_fkey(display_name, email)
-        )
+        created_at
       `)
       .order('name');
 
@@ -48,17 +42,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch libraries' }, { status: 500 });
     }
 
+    // Manually fetch catalog information for each library
+    const librariesWithCatalogs = await Promise.all(
+      (libraries || []).map(async (library) => {
+        try {
+          const { data: catalog } = await supabase
+            .from('catalogs')
+            .select('id, name')
+            .eq('id', library.catalog_id)
+            .single();
+          
+          return {
+            ...library,
+            catalog: catalog
+          };
+        } catch (catalogError) {
+          console.error('Error fetching catalog for library:', library.id, catalogError);
+          return {
+            ...library,
+            catalog: null
+          };
+        }
+      })
+    );
+
     // Build hierarchy structure
     const libraryMap = new Map();
     const rootLibraries: any[] = [];
 
     // First pass: create map of all libraries
-    libraries?.forEach(library => {
+    librariesWithCatalogs?.forEach(library => {
       libraryMap.set(library.id, { ...library, children: [] });
     });
 
     // Second pass: build hierarchy
-    libraries?.forEach(library => {
+    librariesWithCatalogs?.forEach(library => {
       if (library.parent_id) {
         const parent = libraryMap.get(library.parent_id);
         if (parent) {
@@ -176,13 +194,7 @@ export async function POST(request: NextRequest) {
         description,
         parent_id,
         catalog_id,
-        created_at,
-        catalogs!libraries_catalog_id_fkey(
-          id,
-          name,
-          user_id,
-          profiles!catalogs_user_id_fkey(display_name, email)
-        )
+        created_at
       `)
       .single();
 
@@ -191,7 +203,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create library' }, { status: 500 });
     }
 
-    return NextResponse.json({ library }, { status: 201 });
+    // Manually fetch catalog information
+    const { data: libraryCatalog } = await supabase
+      .from('catalogs')
+      .select('id, name')
+      .eq('id', library.catalog_id)
+      .single();
+
+    const libraryWithCatalog = {
+      ...library,
+      catalog: libraryCatalog
+    };
+
+    return NextResponse.json({ library: libraryWithCatalog }, { status: 201 });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

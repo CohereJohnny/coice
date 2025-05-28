@@ -1,22 +1,32 @@
 'use client'
 
 import Link from 'next/link'
-import { useAuth } from '@/lib/stores/auth'
+import { useAuth, useAuthActions } from '@/lib/stores/auth'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
+import { createSupabaseClient } from '@/lib/supabase'
 
 export function Navbar() {
   const { user, profile, isAuthenticated } = useAuth()
+  const { reset } = useAuthActions()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
 
   const handleSignOut = async () => {
     try {
-      // Clear client-side storage first
+      const supabase = createSupabaseClient()
+      
+      // Sign out from Supabase first
+      await supabase.auth.signOut()
+      
+      // Reset auth store
+      reset()
+      
+      // Clear all client-side storage
       localStorage.clear()
       sessionStorage.clear()
       
-      // Try to call the logout API
+      // Try to call the logout API to clear server-side session
       try {
         await fetch('/api/auth/logout', {
           method: 'POST',
@@ -30,6 +40,7 @@ export function Navbar() {
     } catch (error) {
       console.error('Sign out error:', error)
       // Force logout anyway
+      reset()
       localStorage.clear()
       sessionStorage.clear()
       window.location.href = '/auth/login'

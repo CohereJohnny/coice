@@ -10,7 +10,7 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { setUser, setProfile, setLoading, setInitialized } = useAuthActions()
+  const { setUser, setProfile, setLoading, setInitialized, reset } = useAuthActions()
   
   useEffect(() => {
     console.log('AuthProvider: Starting initialization')
@@ -29,6 +29,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setInitialized(true)
     }
 
+    // Validate session with server to check for sync issues
+    const validateSessionWithServer = async () => {
+      try {
+        const response = await fetch('/api/auth/debug')
+        const serverAuth = await response.json()
+        return serverAuth
+      } catch (error) {
+        console.error('AuthProvider: Failed to validate session with server:', error)
+        return null
+      }
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -39,13 +51,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         if (error) {
           console.error('AuthProvider: Error getting session:', error)
-          setUser(null)
-          setProfile(null)
+          reset() // Clear persisted state
           finishInit()
           return
         }
         
-        console.log('AuthProvider: Session result:', { hasSession: !!session, userEmail: session?.user?.email })
+        console.log('AuthProvider: Client session result:', { hasSession: !!session, userEmail: session?.user?.email })
+        
+        // Validate with server to check for sync issues
+        const serverAuth = await validateSessionWithServer()
+        console.log('AuthProvider: Server auth state:', serverAuth)
+        
+        // Check for sync mismatch
+        const clientHasSession = !!session?.user
+        const serverHasSession = !!serverAuth?.user
+        
+        if (clientHasSession !== serverHasSession) {
+          console.warn('AuthProvider: Session sync mismatch detected!', {
+            client: clientHasSession,
+            server: serverHasSession
+          })
+          
+          // If server says no session but client thinks there is one, clear client state
+          if (clientHasSession && !serverHasSession) {
+            console.log('AuthProvider: Clearing client state due to server mismatch')
+            await supabase.auth.signOut()
+            reset()
+            finishInit()
+            return
+          }
+        }
         
         if (session?.user) {
           console.log('AuthProvider: Setting user from session')
@@ -78,8 +113,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
       } catch (error) {
         console.error('AuthProvider: Error in getInitialSession:', error)
-        setUser(null)
-        setProfile(null)
+        reset() // Clear persisted state on error
       } finally {
         console.log('AuthProvider: Initialization complete, setting loading=false, initialized=true')
         clearTimeout(initTimeout)
@@ -96,7 +130,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.log('AuthProvider: Auth state changed:', event, session?.user?.email)
         
         try {
-          if (session?.user) {
+          if (event === 'SIGNED_OUT' || !session?.user) {
+            console.log('AuthProvider: User signed out, clearing all state')
+            setUser(null)
+            setProfile(null)
+            // Clear any persisted auth data
+            localStorage.removeItem('auth-storage')
+            sessionStorage.clear()
+          } else if (session?.user) {
             setUser(session.user)
             
             // Fetch user profile
@@ -113,10 +154,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
               console.log('AuthProvider: Profile updated on auth change:', profileData.email)
               setProfile(profileData)
             }
-          } else {
-            console.log('AuthProvider: Clearing user state on auth change')
-            setUser(null)
-            setProfile(null)
           }
         } catch (error) {
           console.error('AuthProvider: Error in auth state change handler:', error)
@@ -131,7 +168,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       clearTimeout(initTimeout)
       subscription.unsubscribe()
     }
-  }, [setUser, setProfile, setLoading, setInitialized])
+  }, [setUser, setProfile, setLoading, setInitialized, reset])
   
   return <>{children}</>
 } 
