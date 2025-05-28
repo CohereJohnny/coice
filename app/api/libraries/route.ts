@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     // Build hierarchy structure
     const libraryMap = new Map();
-    const rootLibraries: any[] = [];
+    const rootLibraries: Array<Record<string, unknown>> = [];
 
     // First pass: create map of all libraries
     librariesWithCatalogs?.forEach(library => {
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify catalog exists and user has access
-    const { data: catalog, error: catalogError } = await supabase
+    const { error: catalogError } = await supabase
       .from('catalogs')
       .select('id, name')
       .eq('id', catalog_id)
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     // If parent_id is provided, verify it exists and belongs to the same catalog
     if (parent_id) {
-      const { data: parentLibrary, error: parentError } = await supabase
+      const { error: parentError } = await supabase
         .from('libraries')
         .select('id, catalog_id')
         .eq('id', parent_id)

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const supabase = await createSupabaseServerClient();
     
@@ -28,29 +28,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch catalogs' }, { status: 500 });
     }
 
-    // Manually fetch profile data for each catalog
-    const catalogsWithProfiles = await Promise.all(
-      (catalogs || []).map(async (catalog) => {
-        try {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('display_name, email')
-            .eq('id', catalog.user_id)
-            .single();
-          
-          return {
-            ...catalog,
-            profiles: profile
-          };
-        } catch (profileError) {
-          console.error('Error fetching profile for catalog:', catalog.id, profileError);
-          return {
-            ...catalog,
-            profiles: null
-          };
-        }
-      })
-    );
+    // Fetch profile data for each catalog owner
+    const profilePromises = catalogs.map(async (catalog) => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('display_name, email')
+        .eq('id', catalog.user_id)
+        .single();
+      
+      return {
+        ...catalog,
+        profiles: profile
+      };
+    });
+
+    const catalogsWithProfiles = await Promise.all(profilePromises);
 
     return NextResponse.json({ catalogs: catalogsWithProfiles });
   } catch (error) {

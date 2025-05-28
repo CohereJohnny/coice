@@ -8,8 +8,26 @@ export async function PUT(
 ) {
   try {
     const supabase = await createSupabaseServerClient();
-    const { role } = await request.json();
+    
+    // Get current user and verify admin role
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile || profile.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
     const { id } = await params;
+    const body = await request.json();
+    const { role } = body;
     
     // Create admin client for operations that need to bypass RLS
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -28,23 +46,6 @@ export async function PUT(
       }
     );
     
-    // Get current user and verify admin role
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get user profile to check role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
-
     // Validate role
     if (!['admin', 'manager', 'end_user'].includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
@@ -76,6 +77,23 @@ export async function DELETE(
 ) {
   try {
     const supabase = await createSupabaseServerClient();
+    
+    // Get current user and verify admin role
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile || profile.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
     const { id } = await params;
     
     // Create admin client for operations that need to bypass RLS
@@ -95,38 +113,21 @@ export async function DELETE(
       }
     );
     
-    // Get current user and verify admin role
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get user profile to check role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
-
     // Prevent self-deletion
     if (user.id === id) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
     }
 
     // Check if user exists using admin client
-    const { data: targetUser, error: userError } = await adminSupabase
+    const { data: targetUser, error: checkUserError } = await adminSupabase
       .from('profiles')
       .select('id, email')
       .eq('id', id)
       .single();
 
-    if (userError) {
-      console.error('Error checking user existence:', userError);
-      return NextResponse.json({ error: 'Failed to check user existence', details: userError.message }, { status: 500 });
+    if (checkUserError) {
+      console.error('Error checking user existence:', checkUserError);
+      return NextResponse.json({ error: 'Failed to check user existence', details: checkUserError.message }, { status: 500 });
     }
 
     if (!targetUser) {

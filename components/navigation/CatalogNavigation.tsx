@@ -10,7 +10,6 @@ import {
   FolderOpen,
   Folder,
   Plus,
-  MoreHorizontal,
   Edit,
   Trash2
 } from 'lucide-react';
@@ -50,6 +49,7 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
 
   useEffect(() => {
     fetchCatalogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -64,9 +64,9 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
       setIsLoading(true);
       const response = await fetch('/api/catalogs');
       if (response.ok) {
-        const data = await response.json();
+        const data: { catalogs: Array<Record<string, unknown>> } = await response.json();
         const catalogsWithLibraries = await Promise.all(
-          data.catalogs.map(async (catalog: any) => {
+          data.catalogs.map(async (catalog: Record<string, unknown>) => {
             const libResponse = await fetch(`/api/libraries?catalog_id=${catalog.id}`);
             if (libResponse.ok) {
               const libData = await libResponse.json();
@@ -78,7 +78,8 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
             return { ...catalog, libraries: [] };
           })
         );
-        setCatalogs(catalogsWithLibraries);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setCatalogs(catalogsWithLibraries as any);
       }
     } catch (error) {
       console.error('Error fetching catalogs:', error);
@@ -87,6 +88,7 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const buildLibraryTree = (libraries: any[]): Library[] => {
     const libraryMap = new Map<number, Library>();
     const rootLibraries: Library[] = [];

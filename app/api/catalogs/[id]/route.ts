@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -14,7 +14,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const catalogId = parseInt(params.id);
+    const { id } = await params;
+    const catalogId = parseInt(id);
     if (isNaN(catalogId)) {
       return NextResponse.json({ error: 'Invalid catalog ID' }, { status: 400 });
     }
@@ -61,7 +62,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -72,7 +73,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const catalogId = parseInt(params.id);
+    const { id } = await params;
+    const catalogId = parseInt(id);
     if (isNaN(catalogId)) {
       return NextResponse.json({ error: 'Invalid catalog ID' }, { status: 400 });
     }
@@ -86,7 +88,7 @@ export async function PUT(
     }
 
     // Check if catalog exists and user has permission to update it
-    const { data: existingCatalog, error: fetchError } = await supabase
+    const { error: fetchError } = await supabase
       .from('catalogs')
       .select('id, name, user_id')
       .eq('id', catalogId)
@@ -155,7 +157,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -166,9 +168,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const catalogId = parseInt(params.id);
+    const { id } = await params;
+    const catalogId = parseInt(id);
     if (isNaN(catalogId)) {
       return NextResponse.json({ error: 'Invalid catalog ID' }, { status: 400 });
+    }
+
+    // Check if catalog exists and user has permission to delete it
+    const { data: catalog, error: fetchError } = await supabase
+      .from('catalogs')
+      .select('id, name, user_id')
+      .eq('id', catalogId)
+      .single();
+
+    if (fetchError || !catalog) {
+      return NextResponse.json({ error: 'Catalog not found' }, { status: 404 });
     }
 
     // Check if catalog has libraries

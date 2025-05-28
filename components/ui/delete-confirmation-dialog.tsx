@@ -16,9 +16,8 @@ interface DeleteConfirmationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
-  title: string;
-  description: string;
-  itemName?: string;
+  title?: string;
+  itemName: string;
   isLoading?: boolean;
   warningMessage?: string;
 }
@@ -27,11 +26,10 @@ export function DeleteConfirmationDialog({
   open,
   onOpenChange,
   onConfirm,
-  title,
-  description,
+  title = "Are you absolutely sure?",
   itemName,
   isLoading = false,
-  warningMessage
+  warningMessage,
 }: DeleteConfirmationDialogProps) {
   const handleConfirm = () => {
     onConfirm();
@@ -51,11 +49,8 @@ export function DeleteConfirmationDialog({
             </AlertDialogTitle>
           </div>
           <AlertDialogDescription className="text-left">
-            {description}
-            {itemName && (
-              <span className="font-medium text-foreground"> "{itemName}"</span>
-            )}
-            ?
+            This action cannot be undone. This will permanently delete the item 
+            &quot;{itemName}&quot; and remove all associated data.
           </AlertDialogDescription>
           {warningMessage && (
             <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">

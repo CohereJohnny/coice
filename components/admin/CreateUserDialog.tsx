@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { 
@@ -19,7 +18,7 @@ import { UserPlus } from 'lucide-react';
 interface CreateUserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUserCreated: (user: any) => void;
+  onUserCreated: (user: Record<string, unknown>) => void;
 }
 
 export function CreateUserDialog({ open, onOpenChange, onUserCreated }: CreateUserDialogProps) {
@@ -51,7 +50,7 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated }: CreateUs
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data: { user: Record<string, unknown> } = await response.json();
         onUserCreated(data.user);
         onOpenChange(false);
         setFormData({
@@ -143,7 +142,7 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated }: CreateUs
             <select
               id="role"
               value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'manager' | 'end_user' })}
               disabled={isLoading}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-background text-foreground"
             >

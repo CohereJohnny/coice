@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -14,7 +14,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const libraryId = parseInt(params.id);
+    const { id } = await params;
+    const libraryId = parseInt(id);
     if (isNaN(libraryId)) {
       return NextResponse.json({ error: 'Invalid library ID' }, { status: 400 });
     }
@@ -56,7 +57,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -78,7 +79,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const libraryId = parseInt(params.id);
+    const { id } = await params;
+    const libraryId = parseInt(id);
     if (isNaN(libraryId)) {
       return NextResponse.json({ error: 'Invalid library ID' }, { status: 400 });
     }
@@ -113,7 +115,7 @@ export async function PUT(
 
       if (parent_id) {
         // Verify parent exists and belongs to the same catalog
-        const { data: parentLibrary, error: parentError } = await supabase
+        const { error: parentError } = await supabase
           .from('libraries')
           .select('id, catalog_id')
           .eq('id', parent_id)
@@ -159,7 +161,7 @@ export async function PUT(
     }
 
     // Update the library
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       name: name.trim(),
       description: description?.trim() || null
     };
@@ -202,7 +204,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -224,7 +226,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
     }
 
-    const libraryId = parseInt(params.id);
+    const { id } = await params;
+    const libraryId = parseInt(id);
     if (isNaN(libraryId)) {
       return NextResponse.json({ error: 'Invalid library ID' }, { status: 400 });
     }
@@ -284,7 +287,7 @@ export async function DELETE(
 }
 
 // Helper function to check if a library is a descendant of another
-async function checkIfDescendant(supabase: any, potentialAncestorId: number, libraryId: number): Promise<boolean> {
+async function checkIfDescendant(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, potentialAncestorId: number, libraryId: number): Promise<boolean> {
   const visited = new Set<number>();
   const queue = [potentialAncestorId];
 

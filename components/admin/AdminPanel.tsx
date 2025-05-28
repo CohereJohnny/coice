@@ -309,8 +309,7 @@ export function AdminPanel({ className }: AdminPanelProps) {
           }
         }}
         title="Delete User"
-        description="Are you sure you want to delete the user"
-        itemName={deleteDialog.user?.display_name || deleteDialog.user?.email}
+        itemName={deleteDialog.user?.display_name || deleteDialog.user?.email || 'Unknown User'}
         warningMessage="This action cannot be undone. The user will lose access to all catalogs and libraries."
       />
 
@@ -318,7 +317,7 @@ export function AdminPanel({ className }: AdminPanelProps) {
         open={createUserDialog}
         onOpenChange={setCreateUserDialog}
         onUserCreated={(newUser) => {
-          setUsers([newUser, ...users]);
+          setUsers([newUser as unknown as User, ...users]);
         }}
       />
     </div>

@@ -15,8 +15,8 @@ export default function UnauthorizedPage() {
           <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100">
             Access Denied
           </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            You don't have permission to access this page. Please contact your administrator if you believe this is an error.
+          <p className="text-muted-foreground">
+            You don&apos;t have permission to access this page. Please contact an administrator if you believe this is an error.
           </p>
         </div>
         

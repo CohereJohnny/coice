@@ -214,8 +214,7 @@ export function CatalogList({
           }
         }}
         title="Delete Catalog"
-        description="Are you sure you want to delete the catalog"
-        itemName={deleteDialog.catalog?.name}
+        itemName={deleteDialog.catalog?.name || 'Unknown Catalog'}
         warningMessage="This action cannot be undone. All libraries and images in this catalog will also be deleted."
       />
     </div>

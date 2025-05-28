@@ -6,7 +6,14 @@ import { createSupabaseClient } from '@/lib/supabase';
 import { useAuth, useAuthActions } from '@/lib/stores/auth';
 
 export default function DebugAuthPage() {
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<{
+    syncIssue?: {
+      mismatch?: boolean;
+      clientHasSession?: boolean;
+      serverHasSession?: boolean;
+    };
+    [key: string]: unknown;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
   const { reset } = useAuthActions();
@@ -149,7 +156,7 @@ export default function DebugAuthPage() {
                 but server thinks user is {debugInfo.syncIssue.serverHasSession ? 'logged in' : 'logged out'}.
               </p>
               <p className="text-sm text-red-600 dark:text-red-400 mt-2">
-                Click "Fix Sync Issue & Restart" to resolve this.
+                Click &quot;Fix Sync Issue &amp; Restart&quot; to resolve this.
               </p>
             </div>
           )}
@@ -189,9 +196,9 @@ export default function DebugAuthPage() {
       <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
         <h2 className="text-lg font-semibold mb-2">Manual Steps:</h2>
         <ol className="list-decimal list-inside space-y-2 text-sm">
-          <li>Click "Check Auth State" to see current session info</li>
-          <li>If there's a sync mismatch, click "Fix Sync Issue & Restart"</li>
-          <li>If that doesn't work, click "Force Logout & Redirect"</li>
+          <li>Click &quot;Check Auth State&quot; to see current session info</li>
+          <li>If there&apos;s a sync mismatch, click &quot;Fix Sync Issue &amp; Restart&quot;</li>
+          <li>If that doesn&apos;t work, click &quot;Force Logout &amp; Redirect&quot;</li>
           <li>Log back in with your credentials</li>
           <li>Test admin features again</li>
         </ol>
