@@ -10,9 +10,10 @@ export { CarouselTouchHandler } from './CarouselTouchHandler';
 
 // Hooks
 export { useCarouselState } from './hooks/useCarouselState';
-export { useCarouselKeyboard } from './hooks/useCarouselKeyboard';
-export { useCarouselAnalytics } from './hooks/useCarouselAnalytics';
-export { useCarouselPerformance } from './hooks/useCarouselPerformance';
+// TODO: Implement these hooks in future iterations
+// export { useCarouselKeyboard } from './hooks/useCarouselKeyboard';
+// export { useCarouselAnalytics } from './hooks/useCarouselAnalytics';
+// export { useCarouselPerformance } from './hooks/useCarouselPerformance';
 
 // Types
 export type {
