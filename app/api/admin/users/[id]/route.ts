@@ -11,6 +11,23 @@ export async function PUT(
     const { role } = await request.json();
     const { id } = await params;
     
+    // Create admin client for operations that need to bypass RLS
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json({ error: 'Service role key not configured' }, { status: 500 });
+    }
+    
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+    
     // Get current user and verify admin role
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -33,8 +50,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
-    // Update user role
-    const { data, error } = await supabase
+    // Update user role using admin client
+    const { data, error } = await adminSupabase
       .from('profiles')
       .update({ role })
       .eq('id', id)
