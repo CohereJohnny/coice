@@ -28,44 +28,7 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
     return null
   }
 
-  const navigation = [
-    {
-      name: 'Dashboard',
-      href: '/',
-      icon: (
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
-        </svg>
-      ),
-    },
-    {
-      name: 'Libraries',
-      href: '/libraries',
-      icon: (
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-      ),
-    },
-    {
-      name: 'Analysis',
-      href: '/analysis',
-      icon: (
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-    },
-    {
-      name: 'Search',
-      href: '/search',
-      icon: (
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-      ),
-    },
-  ]
+  const navigation = []
 
   // Add admin/manager specific navigation
   if (profile?.role === 'admin' || profile?.role === 'manager') {
@@ -121,27 +84,8 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
         )}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-2">
-        {navigation.map((item) => {
-          const isActive = pathname === item.href
-          return (
-            <Link key={item.name} href={item.href}>
-              <Button
-                variant={isActive ? "secondary" : "ghost"}
-                className={`w-full justify-start ${isCollapsed ? 'px-2' : 'px-3'}`}
-                size="sm"
-              >
-                {item.icon}
-                {!isCollapsed && <span className="ml-2">{item.name}</span>}
-              </Button>
-            </Link>
-          )
-        })}
-      </nav>
-
       {/* Catalogs Section */}
-      <div className="border-t">
+      <div className="flex-1">
         <div className="p-2">
           <Button
             variant="ghost"
@@ -178,6 +122,30 @@ export function Sidebar({ isCollapsed = false, onToggle }: SidebarProps) {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Bottom Section */}
+      <div className="border-t">
+        {/* Navigation for role-specific items */}
+        {navigation.length > 0 && (
+          <nav className="space-y-1 p-2">
+            {navigation.map((item) => {
+              const isActive = pathname === item.href
+              return (
+                <Link key={item.name} href={item.href}>
+                  <Button
+                    variant={isActive ? "secondary" : "ghost"}
+                    className={`w-full justify-start ${isCollapsed ? 'px-2' : 'px-3'}`}
+                    size="sm"
+                  >
+                    {item.icon}
+                    {!isCollapsed && <span className="ml-2">{item.name}</span>}
+                  </Button>
+                </Link>
+              )
+            })}
+          </nav>
+        )}
 
         {/* GCS Buckets Section */}
         <div className="p-2">
