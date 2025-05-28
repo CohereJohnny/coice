@@ -1,6 +1,6 @@
 'use client';
 
-import { AuthGuard } from '../components/auth/AuthGuard';
+import { AuthGuard } from '@/app/components/auth/AuthGuard';
 import { AdminPanel } from '@/components/admin/AdminPanel';
 
 export default function AdminPage() {
