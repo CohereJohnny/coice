@@ -108,7 +108,35 @@ export function Carousel({
   const [thumbnailViewport, setThumbnailViewport] = useState({ start: 0, end: 20 });
   const thumbnailStripRef = useRef<HTMLDivElement>(null);
 
-  // Enhanced loading and animation states
+  // Mobile breakpoint detection
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+
+  // Detect mobile/tablet and orientation
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      setIsMobile(width < 768);
+      setIsTablet(width >= 768 && width < 1024);
+      setOrientation(height > width ? 'portrait' : 'landscape');
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    window.addEventListener('orientationchange', checkScreenSize);
+
+    return () => {
+      window.removeEventListener('resize', checkScreenSize);
+      window.removeEventListener('orientationchange', checkScreenSize);
+    };
+  }, []);
+
+  // Auto-hide controls faster on mobile for better UX
+  const mobileHideDelay = isMobile ? 2000 : 3000;
+
+  // Enhanced animation states
   const [imageLoadingStates, setImageLoadingStates] = useState<Map<number, boolean>>(new Map());
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [imageLoadProgress, setImageLoadProgress] = useState<Map<number, number>>(new Map());
@@ -119,8 +147,8 @@ export function Carousel({
   const [overlayAnimating, setOverlayAnimating] = useState(false);
   const [buttonAnimations, setButtonAnimations] = useState<Map<string, boolean>>(new Map());
 
-  // Minimum swipe distance (in px)
-  const minSwipeDistance = 50;
+  // Minimum swipe distance (in px) - responsive to screen size
+  const minSwipeDistance = isMobile ? 30 : 50;
 
   // Slideshow enhancements
   const [slideshowSpeed, setSlideshowSpeed] = useState(autoplayDelay || 3000);
@@ -249,8 +277,8 @@ export function Carousel({
     hideControlsTimeoutRef.current = setTimeout(() => {
       setShowControls(false);
       handleControlsAnimation();
-    }, 3000);
-  }, [showControls, handleControlsAnimation]);
+    }, mobileHideDelay);
+  }, [showControls, handleControlsAnimation, mobileHideDelay]);
 
   // Mouse movement handler
   const handleMouseMove = useCallback(() => {
@@ -501,10 +529,10 @@ export function Carousel({
 
   // Virtual scrolling for thumbnails
   useEffect(() => {
-    if (images.length <= 20) return;
+    const viewportSize = isMobile ? 10 : 20;
+    if (images.length <= viewportSize) return;
     
     const buffer = 5;
-    const viewportSize = 20;
     
     let start = Math.max(0, selectedIndex - Math.floor(viewportSize / 2));
     let end = Math.min(images.length, start + viewportSize);
@@ -514,7 +542,7 @@ export function Carousel({
     }
     
     setThumbnailViewport({ start, end });
-  }, [selectedIndex, images.length]);
+  }, [selectedIndex, images.length, isMobile]);
 
   // Enhanced transition effects
   useEffect(() => {
@@ -569,19 +597,31 @@ export function Carousel({
                       <div className="flex flex-col items-center gap-4">
                         {/* Animated Loading Spinner */}
                         <div className="relative">
-                          <div className="w-12 h-12 border-4 border-white/20 rounded-full"></div>
-                          <div className="absolute top-0 left-0 w-12 h-12 border-4 border-white border-r-transparent rounded-full animate-spin"></div>
+                          <div className={cn(
+                            "border-4 border-white/20 rounded-full",
+                            isMobile ? "w-8 h-8" : "w-12 h-12"
+                          )}></div>
+                          <div className={cn(
+                            "absolute top-0 left-0 border-4 border-white border-r-transparent rounded-full animate-spin",
+                            isMobile ? "w-8 h-8" : "w-12 h-12"
+                          )}></div>
                         </div>
                         
                         {/* Loading Progress */}
                         <div className="flex flex-col items-center gap-2">
-                          <div className="w-32 h-1 bg-white/20 rounded-full overflow-hidden">
+                          <div className={cn(
+                            "h-1 bg-white/20 rounded-full overflow-hidden",
+                            isMobile ? "w-24" : "w-32"
+                          )}>
                             <div 
                               className="h-full bg-white rounded-full transition-all duration-300 ease-out"
                               style={{ width: `${imageLoadProgress.get(index) || 0}%` }}
                             />
                           </div>
-                          <span className="text-white/80 text-sm font-medium">
+                          <span className={cn(
+                            "text-white/80 font-medium",
+                            isMobile ? "text-xs" : "text-sm"
+                          )}>
                             Loading image... {Math.round(imageLoadProgress.get(index) || 0)}%
                           </span>
                         </div>
@@ -592,7 +632,10 @@ export function Carousel({
                   {/* Simple Loading Indicator for Quick Loads */}
                   {imageLoadingStates.get(index) && !showLoadingSkeleton.get(index) && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                      <Loader2 className="h-8 w-8 text-white animate-spin" />
+                      <Loader2 className={cn(
+                        "text-white animate-spin",
+                        isMobile ? "h-6 w-6" : "h-8 w-8"
+                      )} />
                     </div>
                   )}
                   
@@ -629,22 +672,24 @@ export function Carousel({
         showControls ? "opacity-100" : "opacity-0",
         controlsAnimating && "transform scale-[1.02]"
       )}>
-        {/* Top Bar */}
+        {/* Top Bar - Mobile Responsive */}
         <div className={cn(
-          "absolute top-0 left-0 right-0 bg-gradient-to-b from-black/60 via-black/30 to-transparent p-4 pointer-events-auto transition-all duration-300",
-          showControls ? "translate-y-0" : "-translate-y-full"
+          "absolute top-0 left-0 right-0 bg-gradient-to-b from-black/60 via-black/30 to-transparent pointer-events-auto transition-all duration-300",
+          showControls ? "translate-y-0" : "-translate-y-full",
+          isMobile ? "p-2" : "p-4"
         )}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <Badge variant="secondary" className={cn(
                 "bg-black/50 text-white border-white/20 transition-all duration-300",
-                isTransitioning && "animate-pulse"
+                isTransitioning && "animate-pulse",
+                isMobile ? "text-xs px-2 py-1" : "text-sm px-3 py-1.5"
               )}>
                 {selectedIndex + 1} / {images.length}
               </Badge>
-              {currentImage && (
+              {currentImage && !isMobile && (
                 <span className={cn(
-                  "text-white text-sm font-medium transition-all duration-300",
+                  "text-white text-sm font-medium transition-all duration-300 hidden sm:block",
                   isTransitioning ? "opacity-70 translate-x-1" : "opacity-100 translate-x-0"
                 )}>
                   {currentImage.metadata.original_filename}
@@ -652,39 +697,48 @@ export function Carousel({
               )}
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className={cn(
+              "flex items-center",
+              isMobile ? "gap-1" : "gap-2"
+            )}>
               <Button
                 variant="ghost"
-                size="sm"
+                size={isMobile ? "sm" : "sm"}
                 onClick={toggleMetadataOverlay}
                 className={cn(
-                  "text-white hover:bg-white/20 transition-all duration-200 hover:scale-110",
+                  "text-white hover:bg-white/20 transition-all duration-200",
+                  isMobile ? "hover:scale-105 h-8 w-8 p-0" : "hover:scale-110 h-9 w-9",
                   showMetadataOverlay && "bg-white/20 scale-105",
                   buttonAnimations.get('metadata') && "animate-pulse scale-95"
                 )}
                 aria-label={showMetadataOverlay ? "Hide image details" : "Show image details"}
                 title="Toggle image details (I key)"
               >
-                <Info className="h-4 w-4" />
+                <Info className={isMobile ? "h-3 w-3" : "h-4 w-4"} />
               </Button>
               
               <Button
                 variant="ghost"
-                size="sm"
+                size={isMobile ? "sm" : "sm"}
                 onClick={togglePlayPause}
                 className={cn(
-                  "text-white hover:bg-white/20 transition-all duration-200 hover:scale-110",
+                  "text-white hover:bg-white/20 transition-all duration-200",
+                  isMobile ? "hover:scale-105 h-8 w-8 p-0" : "hover:scale-110 h-9 w-9",
                   isPlaying && "bg-white/10",
                   buttonAnimations.get('playpause') && "animate-pulse scale-95"
                 )}
                 aria-label={isPlaying ? "Pause slideshow" : "Start slideshow"}
                 title={isPlaying ? "Pause slideshow (Space)" : "Start slideshow (Space)"}
               >
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {isPlaying ? (
+                  <Pause className={isMobile ? "h-3 w-3" : "h-4 w-4"} />
+                ) : (
+                  <Play className={isMobile ? "h-3 w-3" : "h-4 w-4"} />
+                )}
               </Button>
               
-              {/* Enhanced Slideshow Speed Control */}
-              {isPlaying && (
+              {/* Enhanced Slideshow Speed Control - Hidden on small mobile */}
+              {isPlaying && !isMobile && (
                 <div className="flex items-center gap-1 animate-in slide-in-from-right-5 duration-300">
                   <Button
                     variant="ghost"
@@ -710,8 +764,8 @@ export function Carousel({
                 </div>
               )}
               
-              {/* Progress Indicator Toggle */}
-              {isPlaying && (
+              {/* Progress Indicator Toggle - Hidden on mobile */}
+              {isPlaying && !isMobile && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -726,29 +780,35 @@ export function Carousel({
                 </Button>
               )}
               
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleFullscreen}
-                className={cn(
-                  "text-white hover:bg-white/20 transition-all duration-200 hover:scale-110",
-                  buttonAnimations.get('fullscreen') && "animate-pulse scale-95"
-                )}
-                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                title={isFullscreen ? "Exit fullscreen (F)" : "Enter fullscreen (F)"}
-              >
-                {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-              </Button>
+              {/* Fullscreen - Hidden on mobile due to iOS limitations */}
+              {!isMobile && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={toggleFullscreen}
+                  className={cn(
+                    "text-white hover:bg-white/20 transition-all duration-200 hover:scale-110",
+                    buttonAnimations.get('fullscreen') && "animate-pulse scale-95"
+                  )}
+                  aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                  title={isFullscreen ? "Exit fullscreen (F)" : "Enter fullscreen (F)"}
+                >
+                  {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                </Button>
+              )}
               
               <Button
                 variant="ghost"
-                size="sm"
+                size={isMobile ? "sm" : "sm"}
                 onClick={onClose}
-                className="text-white hover:bg-white/20 hover:bg-red-500/20 transition-all duration-200 hover:scale-110"
+                className={cn(
+                  "text-white hover:bg-white/20 hover:bg-red-500/20 transition-all duration-200",
+                  isMobile ? "hover:scale-105 h-8 w-8 p-0" : "hover:scale-110 h-9 w-9"
+                )}
                 aria-label="Close carousel"
                 title="Close carousel (Escape)"
               >
-                <X className="h-4 w-4" />
+                <X className={isMobile ? "h-3 w-3" : "h-4 w-4"} />
               </Button>
             </div>
           </div>
@@ -770,61 +830,79 @@ export function Carousel({
           </div>
         )}
 
-        {/* Enhanced Navigation Arrows */}
+        {/* Enhanced Navigation Arrows - Mobile Responsive */}
         <Button
           variant="ghost"
-          size="lg"
+          size={isMobile ? "default" : "lg"}
           onClick={scrollPrev}
           className={cn(
-            "absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto",
-            "transition-all duration-300 hover:scale-125 hover:shadow-lg hover:shadow-white/20",
+            "absolute top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto",
+            "transition-all duration-300 hover:shadow-lg hover:shadow-white/20",
             "backdrop-blur-sm border border-white/10 hover:border-white/30",
             buttonAnimations.get('prev') && "animate-pulse scale-110",
-            showControls ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"
+            showControls ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0",
+            isMobile 
+              ? "left-2 h-12 w-12 hover:scale-110" 
+              : "left-4 hover:scale-125"
           )}
           disabled={images.length <= 1}
           aria-label="Previous image"
           title="Previous image (Left arrow key)"
         >
-          <ChevronLeft className="h-8 w-8" />
+          <ChevronLeft className={isMobile ? "h-6 w-6" : "h-8 w-8"} />
         </Button>
 
         <Button
           variant="ghost"
-          size="lg"
+          size={isMobile ? "default" : "lg"}
           onClick={scrollNext}
           className={cn(
-            "absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto",
-            "transition-all duration-300 hover:scale-125 hover:shadow-lg hover:shadow-white/20",
+            "absolute top-1/2 -translate-y-1/2 text-white hover:bg-white/20 pointer-events-auto",
+            "transition-all duration-300 hover:shadow-lg hover:shadow-white/20",
             "backdrop-blur-sm border border-white/10 hover:border-white/30",
             buttonAnimations.get('next') && "animate-pulse scale-110",
-            showControls ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
+            showControls ? "translate-x-0 opacity-100" : "translate-x-full opacity-0",
+            isMobile 
+              ? "right-2 h-12 w-12 hover:scale-110" 
+              : "right-4 hover:scale-125"
           )}
           disabled={images.length <= 1}
           aria-label="Next image"
           title="Next image (Right arrow key)"
         >
-          <ChevronRight className="h-8 w-8" />
+          <ChevronRight className={isMobile ? "h-6 w-6" : "h-8 w-8"} />
         </Button>
 
-        {/* Enhanced Bottom Thumbnail Strip */}
+        {/* Enhanced Bottom Thumbnail Strip - Mobile Responsive */}
         {images.length > 1 && (
           <div className={cn(
-            "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent p-4 pointer-events-auto transition-all duration-300",
-            showControls ? "translate-y-0" : "translate-y-full"
+            "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent pointer-events-auto transition-all duration-300",
+            showControls ? "translate-y-0" : "translate-y-full",
+            isMobile ? "p-2" : "p-4"
           )}>
             <div className="flex justify-center">
               <div 
                 ref={thumbnailStripRef}
-                className="flex gap-3 max-w-full overflow-x-auto scrollbar-hide"
+                className={cn(
+                  "flex max-w-full overflow-x-auto scrollbar-hide",
+                  isMobile ? "gap-2" : "gap-3"
+                )}
               >
                 {/* Virtual scrolling for large image sets */}
-                {images.length > 20 ? (
+                {images.length > (isMobile ? 10 : 20) ? (
                   <>
                     {/* Enhanced indicator for hidden thumbnails on the left */}
                     {thumbnailViewport.start > 0 && (
-                      <div className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-white/30 flex items-center justify-center backdrop-blur-sm bg-black/40 transition-all duration-300 hover:border-white/50">
-                        <span className="text-white/80 text-xs font-semibold">+{thumbnailViewport.start}</span>
+                      <div className={cn(
+                        "flex-shrink-0 rounded-lg border-2 border-white/30 flex items-center justify-center backdrop-blur-sm bg-black/40 transition-all duration-300 hover:border-white/50",
+                        isMobile ? "w-12 h-12" : "w-16 h-16"
+                      )}>
+                        <span className={cn(
+                          "text-white/80 font-semibold",
+                          isMobile ? "text-[10px]" : "text-xs"
+                        )}>
+                          +{thumbnailViewport.start}
+                        </span>
                       </div>
                     )}
                     
@@ -836,12 +914,16 @@ export function Carousel({
                           key={image.id}
                           onClick={() => scrollTo(actualIndex)}
                           className={cn(
-                            "flex-shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden transition-all duration-300",
-                            "hover:scale-110 hover:shadow-lg hover:shadow-white/20 backdrop-blur-sm",
+                            "flex-shrink-0 rounded-lg border-2 overflow-hidden transition-all duration-300",
+                            "hover:shadow-lg hover:shadow-white/20 backdrop-blur-sm",
                             actualIndex === selectedIndex 
-                              ? "border-white scale-110 shadow-lg shadow-white/30 ring-2 ring-white/50" 
+                              ? "border-white shadow-lg shadow-white/30 ring-2 ring-white/50" 
                               : "border-white/30 hover:border-white/60",
-                            buttonAnimations.get(`thumb-${actualIndex}`) && "animate-pulse scale-105"
+                            buttonAnimations.get(`thumb-${actualIndex}`) && "animate-pulse scale-105",
+                            isMobile 
+                              ? "w-12 h-12 hover:scale-105" 
+                              : "w-16 h-16 hover:scale-110",
+                            actualIndex === selectedIndex && (isMobile ? "scale-105" : "scale-110")
                           )}
                         >
                           <img
@@ -856,8 +938,16 @@ export function Carousel({
                     
                     {/* Enhanced indicator for hidden thumbnails on the right */}
                     {thumbnailViewport.end < images.length && (
-                      <div className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-white/30 flex items-center justify-center backdrop-blur-sm bg-black/40 transition-all duration-300 hover:border-white/50">
-                        <span className="text-white/80 text-xs font-semibold">+{images.length - thumbnailViewport.end}</span>
+                      <div className={cn(
+                        "flex-shrink-0 rounded-lg border-2 border-white/30 flex items-center justify-center backdrop-blur-sm bg-black/40 transition-all duration-300 hover:border-white/50",
+                        isMobile ? "w-12 h-12" : "w-16 h-16"
+                      )}>
+                        <span className={cn(
+                          "text-white/80 font-semibold",
+                          isMobile ? "text-[10px]" : "text-xs"
+                        )}>
+                          +{images.length - thumbnailViewport.end}
+                        </span>
                       </div>
                     )}
                   </>
@@ -868,12 +958,16 @@ export function Carousel({
                       key={image.id}
                       onClick={() => scrollTo(index)}
                       className={cn(
-                        "flex-shrink-0 w-16 h-16 rounded-lg border-2 overflow-hidden transition-all duration-300",
-                        "hover:scale-110 hover:shadow-lg hover:shadow-white/20 backdrop-blur-sm",
+                        "flex-shrink-0 rounded-lg border-2 overflow-hidden transition-all duration-300",
+                        "hover:shadow-lg hover:shadow-white/20 backdrop-blur-sm",
                         index === selectedIndex 
-                          ? "border-white scale-110 shadow-lg shadow-white/30 ring-2 ring-white/50" 
+                          ? "border-white shadow-lg shadow-white/30 ring-2 ring-white/50" 
                           : "border-white/30 hover:border-white/60",
-                        buttonAnimations.get(`thumb-${index}`) && "animate-pulse scale-105"
+                        buttonAnimations.get(`thumb-${index}`) && "animate-pulse scale-105",
+                        isMobile 
+                          ? "w-12 h-12 hover:scale-105" 
+                          : "w-16 h-16 hover:scale-110",
+                        index === selectedIndex && (isMobile ? "scale-105" : "scale-110")
                       )}
                     >
                       <img
@@ -891,38 +985,89 @@ export function Carousel({
         )}
       </div>
 
-      {/* Enhanced Metadata Overlay */}
+      {/* Enhanced Metadata Overlay - Mobile Responsive */}
       {showMetadataOverlay && currentImage && (
         <div className={cn(
-          "absolute top-20 right-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto pointer-events-auto",
+          "absolute pointer-events-auto",
           "bg-black/80 backdrop-blur-lg rounded-xl border border-white/20 shadow-2xl",
-          "transition-all duration-500 ease-out",
+          "transition-all duration-500 ease-out max-h-[calc(100vh-8rem)] overflow-y-auto",
           overlayAnimating ? "scale-95 opacity-80" : "scale-100 opacity-100",
           showMetadataOverlay 
             ? "translate-x-0 opacity-100" 
-            : "translate-x-full opacity-0"
+            : "translate-x-full opacity-0",
+          // Mobile positioning: bottom sheet style
+          isMobile 
+            ? "bottom-4 left-4 right-4 max-h-[60vh]" 
+            : "top-20 right-4 w-80"
         )}>
-          <div className="p-6 space-y-4 text-white">
+          <div className={cn(
+            "space-y-4 text-white",
+            isMobile ? "p-4" : "p-6"
+          )}>
             <div className="flex items-center justify-between border-b border-white/20 pb-3">
-              <h3 className="font-semibold text-lg">Image Details</h3>
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <h3 className={cn(
+                "font-semibold",
+                isMobile ? "text-base" : "text-lg"
+              )}>
+                Image Details
+              </h3>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                {isMobile && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={toggleMetadataOverlay}
+                    className="text-white/60 hover:text-white hover:bg-white/10 h-6 w-6 p-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             </div>
+            
+            {/* Mobile filename display at top */}
+            {isMobile && currentImage && (
+              <div className="bg-white/10 rounded-lg p-3 mb-4">
+                <h4 className="font-medium text-white text-sm mb-1">Current Image</h4>
+                <p className="text-white/80 text-xs font-mono break-all">
+                  {currentImage.metadata.original_filename}
+                </p>
+              </div>
+            )}
             
             {/* Basic Info */}
             <div className="space-y-3">
-              <h4 className="font-medium text-white/90 text-sm uppercase tracking-wide">File Info</h4>
-              <div className="space-y-2 text-sm text-white/80">
-                <div className="flex justify-between">
-                  <span className="text-white/60">Name:</span> 
-                  <span className="font-mono text-xs bg-white/10 px-2 py-1 rounded">{currentImage.metadata.original_filename}</span>
-                </div>
+              <h4 className={cn(
+                "font-medium text-white/90 uppercase tracking-wide",
+                isMobile ? "text-xs" : "text-sm"
+              )}>
+                File Info
+              </h4>
+              <div className={cn(
+                "space-y-2 text-white/80",
+                isMobile ? "text-xs" : "text-sm"
+              )}>
+                {!isMobile && (
+                  <div className="flex justify-between">
+                    <span className="text-white/60">Name:</span> 
+                    <span className="font-mono text-xs bg-white/10 px-2 py-1 rounded max-w-[200px] truncate">
+                      {currentImage.metadata.original_filename}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-white/60">Size:</span> 
                   <span>{currentImage.metadata.file_size ? formatFileSize(currentImage.metadata.file_size) : 'Unknown'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-white/60">Type:</span> 
-                  <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-xs">{currentImage.metadata.mime_type || 'Unknown'}</span>
+                  <span className={cn(
+                    "bg-blue-500/20 text-blue-300 px-2 py-1 rounded",
+                    isMobile ? "text-[10px]" : "text-xs"
+                  )}>
+                    {currentImage.metadata.mime_type || 'Unknown'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-white/60">Format:</span> 
@@ -933,38 +1078,81 @@ export function Carousel({
 
             {/* Dimensions */}
             <div className="space-y-3">
-              <h4 className="font-medium text-white/90 text-sm uppercase tracking-wide">Dimensions</h4>
-              <div className="space-y-2 text-sm text-white/80">
+              <h4 className={cn(
+                "font-medium text-white/90 uppercase tracking-wide",
+                isMobile ? "text-xs" : "text-sm"
+              )}>
+                Dimensions
+              </h4>
+              <div className={cn(
+                "space-y-2 text-white/80",
+                isMobile ? "text-xs" : "text-sm"
+              )}>
                 <div className="flex justify-between">
                   <span className="text-white/60">Resolution:</span> 
-                  <span className="font-mono">{currentImage.metadata.width && currentImage.metadata.height ? `${currentImage.metadata.width}×${currentImage.metadata.height}` : 'Unknown'}</span>
+                  <span className="font-mono">
+                    {currentImage.metadata.width && currentImage.metadata.height 
+                      ? `${currentImage.metadata.width}×${currentImage.metadata.height}` 
+                      : 'Unknown'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-white/60">Aspect Ratio:</span> 
-                  <span>{currentImage.metadata.width && currentImage.metadata.height ? (currentImage.metadata.width / currentImage.metadata.height).toFixed(2) : 'Unknown'}</span>
+                  <span>
+                    {currentImage.metadata.width && currentImage.metadata.height 
+                      ? (currentImage.metadata.width / currentImage.metadata.height).toFixed(2) 
+                      : 'Unknown'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-white/60">Megapixels:</span> 
-                  <span className="bg-purple-500/20 text-purple-300 px-2 py-1 rounded text-xs">{currentImage.metadata.width && currentImage.metadata.height ? ((currentImage.metadata.width * currentImage.metadata.height) / 1000000).toFixed(1) + 'MP' : 'Unknown'}</span>
+                  <span className={cn(
+                    "bg-purple-500/20 text-purple-300 px-2 py-1 rounded",
+                    isMobile ? "text-[10px]" : "text-xs"
+                  )}>
+                    {currentImage.metadata.width && currentImage.metadata.height 
+                      ? ((currentImage.metadata.width * currentImage.metadata.height) / 1000000).toFixed(1) + 'MP' 
+                      : 'Unknown'}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Upload Info */}
             <div className="space-y-3">
-              <h4 className="font-medium text-white/90 text-sm uppercase tracking-wide">Upload Info</h4>
-              <div className="space-y-2 text-sm text-white/80">
+              <h4 className={cn(
+                "font-medium text-white/90 uppercase tracking-wide",
+                isMobile ? "text-xs" : "text-sm"
+              )}>
+                Upload Info
+              </h4>
+              <div className={cn(
+                "space-y-2 text-white/80",
+                isMobile ? "text-xs" : "text-sm"
+              )}>
                 <div className="flex justify-between">
                   <span className="text-white/60">Uploaded:</span> 
-                  <span className="text-xs">{formatDate(currentImage.created_at)}</span>
+                  <span className={isMobile ? "text-[10px]" : "text-xs"}>
+                    {formatDate(currentImage.created_at)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-white/60">By:</span> 
-                  <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded">{currentImage.metadata.uploaded_by || 'Unknown'}</span>
+                  <span className={cn(
+                    "bg-green-500/20 text-green-300 px-2 py-1 rounded",
+                    isMobile ? "text-[10px]" : "text-xs"
+                  )}>
+                    {currentImage.metadata.uploaded_by || 'Unknown'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-white/60">Position:</span> 
-                  <span className="bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded text-xs">{selectedIndex + 1} of {images.length}</span>
+                  <span className={cn(
+                    "bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded",
+                    isMobile ? "text-[10px]" : "text-xs"
+                  )}>
+                    {selectedIndex + 1} of {images.length}
+                  </span>
                 </div>
               </div>
             </div>
@@ -972,33 +1160,53 @@ export function Carousel({
         </div>
       )}
 
-      {/* Enhanced Keyboard Shortcuts Help */}
-      <div className={cn(
-        "absolute bottom-4 left-4 text-white/60 text-xs pointer-events-none transition-all duration-300",
-        showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
-      )}>
-        <div id="carousel-instructions" className="bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/10">
-          <div className="flex items-center gap-4 text-xs">
-            <span className="flex items-center gap-1">
-              <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">←</kbd>
-              <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">→</kbd>
-              Navigate
-            </span>
-            <span className="flex items-center gap-1">
-              <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">Space</kbd>
-              Play/Pause
-            </span>
-            <span className="flex items-center gap-1">
-              <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">I</kbd>
-              Info
-            </span>
-            <span className="flex items-center gap-1">
-              <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">Esc</kbd>
-              Exit
-            </span>
+      {/* Enhanced Keyboard Shortcuts Help - Mobile Responsive */}
+      {!isMobile && (
+        <div className={cn(
+          "absolute bottom-4 left-4 text-white/60 text-xs pointer-events-none transition-all duration-300",
+          showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+        )}>
+          <div id="carousel-instructions" className="bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/10">
+            <div className="flex items-center gap-4 text-xs">
+              <span className="flex items-center gap-1">
+                <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">←</kbd>
+                <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">→</kbd>
+                Navigate
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">Space</kbd>
+                Play/Pause
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">I</kbd>
+                Info
+              </span>
+              <span className="flex items-center gap-1">
+                <kbd className="bg-white/20 px-1.5 py-0.5 rounded text-[10px]">Esc</kbd>
+                Exit
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Mobile Touch Instructions */}
+      {isMobile && (
+        <div className={cn(
+          "absolute bottom-4 left-4 right-4 text-white/60 text-xs pointer-events-none transition-all duration-300",
+          showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+        )}>
+          <div id="carousel-instructions" className="bg-black/40 backdrop-blur-sm rounded-lg px-3 py-2 border border-white/10 text-center">
+            <div className="flex items-center justify-center gap-3 text-xs">
+              <span>Swipe to navigate</span>
+              <span>•</span>
+              <span>Tap for controls</span>
+              <span>•</span>
+              <span>Pinch to zoom</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Screen Reader Current Image Info */}
       {currentImage && (
@@ -1007,7 +1215,10 @@ export function Carousel({
           image {selectedIndex + 1} of {images.length}. 
           {currentImage.metadata.width && currentImage.metadata.height && 
             `Dimensions: ${currentImage.metadata.width} by ${currentImage.metadata.height} pixels. `}
-          Use arrow keys to navigate, space to play or pause slideshow, I to toggle details, escape to close.
+          {isMobile 
+            ? "Swipe left or right to navigate, tap to show or hide controls, tap info button to toggle details."
+            : "Use arrow keys to navigate, space to play or pause slideshow, I to toggle details, escape to close."
+          }
         </div>
       )}
     </div>
