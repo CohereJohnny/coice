@@ -383,13 +383,23 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{library.name}</h1>
-          <p className="text-muted-foreground">
-            {library.catalogs.name} • {filteredImages.length} of {images.length} images
-          </p>
-          {library.description && (
-            <p className="text-sm text-muted-foreground mt-1">{library.description}</p>
-          )}
+          {/* Breadcrumb navigation */}
+          <div className="flex items-center text-sm text-muted-foreground mb-1">
+            <span>{library.catalogs.name}</span>
+            <span className="mx-2">›</span>
+            <span className="text-foreground font-medium">{library.name}</span>
+          </div>
+          
+          {/* Image count and description */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{filteredImages.length} / {images.length} images</span>
+            {library.description && (
+              <>
+                <span>•</span>
+                <span>{library.description}</span>
+              </>
+            )}
+          </div>
         </div>
         <Button onClick={() => setShowUpload(!showUpload)}>
           <FileImage className="h-4 w-4 mr-2" />

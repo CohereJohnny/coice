@@ -53,7 +53,7 @@ export function Navbar() {
         {/* Logo and Brand */}
         <div className="mr-4 hidden md:flex">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <div className="h-6 w-6 rounded bg-primary" />
+            <img src="/assets/coice.svg" alt="COICE" className="h-8 w-8" />
             <span className="hidden font-bold sm:inline-block">Coice</span>
           </Link>
         </div>
@@ -61,7 +61,7 @@ export function Navbar() {
         {/* Mobile Logo */}
         <div className="mr-4 flex md:hidden">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="h-6 w-6 rounded bg-primary" />
+            <img src="/assets/coice.svg" alt="COICE" className="h-8 w-8" />
             <span className="font-bold">Coice</span>
           </Link>
         </div>
@@ -118,9 +118,9 @@ export function Navbar() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="relative h-8 w-8 rounded-full"
+                className="relative h-10 w-10 rounded-full p-0"
               >
-                <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-medium">
+                <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
                   {profile?.display_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                 </div>
               </Button>

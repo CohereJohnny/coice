@@ -260,28 +260,29 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
                     <span className="truncate font-medium">{catalog.name}</span>
                   )}
                 </Link>
+                
+                {/* Add Library button next to catalog name */}
+                {canManage && !isCollapsed && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // TODO: Open create library dialog
+                      console.log('Create library in catalog', catalog.id);
+                    }}
+                    title="Add Library"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
               
               {isExpanded && !isCollapsed && (
                 <div className="ml-2">
                   {catalog.libraries.map(library => renderLibrary(library))}
-                  
-                  {canManage && (
-                    <div className="pl-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start h-8 px-2 text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          // TODO: Open create library dialog
-                          console.log('Create library in catalog', catalog.id);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        <span className="text-sm">Add Library</span>
-                      </Button>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
