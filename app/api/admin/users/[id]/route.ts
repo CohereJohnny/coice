@@ -3,11 +3,12 @@ import { createSupabaseServerClient } from '@/lib/supabase';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
     const { role } = await request.json();
+    const { id } = await params;
     
     // Get current user and verify admin role
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -35,7 +36,7 @@ export async function PUT(
     const { data, error } = await supabase
       .from('profiles')
       .update({ role })
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single();
 
@@ -53,10 +54,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createSupabaseServerClient();
+    const { id } = await params;
     
     // Get current user and verify admin role
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -76,7 +78,7 @@ export async function DELETE(
     }
 
     // Prevent self-deletion
-    if (user.id === params.id) {
+    if (user.id === id) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
     }
 
@@ -84,7 +86,7 @@ export async function DELETE(
     const { data: targetUser, error: userError } = await supabase
       .from('profiles')
       .select('id, email')
-      .eq('id', params.id)
+      .eq('id', id)
       .single();
 
     if (userError || !targetUser) {
@@ -95,7 +97,7 @@ export async function DELETE(
     const { error: deleteError } = await supabase
       .from('profiles')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (deleteError) {
       console.error('Error deleting user:', deleteError);
