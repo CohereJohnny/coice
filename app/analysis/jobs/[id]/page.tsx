@@ -30,9 +30,16 @@ import {
   XCircle,
   Download,
   Filter,
-  Search
+  Search,
+  Clock,
+  Activity
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+
+// Import our new components
+import { ProgressBar, JobTimeline } from '@/components/jobs';
+import type { ProgressStage, TimelineEvent } from '@/components/jobs';
+import { useJobSubscription } from '@/app/hooks/useJobSubscription';
 
 interface JobResult {
   id: string;
@@ -117,6 +124,29 @@ export default function JobDetailsPage() {
   const [showTestModal, setShowTestModal] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testLoading, setTestLoading] = useState(false);
+
+  // Real-time job subscription for live updates
+  const {
+    isConnected: isRealTimeConnected,
+    connectionError: realTimeError,
+    refreshJobStatus,
+  } = useJobSubscription({
+    jobId,
+    enableNotifications: true,
+    onJobUpdate: (jobUpdate) => {
+      console.log('Job details page received update:', jobUpdate);
+      // Refresh job details when we get real-time updates
+      loadJobDetails();
+    },
+    onJobCompleted: (jobUpdate) => {
+      console.log('Job completed, refreshing details');
+      loadJobDetails();
+    },
+    onJobFailed: (jobUpdate) => {
+      console.log('Job failed, refreshing details');
+      loadJobDetails();
+    },
+  });
 
   const loadJobDetails = useCallback(async () => {
     try {
@@ -400,6 +430,129 @@ export default function JobDetailsPage() {
     ? Math.round((jobDetails.results.filter(r => r.success).length / jobDetails.results.length) * 100)
     : 0;
 
+  // Create timeline events from job data
+  const createTimelineEvents = (): TimelineEvent[] => {
+    if (!jobDetails) return [];
+
+    const events: TimelineEvent[] = [];
+
+    // Job started event
+    events.push({
+      id: 'job-started',
+      title: 'Job Started',
+      description: `Analysis pipeline "${jobDetails.job.pipeline.name}" initiated`,
+      timestamp: jobDetails.job.created_at,
+      status: 'completed',
+      icon: <Activity className="w-3 h-3" />,
+      details: {
+        total: jobDetails.job.total_images,
+      },
+    });
+
+    // Add stage completion events based on results
+    const stageCompletions = new Map<number, { completed: number; failed: number; timestamp: string }>();
+    
+    jobDetails.results.forEach(result => {
+      const stageOrder = result.stage_order || 1;
+      const existing = stageCompletions.get(stageOrder) || { completed: 0, failed: 0, timestamp: result.created_at };
+      
+      if (result.success) {
+        existing.completed++;
+      } else {
+        existing.failed++;
+      }
+      
+      // Use the latest timestamp for this stage
+      if (new Date(result.created_at) > new Date(existing.timestamp)) {
+        existing.timestamp = result.created_at;
+      }
+      
+      stageCompletions.set(stageOrder, existing);
+    });
+
+    // Create events for each stage
+    Array.from(stageCompletions.entries())
+      .sort(([a], [b]) => a - b)
+      .forEach(([stageOrder, data]) => {
+        const stageResult = jobDetails.results.find(r => r.stage_order === stageOrder);
+        const total = data.completed + data.failed;
+        
+        events.push({
+          id: `stage-${stageOrder}`,
+          title: `Stage ${stageOrder} Completed`,
+          description: stageResult?.prompt_name || `Pipeline stage ${stageOrder}`,
+          timestamp: data.timestamp,
+          status: data.failed > 0 ? 'completed' : 'completed', // Could be 'failed' if all failed
+          details: {
+            processed: total,
+            total: jobDetails.job.total_images,
+            errors: data.failed > 0 ? [`${data.failed} images failed processing`] : undefined,
+          },
+        });
+      });
+
+    // Job completion event
+    if (jobDetails.job.completed_at) {
+      events.push({
+        id: 'job-completed',
+        title: jobDetails.job.status === 'completed' ? 'Job Completed' : 'Job Failed',
+        description: jobDetails.job.status === 'completed' 
+          ? `Analysis completed successfully with ${successRate}% success rate`
+          : `Job failed: ${jobDetails.job.error_message || 'Unknown error'}`,
+        timestamp: jobDetails.job.completed_at,
+        status: jobDetails.job.status === 'completed' ? 'completed' : 'failed',
+        icon: jobDetails.job.status === 'completed' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />,
+        details: {
+          processed: jobDetails.job.processed_images,
+          total: jobDetails.job.total_images,
+        },
+      });
+    }
+
+    return events;
+  };
+
+  // Create progress stages from pipeline data
+  const createProgressStages = (): ProgressStage[] => {
+    if (!jobDetails) return [];
+
+    const stages: ProgressStage[] = [];
+    const uniqueStages = [...new Set(jobDetails.results.map(r => r.stage_order || 1))].sort();
+
+    uniqueStages.forEach((stageOrder, index) => {
+      const stageResults = jobDetails.results.filter(r => (r.stage_order || 1) === stageOrder);
+      const stageResult = stageResults[0]; // Get first result for stage info
+      const completed = stageResults.filter(r => r.success).length;
+      const total = stageResults.length;
+      const progress = total > 0 ? (completed / total) * 100 : 0;
+
+      let status: ProgressStage['status'] = 'pending';
+      if (total > 0) {
+        if (completed === total) {
+          status = 'completed';
+        } else if (completed > 0) {
+          status = 'processing';
+        } else {
+          status = 'failed';
+        }
+      }
+
+      stages.push({
+        id: `stage-${stageOrder}`,
+        name: stageResult?.prompt_name || `Stage ${stageOrder}`,
+        description: stageResult?.prompt_type || 'Analysis stage',
+        status,
+        progress,
+        icon: <span className="text-xs font-medium">{stageOrder}</span>,
+      });
+    });
+
+    return stages;
+  };
+
+  const timelineEvents = createTimelineEvents();
+  const progressStages = createProgressStages();
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -414,7 +567,21 @@ export default function JobDetailsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Job Analysis Results</h1>
-            <p className="text-muted-foreground">Detailed analysis for job {jobId.slice(0, 8)}...</p>
+            <div className="flex items-center space-x-4">
+              <p className="text-muted-foreground">Detailed analysis for job {jobId.slice(0, 8)}...</p>
+              {/* Real-time status indicator */}
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${isRealTimeConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-xs text-muted-foreground">
+                  {isRealTimeConnected ? 'Live updates' : 'Disconnected'}
+                </span>
+                {realTimeError && (
+                  <span className="text-xs text-red-500" title={realTimeError}>
+                    ⚠️
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
         
@@ -480,11 +647,60 @@ export default function JobDetailsPage() {
           
           {jobDetails.job.progress !== undefined && jobDetails.job.progress < 100 && (
             <div className="mt-4">
-              <Progress value={jobDetails.job.progress} className="h-2" />
+              <ProgressBar
+                progress={jobDetails.job.progress}
+                status={jobDetails.job.status as any}
+                stages={progressStages}
+                variant="segmented"
+                showStageNames={true}
+                showStageProgress={true}
+                showTimeEstimate={true}
+                animated={true}
+                size="md"
+              />
+            </div>
+          )}
+          
+          {/* Show completed progress bar for finished jobs */}
+          {jobDetails.job.status === 'completed' && (
+            <div className="mt-4">
+              <ProgressBar
+                progress={100}
+                status="completed"
+                stages={progressStages}
+                variant="segmented"
+                showStageNames={true}
+                showPercentage={true}
+                animated={false}
+                size="md"
+              />
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Job Timeline */}
+      {timelineEvents.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Job Timeline
+            </CardTitle>
+            <CardDescription>Chronological view of job execution events</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <JobTimeline
+              events={timelineEvents}
+              stages={progressStages}
+              showDurations={true}
+              showDetails={true}
+              showMetadata={false}
+              compact={false}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Error Message */}
       {jobDetails.job.error_message && (
