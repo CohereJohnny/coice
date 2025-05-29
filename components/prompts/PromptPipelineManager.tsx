@@ -93,7 +93,7 @@ export function PromptPipelineManager({
   const currentTab = tabs.find(tab => tab.id === activeTab);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen">
       <div className="container mx-auto max-w-7xl">
         {/* Header Section */}
         <div className="m-8">
