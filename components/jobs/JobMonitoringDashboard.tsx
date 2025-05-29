@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +67,7 @@ export default function JobMonitoringDashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const router = useRouter();
 
   useEffect(() => {
     loadJobs();
@@ -351,7 +353,7 @@ export default function JobMonitoringDashboard() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(`/analysis/jobs/${job.id}`, '_blank')}
+                          onClick={() => router.push(`/analysis/jobs/${job.id}`)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>

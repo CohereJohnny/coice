@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -198,43 +198,68 @@ export default function JobDetailsPage() {
   }, [imageUrls]);
 
   // Component to handle image display with signed URL
-  const ImageDisplay = ({ imageId, className }: { imageId: string; className?: string }) => {
-    const [imageSrc, setImageSrc] = useState('/api/placeholder-image');
+  const ImageDisplay = memo(function ImageDisplay({ imageId, className }: { imageId: string; className?: string }) {
+    const [imageSrc, setImageSrc] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(false);
 
     useEffect(() => {
       let isMounted = true;
       
-      getSignedImageUrl(imageId).then(url => {
+      // Check cache first
+      if (imageUrls.has(imageId)) {
         if (isMounted) {
-          setImageSrc(url);
+          setImageSrc(imageUrls.get(imageId)!);
           setIsLoading(false);
         }
-      });
+        return;
+      }
+      
+      // Only fetch if not in cache
+      getSignedImageUrl(imageId)
+        .then(url => {
+          if (isMounted) {
+            setImageSrc(url);
+            setIsLoading(false);
+            setError(false);
+          }
+        })
+        .catch(err => {
+          console.error('Image load error:', err);
+          if (isMounted) {
+            setImageSrc('/api/placeholder-image');
+            setIsLoading(false);
+            setError(true);
+          }
+        });
 
       return () => {
         isMounted = false;
       };
-    }, [imageId]);
+    }, [imageId]); // Only depend on imageId, not imageUrls
 
     return (
-      <div className={`relative ${className}`}>
+      <div className={`relative ${className || ''}`}>
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
         )}
         <img 
-          src={imageSrc}
+          src={imageSrc || '/api/placeholder-image'}
           alt="Analysis image"
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover rounded"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = '/api/placeholder-image';
+            if (!error) {
+              (e.target as HTMLImageElement).src = '/api/placeholder-image';
+              setError(true);
+            }
           }}
+          style={{ display: isLoading ? 'none' : 'block' }}
         />
       </div>
     );
-  };
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {

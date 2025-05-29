@@ -42,7 +42,7 @@ This document defines a simplified sprint workflow for managing development spri
 1.  **AI Action:** If a critical bug blocking progress is found:
     *   Pause work on sprint tasks.
     *   Fix the bug.
-    *   Manually log the bug fix details in `sprints/bug_swatting.md` using the format:
+    *   Manually log the bug fix details in `sprints/bugswatting.md` using the format:
         ```markdown
         ## Bug Entry: [Date]
         - **ID**: BUG-XXX

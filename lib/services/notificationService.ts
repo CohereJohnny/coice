@@ -244,7 +244,12 @@ class NotificationService {
       duration: 3000,
       action: {
         label: 'View Details',
-        onClick: () => window.open(`/analysis/jobs/${jobId}`, '_blank'),
+        onClick: () => {
+          // Use router navigation instead of window.open
+          if (typeof window !== 'undefined') {
+            window.location.href = `/analysis/jobs/${jobId}`;
+          }
+        },
       },
       data: { jobId, pipelineName, imageCount },
     });
@@ -281,7 +286,12 @@ class NotificationService {
       duration: 6000,
       action: {
         label: 'View Results',
-        onClick: () => window.open(`/analysis/jobs/${jobId}`, '_blank'),
+        onClick: () => {
+          // Use router navigation instead of window.open
+          if (typeof window !== 'undefined') {
+            window.location.href = `/analysis/jobs/${jobId}`;
+          }
+        },
       },
       data: { jobId, pipelineName, resultCount },
     });
@@ -301,7 +311,12 @@ class NotificationService {
       duration: 10000,
       action: {
         label: 'View Details',
-        onClick: () => window.open(`/analysis/jobs/${jobId}`, '_blank'),
+        onClick: () => {
+          // Use router navigation instead of window.open
+          if (typeof window !== 'undefined') {
+            window.location.href = `/analysis/jobs/${jobId}`;
+          }
+        },
       },
       data: { jobId, pipelineName, error },
     });
