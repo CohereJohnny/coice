@@ -31,9 +31,9 @@ export default function AnalysisPage() {
 
           <TabsContent value="submit" className="space-y-6">
             {/* Side-by-side layout for Submit Job and How to Use */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
               {/* Submit Analysis Job - Left Column */}
-              <div className="space-y-4">
+              <div className="space-y-4 h-full">
                 <JobSubmissionForm 
                   onJobSubmitted={(jobId) => {
                     console.log('Job submitted:', jobId);
@@ -43,15 +43,15 @@ export default function AnalysisPage() {
               </div>
 
               {/* How to Use AI Analysis - Right Column */}
-              <div className="space-y-4">
-                <Card className="bg-blue-50 border-blue-200">
+              <div className="space-y-4 h-full">
+                <Card className="bg-blue-50 border-blue-200 h-full flex flex-col">
                   <CardHeader>
                     <CardTitle className="text-blue-900">How to Use AI Analysis</CardTitle>
                     <CardDescription className="text-blue-700">
                       Follow these steps to analyze your images with AI
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="text-blue-800">
+                  <CardContent className="text-blue-800 flex-1">
                     <ol className="list-decimal list-inside space-y-2">
                       <li>First, create a <strong>Pipeline</strong> with analysis prompts in the Prompts section</li>
                       <li>Upload images to a <strong>Library</strong> in the Libraries section</li>
