@@ -34,12 +34,6 @@ export default function AnalysisPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Submit Analysis Job - Left Column */}
               <div className="space-y-4">
-                <div>
-                  <h2 className="text-xl font-semibold mb-2">Submit Analysis Job</h2>
-                  <p className="text-muted-foreground">
-                    Select a pipeline and images to analyze with AI-powered vision models
-                  </p>
-                </div>
                 <JobSubmissionForm 
                   onJobSubmitted={(jobId) => {
                     console.log('Job submitted:', jobId);
