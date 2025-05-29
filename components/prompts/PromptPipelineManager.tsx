@@ -94,9 +94,9 @@ export function PromptPipelineManager({
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+      <div className="container mx-auto max-w-7xl">
         {/* Header Section */}
-        <div className="mb-8">
+        <div className="m-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
             <div className="flex items-center justify-between">
               <div>
