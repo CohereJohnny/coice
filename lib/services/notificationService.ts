@@ -25,6 +25,14 @@ export interface NotificationPreferences {
   groupSimilarNotifications: boolean;
 }
 
+// Event types for notification service
+export type NotificationEventType = 'notification-created' | 'notification-dismissed' | 'preferences-updated';
+
+export interface NotificationEvent {
+  type: NotificationEventType;
+  data: any;
+}
+
 // Default preferences
 const DEFAULT_PREFERENCES: NotificationPreferences = {
   enableSounds: true,
@@ -39,9 +47,36 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
 class NotificationService {
   private preferences: NotificationPreferences;
   private activeNotifications: Map<string, NotificationData> = new Map();
+  private eventListeners: Map<NotificationEventType, Set<(data: any) => void>> = new Map();
   
   constructor() {
     this.preferences = this.loadPreferences();
+  }
+
+  // Event management
+  addEventListener(type: NotificationEventType, listener: (data: any) => void) {
+    if (!this.eventListeners.has(type)) {
+      this.eventListeners.set(type, new Set());
+    }
+    this.eventListeners.get(type)!.add(listener);
+
+    // Return cleanup function
+    return () => {
+      this.eventListeners.get(type)?.delete(listener);
+    };
+  }
+
+  private emit(type: NotificationEventType, data: any) {
+    const listeners = this.eventListeners.get(type);
+    if (listeners) {
+      listeners.forEach(listener => {
+        try {
+          listener(data);
+        } catch (error) {
+          console.warn('Error in notification event listener:', error);
+        }
+      });
+    }
   }
 
   // Load preferences from localStorage
@@ -61,6 +96,7 @@ class NotificationService {
   private savePreferences() {
     try {
       localStorage.setItem('notification-preferences', JSON.stringify(this.preferences));
+      this.emit('preferences-updated', this.preferences);
     } catch (error) {
       console.warn('Failed to save notification preferences:', error);
     }
@@ -150,7 +186,11 @@ class NotificationService {
     }
 
     // Store notification data
-    this.activeNotifications.set(toastId, { ...notification, id: toastId });
+    const notificationWithId = { ...notification, id: toastId };
+    this.activeNotifications.set(toastId, notificationWithId);
+
+    // Emit event for notification center
+    this.emit('notification-created', notificationWithId);
 
     // Play sound if enabled
     if (this.preferences.enableSounds && type !== 'loading') {
@@ -164,12 +204,14 @@ class NotificationService {
   dismiss(id: string) {
     toast.dismiss(id);
     this.activeNotifications.delete(id);
+    this.emit('notification-dismissed', { id });
   }
 
   // Dismiss all notifications
   dismissAll() {
     toast.dismiss();
     this.activeNotifications.clear();
+    this.emit('notification-dismissed', { all: true });
   }
 
   // Update loading notification

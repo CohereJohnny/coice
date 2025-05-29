@@ -3,6 +3,9 @@
 import { AuthGuard } from './components/auth/AuthGuard'
 import { useDashboardData } from './hooks/useDashboardData'
 import { StatCard, QuickActions, RecentActivity } from './components/dashboard'
+import { NotificationCenter } from '@/components/ui/NotificationCenter'
+import { notificationService } from '@/lib/services/notificationService'
+import { useState } from 'react'
 
 export default function Home() {
   const {
@@ -16,6 +19,25 @@ export default function Home() {
     realTimeError,
     refreshAll,
   } = useDashboardData();
+
+  // Notification center state
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // Test notification function
+  const showTestNotification = () => {
+    const testTypes = ['success', 'error', 'warning', 'info'] as const;
+    const randomType = testTypes[Math.floor(Math.random() * testTypes.length)];
+    
+    notificationService.show({
+      type: randomType,
+      title: `Test ${randomType} notification`,
+      description: `This is a test ${randomType} notification to demonstrate the notification center functionality.`,
+      action: {
+        label: 'View',
+        onClick: () => alert('Test action clicked!'),
+      },
+    });
+  };
 
   return (
     <AuthGuard>
@@ -42,28 +64,59 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <button
-            onClick={refreshAll}
-            className="flex items-center space-x-2 px-3 py-2 text-sm border rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-            title="Refresh dashboard data"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4"
+          
+          <div className="flex items-center space-x-2">
+            {/* Test notification button (for development) */}
+            <button
+              onClick={showTestNotification}
+              className="flex items-center space-x-2 px-3 py-2 text-sm border rounded-md bg-blue-50 hover:bg-blue-100 transition-colors"
+              title="Test notification system"
             >
-              <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-              <path d="M21 3v5h-5" />
-              <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-              <path d="M3 21v-5h5" />
-            </svg>
-            <span>Refresh</span>
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                className="h-4 w-4"
+              >
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+              </svg>
+              <span>Test</span>
+            </button>
+            
+            {/* Notification Center */}
+            <NotificationCenter
+              open={showNotifications}
+              onOpenChange={setShowNotifications}
+            />
+            
+            <button
+              onClick={refreshAll}
+              className="flex items-center space-x-2 px-3 py-2 text-sm border rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+              title="Refresh dashboard data"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                className="h-4 w-4"
+              >
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M3 21v-5h5" />
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* Statistics Cards */}
