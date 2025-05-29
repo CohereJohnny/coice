@@ -30,17 +30,44 @@ export default function AnalysisPage() {
           </TabsList>
 
           <TabsContent value="submit" className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold mb-2">Submit Analysis Job</h2>
-              <p className="text-muted-foreground mb-6">
-                Select a pipeline and images to analyze with AI-powered vision models
-              </p>
-              <JobSubmissionForm 
-                onJobSubmitted={(jobId) => {
-                  console.log('Job submitted:', jobId);
-                  // You could switch to monitor tab or show a success message
-                }}
-              />
+            {/* Side-by-side layout for Submit Job and How to Use */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Submit Analysis Job - Left Column */}
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-xl font-semibold mb-2">Submit Analysis Job</h2>
+                  <p className="text-muted-foreground">
+                    Select a pipeline and images to analyze with AI-powered vision models
+                  </p>
+                </div>
+                <JobSubmissionForm 
+                  onJobSubmitted={(jobId) => {
+                    console.log('Job submitted:', jobId);
+                    // You could switch to monitor tab or show a success message
+                  }}
+                />
+              </div>
+
+              {/* How to Use AI Analysis - Right Column */}
+              <div className="space-y-4">
+                <Card className="bg-blue-50 border-blue-200">
+                  <CardHeader>
+                    <CardTitle className="text-blue-900">How to Use AI Analysis</CardTitle>
+                    <CardDescription className="text-blue-700">
+                      Follow these steps to analyze your images with AI
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-blue-800">
+                    <ol className="list-decimal list-inside space-y-2">
+                      <li>First, create a <strong>Pipeline</strong> with analysis prompts in the Prompts section</li>
+                      <li>Upload images to a <strong>Library</strong> in the Libraries section</li>
+                      <li>Use the <strong>Submit Job</strong> tab to select your pipeline and images</li>
+                      <li>Monitor progress in the <strong>Monitor Jobs</strong> tab</li>
+                      <li>View results when the job completes</li>
+                    </ol>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 
@@ -54,25 +81,6 @@ export default function AnalysisPage() {
             </div>
           </TabsContent>
         </Tabs>
-
-        {/* Info Card */}
-        <Card className="bg-blue-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="text-blue-900">How to Use AI Analysis</CardTitle>
-            <CardDescription className="text-blue-700">
-              Follow these steps to analyze your images with AI
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-blue-800">
-            <ol className="list-decimal list-inside space-y-2">
-              <li>First, create a <strong>Pipeline</strong> with analysis prompts in the Prompts section</li>
-              <li>Upload images to a <strong>Library</strong> in the Libraries section</li>
-              <li>Use the <strong>Submit Job</strong> tab to select your pipeline and images</li>
-              <li>Monitor progress in the <strong>Monitor Jobs</strong> tab</li>
-              <li>View results when the job completes</li>
-            </ol>
-          </CardContent>
-        </Card>
       </div>
     </AuthGuard>
   );
