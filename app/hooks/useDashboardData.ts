@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useJobSubscription } from './useJobSubscription';
+import { notificationService } from '@/lib/services/notificationService';
 
 export interface DashboardStats {
   libraryCount: number;
@@ -31,6 +33,10 @@ export interface UseDashboardDataReturn {
   statsError: string | null;
   activityError: string | null;
   
+  // Real-time status
+  isRealTimeConnected: boolean;
+  realTimeError: string | null;
+  
   // Actions
   refreshStats: () => Promise<void>;
   refreshActivity: () => Promise<void>;
@@ -59,6 +65,37 @@ export function useDashboardData(): UseDashboardDataReturn {
   // Error states
   const [statsError, setStatsError] = useState<string | null>(null);
   const [activityError, setActivityError] = useState<string | null>(null);
+
+  // Real-time job subscription for live dashboard updates
+  const {
+    isConnected: isRealTimeConnected,
+    connectionError: realTimeError,
+    refreshJobStatus,
+  } = useJobSubscription({
+    enableNotifications: true,
+    onJobUpdate: (jobUpdate) => {
+      console.log('Dashboard received job update:', jobUpdate);
+      // Refresh stats when job status changes to keep dashboard current
+      refreshStats();
+      refreshActivity();
+    },
+    onJobCompleted: (jobUpdate) => {
+      console.log('Dashboard: Job completed:', jobUpdate);
+      // Show a success notification (the hook already handles detailed notifications)
+      notificationService.show({
+        type: 'success',
+        title: 'Dashboard Updated',
+        description: 'Job completion detected, refreshing dashboard data',
+        duration: 2000,
+      });
+    },
+    onJobFailed: (jobUpdate) => {
+      console.log('Dashboard: Job failed:', jobUpdate);
+      // Refresh to show failed job in recent activity
+      refreshStats();
+      refreshActivity();
+    },
+  });
 
   // Fetch dashboard statistics
   const fetchStats = useCallback(async (): Promise<DashboardStats> => {
@@ -235,6 +272,10 @@ export function useDashboardData(): UseDashboardDataReturn {
     error,
     statsError,
     activityError,
+    
+    // Real-time status
+    isRealTimeConnected,
+    realTimeError,
     
     // Actions
     refreshStats,

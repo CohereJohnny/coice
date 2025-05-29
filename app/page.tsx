@@ -12,6 +12,8 @@ export default function Home() {
     isActivityLoading,
     statsError,
     activityError,
+    isRealTimeConnected,
+    realTimeError,
     refreshAll,
   } = useDashboardData();
 
@@ -22,9 +24,23 @@ export default function Home() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Welcome to Coice - Your AI-powered image catalog management platform
-            </p>
+            <div className="flex items-center space-x-4">
+              <p className="text-muted-foreground">
+                Welcome to Coice - Your AI-powered image catalog management platform
+              </p>
+              {/* Real-time status indicator */}
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${isRealTimeConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-xs text-muted-foreground">
+                  {isRealTimeConnected ? 'Live updates active' : 'Live updates disconnected'}
+                </span>
+                {realTimeError && (
+                  <span className="text-xs text-red-500" title={realTimeError}>
+                    ⚠️
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
           <button
             onClick={refreshAll}
