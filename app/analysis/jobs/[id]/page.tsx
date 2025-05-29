@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,9 +30,17 @@ import {
   XCircle,
   Download,
   Filter,
-  Search
+  Search,
+  Clock,
+  Activity
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+
+// Import our new components
+import { ProgressBar, JobTimeline } from '@/components/jobs';
+import type { ProgressStage, TimelineEvent } from '@/components/jobs';
+import { useJobSubscription } from '@/app/hooks/useJobSubscription';
+import { imageService } from '@/lib/services/imageService';
 
 interface JobResult {
   id: string;
@@ -111,12 +119,35 @@ export default function JobDetailsPage() {
   const [filter, setFilter] = useState<'all' | 'success' | 'failed'>('all');
   const [stageFilter, setStageFilter] = useState<number | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
   
   // Modal state
   const [showTestModal, setShowTestModal] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testLoading, setTestLoading] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+
+  // Real-time job subscription for live updates
+  const {
+    isConnected: isRealTimeConnected,
+    connectionError: realTimeError,
+    refreshJobStatus,
+  } = useJobSubscription({
+    jobId,
+    enableNotifications: true,
+    onJobUpdate: (jobUpdate) => {
+      console.log('Job details page received update:', jobUpdate);
+      // Refresh job details when we get real-time updates
+      loadJobDetails();
+    },
+    onJobCompleted: (jobUpdate) => {
+      console.log('Job completed, refreshing details');
+      loadJobDetails();
+    },
+    onJobFailed: (jobUpdate) => {
+      console.log('Job failed, refreshing details');
+      loadJobDetails();
+    },
+  });
 
   const loadJobDetails = useCallback(async () => {
     try {
@@ -129,6 +160,18 @@ export default function JobDetailsPage() {
       }
       
       const data = await response.json();
+      
+      // Log the raw date values for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Raw job data received:', {
+          created_at: data.job?.created_at,
+          completed_at: data.job?.completed_at,
+          created_at_type: typeof data.job?.created_at,
+          completed_at_type: typeof data.job?.completed_at,
+          job_status: data.job?.status
+        });
+      }
+      
       setJobDetails(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load job details');
@@ -141,46 +184,36 @@ export default function JobDetailsPage() {
     loadJobDetails();
   }, [loadJobDetails]);
 
-  // Function to get signed URL for an image
-  const getSignedImageUrl = useCallback(async (imageId: string): Promise<string> => {
-    // Check if we already have the URL cached
-    if (imageUrls.has(imageId)) {
-      return imageUrls.get(imageId)!;
-    }
+  // Debug function to get cache stats
+  const getCacheStats = () => {
+    return imageService.getCacheStats();
+  };
 
-    try {
-      const response = await fetch(`/api/images/${imageId}?signed=true`);
-      if (!response.ok) {
-        throw new Error('Failed to get signed URL');
-      }
-      
-      const data = await response.json();
-      const signedUrl = data.signedUrl;
-      
-      // Cache the URL
-      setImageUrls(prev => new Map(prev).set(imageId, signedUrl));
-      
-      return signedUrl;
-    } catch (error) {
-      console.error('Error getting signed URL:', error);
-      return '/api/placeholder-image';
-    }
-  }, [imageUrls]);
-
-  // Component to handle image display with signed URL
-  const ImageDisplay = ({ imageId, className }: { imageId: string; className?: string }) => {
-    const [imageSrc, setImageSrc] = useState('/api/placeholder-image');
+  // Component to handle image display with signed URL using the new service
+  const ImageDisplay = memo(function ImageDisplay({ imageId, className }: { imageId: string; className?: string }) {
+    const [imageSrc, setImageSrc] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(false);
 
     useEffect(() => {
       let isMounted = true;
       
-      getSignedImageUrl(imageId).then(url => {
-        if (isMounted) {
-          setImageSrc(url);
-          setIsLoading(false);
-        }
-      });
+      imageService.getSignedImageUrl(imageId)
+        .then(url => {
+          if (isMounted) {
+            setImageSrc(url);
+            setIsLoading(false);
+            setError(url === '/api/placeholder-image');
+          }
+        })
+        .catch(err => {
+          console.error('Image load error:', err);
+          if (isMounted) {
+            setImageSrc('/api/placeholder-image');
+            setIsLoading(false);
+            setError(true);
+          }
+        });
 
       return () => {
         isMounted = false;
@@ -188,23 +221,27 @@ export default function JobDetailsPage() {
     }, [imageId]);
 
     return (
-      <div className={`relative ${className}`}>
+      <div className={`relative ${className || ''}`}>
         {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
         )}
         <img 
-          src={imageSrc}
+          src={imageSrc || '/api/placeholder-image'}
           alt="Analysis image"
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover rounded"
           onError={(e) => {
-            (e.target as HTMLImageElement).src = '/api/placeholder-image';
+            if (!error) {
+              (e.target as HTMLImageElement).src = '/api/placeholder-image';
+              setError(true);
+            }
           }}
+          style={{ display: isLoading ? 'none' : 'block' }}
         />
       </div>
     );
-  };
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -221,18 +258,36 @@ export default function JobDetailsPage() {
     }
   };
 
-  const safeFormatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'Unknown';
+  const safeFormatDate = (dateString: string | null | undefined, fieldName?: string) => {
+    // Log raw input for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Date formatting for ${fieldName || 'unknown field'}:`, {
+        input: dateString,
+        type: typeof dateString,
+        isNull: dateString === null,
+        isUndefined: dateString === undefined,
+        isEmpty: dateString === ''
+      });
+    }
+    
+    if (!dateString) {
+      // Show more specific information about what's missing
+      if (dateString === null) return 'Not set (null)';
+      if (dateString === undefined) return 'Not set (undefined)';
+      if (dateString === '') return 'Not set (empty)';
+      return 'Not set';
+    }
     
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
-        return 'Invalid date';
+        console.error(`Invalid date for ${fieldName}:`, dateString);
+        return `Invalid date: "${dateString}"`;
       }
       return formatDistanceToNow(date, { addSuffix: true });
     } catch (error) {
-      console.error('Date formatting error:', error);
-      return 'Invalid date';
+      console.error(`Date formatting error for ${fieldName}:`, error, 'Input:', dateString);
+      return `Error parsing: "${dateString}"`;
     }
   };
 
@@ -271,7 +326,7 @@ export default function JobDetailsPage() {
         ) : testResult ? (
           <div className="space-y-6">
             {/* Image Display */}
-            <div className="border rounded-lg p-4 bg-gray-50">
+            <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
               <h4 className="font-medium mb-3">Image Being Analyzed</h4>
               <div className="flex flex-col lg:flex-row gap-4">
                 <div className="lg:w-1/2">
@@ -293,34 +348,34 @@ export default function JobDetailsPage() {
             {/* Results Comparison */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="border rounded-lg p-4">
-                <h5 className="font-medium text-blue-800 mb-2">Original Pipeline Result</h5>
+                <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Original Pipeline Result</h5>
                 <div className="space-y-1">
-                  <div className="text-lg font-bold text-blue-700">
+                  <div className="text-lg font-bold text-blue-700 dark:text-blue-300">
                     {testResult.originalResult}
                   </div>
                   {testResult.originalConfidence && (
-                    <div className="text-sm text-blue-600">
+                    <div className="text-sm text-blue-600 dark:text-blue-400">
                       Confidence: {Math.round(testResult.originalConfidence * 100)}%
                     </div>
                   )}
-                  <div className="text-xs text-gray-500 mt-2">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     From job pipeline execution
                   </div>
                 </div>
               </div>
 
               <div className="border rounded-lg p-4">
-                <h5 className="font-medium text-green-800 mb-2">Fresh Test Result</h5>
+                <h5 className="font-medium text-green-800 dark:text-green-200 mb-2">Fresh Test Result</h5>
                 <div className="space-y-1">
-                  <div className="text-lg font-bold text-green-700">
+                  <div className="text-lg font-bold text-green-700 dark:text-green-300">
                     {testResult.freshResult}
                   </div>
                   {testResult.freshConfidence && (
-                    <div className="text-sm text-green-600">
+                    <div className="text-sm text-green-600 dark:text-green-400">
                       Confidence: {Math.round(testResult.freshConfidence * 100)}%
                     </div>
                   )}
-                  <div className="text-xs text-gray-500 mt-2">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     From live API test
                   </div>
                 </div>
@@ -328,18 +383,18 @@ export default function JobDetailsPage() {
             </div>
 
             {/* Match Status */}
-            <div className={`border rounded-lg p-4 ${testResult.match ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+            <div className={`border rounded-lg p-4 ${testResult.match ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'}`}>
               <div className="flex items-center gap-2">
                 {testResult.match ? (
-                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
                 ) : (
-                  <XCircle className="h-5 w-5 text-red-600" />
+                  <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
                 )}
-                <span className={`font-medium ${testResult.match ? 'text-green-800' : 'text-red-800'}`}>
+                <span className={`font-medium ${testResult.match ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'}`}>
                   {testResult.match ? 'Results Match' : 'Results Differ'}
                 </span>
                 {!testResult.match && (
-                  <span className="text-sm text-gray-600 ml-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 ml-2">
                     - Review the image to determine which result is correct
                   </span>
                 )}
@@ -347,9 +402,9 @@ export default function JobDetailsPage() {
             </div>
 
             {/* Model Info */}
-            <div className="border rounded-lg p-4 bg-blue-50">
-              <h5 className="font-medium text-blue-800 mb-2">Model Information</h5>
-              <div className="text-sm text-blue-700 grid grid-cols-2 gap-4">
+            <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
+              <h5 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Model Information</h5>
+              <div className="text-sm text-blue-700 dark:text-blue-300 grid grid-cols-2 gap-4">
                 <div><strong>Model:</strong> {testResult.model}</div>
                 <div><strong>Timestamp:</strong> {new Date().toLocaleString()}</div>
               </div>
@@ -357,9 +412,9 @@ export default function JobDetailsPage() {
 
             {/* Error Display */}
             {testResult.error && (
-              <div className="border rounded-lg p-4 bg-red-50 border-red-200">
-                <h5 className="font-medium text-red-800 mb-2">Error</h5>
-                <div className="text-sm text-red-700">{testResult.error}</div>
+              <div className="border rounded-lg p-4 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
+                <h5 className="font-medium text-red-800 dark:text-red-200 mb-2">Error</h5>
+                <div className="text-sm text-red-700 dark:text-red-300">{testResult.error}</div>
               </div>
             )}
           </div>
@@ -400,6 +455,151 @@ export default function JobDetailsPage() {
     ? Math.round((jobDetails.results.filter(r => r.success).length / jobDetails.results.length) * 100)
     : 0;
 
+  // Create timeline events from job data
+  const createTimelineEvents = (): TimelineEvent[] => {
+    if (!jobDetails) return [];
+
+    const events: TimelineEvent[] = [];
+
+    // Job started event - add validation for timestamp
+    if (jobDetails.job.created_at) {
+      // Validate the timestamp before using it
+      const jobStartTime = new Date(jobDetails.job.created_at);
+      const isValidStartTime = !isNaN(jobStartTime.getTime());
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Job created_at:', jobDetails.job.created_at);
+        console.log('Parsed date:', jobStartTime);
+        console.log('Is valid:', isValidStartTime);
+      }
+      
+      events.push({
+        id: 'job-started',
+        title: 'Job Started',
+        description: `Analysis pipeline "${jobDetails.job.pipeline.name}" initiated`,
+        timestamp: isValidStartTime ? jobDetails.job.created_at : new Date().toISOString(),
+        status: 'completed',
+        icon: <Activity className="w-3 h-3" />,
+        details: {
+          total: jobDetails.job.total_images,
+        },
+      });
+    }
+
+    // Add stage completion events based on results
+    const stageCompletions = new Map<number, { completed: number; failed: number; timestamp: string }>();
+    
+    jobDetails.results.forEach(result => {
+      const stageOrder = result.stage_order || 1;
+      const existing = stageCompletions.get(stageOrder) || { 
+        completed: 0, 
+        failed: 0, 
+        timestamp: result.created_at || new Date().toISOString() 
+      };
+      
+      if (result.success) {
+        existing.completed++;
+      } else {
+        existing.failed++;
+      }
+      
+      // Use the latest timestamp for this stage (with validation)
+      const resultTimestamp = result.created_at || new Date().toISOString();
+      const currentTimestamp = existing.timestamp || new Date().toISOString();
+      
+      if (new Date(resultTimestamp) > new Date(currentTimestamp)) {
+        existing.timestamp = resultTimestamp;
+      }
+      
+      stageCompletions.set(stageOrder, existing);
+    });
+
+    // Create events for each stage
+    Array.from(stageCompletions.entries())
+      .sort(([a], [b]) => a - b)
+      .forEach(([stageOrder, data]) => {
+        const stageResult = jobDetails.results.find(r => r.stage_order === stageOrder);
+        const total = data.completed + data.failed;
+        
+        events.push({
+          id: `stage-${stageOrder}`,
+          title: `Stage ${stageOrder} Completed`,
+          description: stageResult?.prompt_name || `Pipeline stage ${stageOrder}`,
+          timestamp: data.timestamp || new Date().toISOString(),
+          status: data.failed > 0 ? 'completed' : 'completed', // Could be 'failed' if all failed
+          details: {
+            processed: total,
+            total: jobDetails.job.total_images,
+            errors: data.failed > 0 ? [`${data.failed} images failed processing`] : undefined,
+          },
+        });
+      });
+
+    // Job completion event - add validation
+    if (jobDetails.job.completed_at) {
+      const completionTime = new Date(jobDetails.job.completed_at);
+      const isValidCompletionTime = !isNaN(completionTime.getTime());
+      
+      events.push({
+        id: 'job-completed',
+        title: jobDetails.job.status === 'completed' ? 'Job Completed' : 'Job Failed',
+        description: jobDetails.job.status === 'completed' 
+          ? `Analysis completed successfully with ${successRate}% success rate`
+          : `Job failed: ${jobDetails.job.error_message || 'Unknown error'}`,
+        timestamp: isValidCompletionTime ? jobDetails.job.completed_at : new Date().toISOString(),
+        status: jobDetails.job.status === 'completed' ? 'completed' : 'failed',
+        icon: jobDetails.job.status === 'completed' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />,
+        details: {
+          processed: jobDetails.job.processed_images,
+          total: jobDetails.job.total_images,
+        },
+      });
+    }
+
+    return events;
+  };
+
+  // Create progress stages from pipeline data
+  const createProgressStages = (): ProgressStage[] => {
+    if (!jobDetails) return [];
+
+    const stages: ProgressStage[] = [];
+    const uniqueStages = [...new Set(jobDetails.results.map(r => r.stage_order || 1))].sort();
+
+    uniqueStages.forEach((stageOrder, index) => {
+      const stageResults = jobDetails.results.filter(r => (r.stage_order || 1) === stageOrder);
+      const stageResult = stageResults[0]; // Get first result for stage info
+      const completed = stageResults.filter(r => r.success).length;
+      const total = stageResults.length;
+      const progress = total > 0 ? (completed / total) * 100 : 0;
+
+      let status: ProgressStage['status'] = 'pending';
+      if (total > 0) {
+        if (completed === total) {
+          status = 'completed';
+        } else if (completed > 0) {
+          status = 'processing';
+        } else {
+          status = 'failed';
+        }
+      }
+
+      stages.push({
+        id: `stage-${stageOrder}`,
+        name: stageResult?.prompt_name || `Stage ${stageOrder}`,
+        description: stageResult?.prompt_type || 'Analysis stage',
+        status,
+        progress,
+        icon: <span className="text-xs font-medium">{stageOrder}</span>,
+      });
+    });
+
+    return stages;
+  };
+
+  const timelineEvents = createTimelineEvents();
+  const progressStages = createProgressStages();
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -414,7 +614,21 @@ export default function JobDetailsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">Job Analysis Results</h1>
-            <p className="text-muted-foreground">Detailed analysis for job {jobId.slice(0, 8)}...</p>
+            <div className="flex items-center space-x-4">
+              <p className="text-muted-foreground">Detailed analysis for job {jobId.slice(0, 8)}...</p>
+              {/* Real-time status indicator */}
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${isRealTimeConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-xs text-muted-foreground">
+                  {isRealTimeConnected ? 'Live updates' : 'Disconnected'}
+                </span>
+                {realTimeError && (
+                  <span className="text-xs text-red-500" title={realTimeError}>
+                    ⚠️
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
         
@@ -423,6 +637,15 @@ export default function JobDetailsPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+          {process.env.NODE_ENV === 'development' && (
+            <Button 
+              onClick={() => setShowDebugPanel(!showDebugPanel)} 
+              variant="outline"
+              size="sm"
+            >
+              Debug
+            </Button>
+          )}
           {jobDetails.results.length > 0 && (
             <Button variant="outline">
               <Download className="h-4 w-4 mr-2" />
@@ -462,11 +685,11 @@ export default function JobDetailsPage() {
             </div>
             <div>
               <h4 className="font-medium">Created</h4>
-              <p className="text-sm text-muted-foreground">{safeFormatDate(jobDetails.job.created_at)}</p>
+              <p className="text-sm text-muted-foreground">{safeFormatDate(jobDetails.job.created_at, 'created_at')}</p>
             </div>
             <div>
               <h4 className="font-medium">Completed</h4>
-              <p className="text-sm text-muted-foreground">{safeFormatDate(jobDetails.job.completed_at)}</p>
+              <p className="text-sm text-muted-foreground">{safeFormatDate(jobDetails.job.completed_at, 'completed_at')}</p>
             </div>
             <div>
               <h4 className="font-medium">Total Results</h4>
@@ -480,11 +703,105 @@ export default function JobDetailsPage() {
           
           {jobDetails.job.progress !== undefined && jobDetails.job.progress < 100 && (
             <div className="mt-4">
-              <Progress value={jobDetails.job.progress} className="h-2" />
+              <ProgressBar
+                progress={jobDetails.job.progress}
+                status={jobDetails.job.status as any}
+                stages={progressStages}
+                variant="segmented"
+                showStageNames={true}
+                showStageProgress={true}
+                showTimeEstimate={true}
+                animated={true}
+                size="md"
+              />
+            </div>
+          )}
+          
+          {/* Show completed progress bar for finished jobs */}
+          {jobDetails.job.status === 'completed' && (
+            <div className="mt-4">
+              <ProgressBar
+                progress={100}
+                status="completed"
+                stages={progressStages}
+                variant="segmented"
+                showStageNames={true}
+                showPercentage={true}
+                animated={false}
+                size="md"
+              />
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Debug Panel for Development */}
+      {process.env.NODE_ENV === 'development' && showDebugPanel && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Debug Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs space-y-4">
+              {/* Date Information */}
+              <div>
+                <div className="font-medium mb-2">Date Fields:</div>
+                <div className="space-y-1">
+                  <div>Created At: <span className="font-mono">{JSON.stringify(jobDetails.job.created_at)} ({typeof jobDetails.job.created_at})</span></div>
+                  <div>Completed At: <span className="font-mono">{JSON.stringify(jobDetails.job.completed_at)} ({typeof jobDetails.job.completed_at})</span></div>
+                  <div>Job Status: <span className="font-mono">{jobDetails.job.status}</span></div>
+                </div>
+              </div>
+              
+              {/* Image Request Statistics */}
+              <div>
+                <div className="font-medium mb-2">Image Request Statistics:</div>
+                <div>Cache Size: {getCacheStats().cacheSize}</div>
+                <div>Pending Requests: {getCacheStats().pendingRequests}</div>
+                <div className="space-y-1">
+                  <div className="font-medium">Request Counts by Image ID:</div>
+                  {Object.entries(getCacheStats().requestCounts).map(([imageId, count]) => (
+                    <div key={imageId} className={`ml-2 ${count > 1 ? 'text-red-600 font-bold' : 'text-green-600'}`}>
+                      {imageId.slice(0, 8)}...: {count} requests {count > 1 && '⚠️'}
+                    </div>
+                  ))}
+                </div>
+                <Button 
+                  onClick={() => imageService.clearCache()} 
+                  variant="outline" 
+                  size="sm"
+                  className="mt-2"
+                >
+                  Clear Cache
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Job Timeline */}
+      {timelineEvents.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Job Timeline
+            </CardTitle>
+            <CardDescription>Chronological view of job execution events</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <JobTimeline
+              events={timelineEvents}
+              stages={progressStages}
+              showDurations={true}
+              showDetails={true}
+              showMetadata={false}
+              compact={false}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Error Message */}
       {jobDetails.job.error_message && (
@@ -518,9 +835,9 @@ export default function JobDetailsPage() {
                       </div>
                     </div>
                     
-                    <div className="bg-gray-50 p-3 rounded text-sm">
-                      <div className="font-medium text-gray-700 mb-1">Prompt:</div>
-                      <div className="text-gray-900">
+                    <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded text-sm">
+                      <div className="font-medium text-gray-700 dark:text-gray-300 mb-1">Prompt:</div>
+                      <div className="text-gray-900 dark:text-gray-100">
                         {stageResult.stage?.prompt?.prompt || 'Prompt not available'}
                       </div>
                     </div>
@@ -589,191 +906,154 @@ export default function JobDetailsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Image</TableHead>
+                  <TableHead className="w-52">Image</TableHead>
+                  <TableHead className="w-72">Metadata</TableHead>
                   <TableHead>Analysis Result</TableHead>
-                  <TableHead>Confidence</TableHead>
-                  <TableHead>Processed</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="w-20">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredResults.map((result) => (
                   <TableRow key={result.id}>
+                    {/* Image Column - 200x200 with overlay */}
                     <TableCell>
-                      {result.success ? (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">Stage {result.stage_order}</div>
-                        <div className="text-xs text-muted-foreground">{result.prompt_name}</div>
-                        <Badge variant="outline" className="text-xs">
-                          {result.prompt_type}
-                        </Badge>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {/* Image thumbnail */}
-                        <ImageDisplay imageId={result.image_id} className="w-16 h-12" />
-                        <div>
-                          <div className="text-xs font-mono">
-                            {result.image_id.slice(0, 8)}...
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            ID: {result.image_id}
+                      <div className="relative w-48 h-48">
+                        <ImageDisplay imageId={result.image_id} className="w-full h-full" />
+                        {/* Image name overlay */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 dark:bg-black/80 text-white text-xs p-2 rounded-b">
+                          <div className="font-mono truncate">
+                            {result.image_id.slice(0, 12)}...
                           </div>
                         </div>
                       </div>
                     </TableCell>
+                    
+                    {/* Metadata Column - Combined status, stage, confidence */}
+                    <TableCell>
+                      <div className="space-y-3">
+                        {/* Status Badge - Remove redundant icon, keep only badge */}
+                        <div>
+                          <Badge variant={result.success ? "default" : "destructive"}>
+                            {result.success ? "Success" : "Failed"}
+                          </Badge>
+                        </div>
+                        
+                        {/* Stage Information */}
+                        <div className="space-y-1">
+                          <div className="font-medium text-sm">Stage {result.stage_order}</div>
+                          <div className="text-xs text-muted-foreground">{result.prompt_name}</div>
+                          <Badge variant="outline" className="text-xs">
+                            {result.prompt_type}
+                          </Badge>
+                        </div>
+                        
+                        {/* Confidence */}
+                        {result.confidence && (
+                          <div className="space-y-1">
+                            <div className="text-sm font-medium">
+                              Confidence: {Math.round(result.confidence * 100)}%
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {result.confidence > 0.8 ? 'High' : 
+                               result.confidence > 0.6 ? 'Medium' : 'Low'}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    
+                    {/* Analysis Result Column - Only the result */}
                     <TableCell className="max-w-md">
                       <div className="text-sm">
                         {result.success ? (
-                          <div className="space-y-2">
-                            <div className="bg-green-50 p-3 rounded border">
-                              <div className="font-medium text-green-800 mb-1">
-                                Analysis Result:
-                              </div>
-                              <div className="text-green-700">
-                                {result.result}
-                              </div>
+                          <div className="bg-green-50 dark:bg-green-950 p-3 rounded border dark:border-green-800">
+                            <div className="font-medium text-green-800 dark:text-green-200 mb-1">
+                              Analysis Result:
                             </div>
-                            
-                            {/* Show metadata if available */}
-                            {result.metadata && (
-                              <div className="bg-blue-50 p-2 rounded border text-xs">
-                                <div className="font-medium text-blue-800 mb-1">
-                                  Model Info:
-                                </div>
-                                <div className="text-blue-700">
-                                  Model: {result.metadata.model || 'Unknown'}<br/>
-                                  Type: {result.metadata.promptType || 'Unknown'}<br/>
-                                  {result.metadata.fallback && (
-                                    <span className="text-orange-600">⚠ Fallback Response</span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                            <div className="text-green-700 dark:text-green-300">
+                              {result.result}
+                            </div>
                           </div>
                         ) : (
-                          <div className="bg-red-50 p-3 rounded border">
-                            <div className="font-medium text-red-800 mb-1">
+                          <div className="bg-red-50 dark:bg-red-950 p-3 rounded border dark:border-red-800">
+                            <div className="font-medium text-red-800 dark:text-red-200 mb-1">
                               Error:
                             </div>
-                            <div className="text-red-700">
+                            <div className="text-red-700 dark:text-red-300">
                               {result.error_message || 'Analysis failed'}
                             </div>
                           </div>
                         )}
                       </div>
                     </TableCell>
+                    
+                    {/* Actions Column - Only Test button */}
                     <TableCell>
-                      {result.confidence && (
-                        <div className="text-sm">
-                          <div className="font-medium">
-                            {Math.round(result.confidence * 100)}%
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {result.confidence > 0.8 ? 'High' : 
-                             result.confidence > 0.6 ? 'Medium' : 'Low'}
-                          </div>
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {safeFormatDate(result.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {/* Button to view full image */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const imageUrl = await getSignedImageUrl(result.image_id);
-                              window.open(imageUrl, '_blank');
-                            } catch (error) {
-                              alert('Failed to load image');
-                            }
-                          }}
-                          className="h-6 px-2 text-xs"
-                        >
-                          View
-                        </Button>
-                        
-                        {/* Button to test this specific image */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              setTestLoading(true);
-                              setShowTestModal(true);
-                              
-                              const imageUrl = await getSignedImageUrl(result.image_id);
-                              
-                              // Use the actual prompt text, not just the name
-                              const actualPrompt = result.stage?.prompt?.prompt || result.prompt_name || 'Is there a flare burning in this image?';
-                              const promptType = result.prompt_type || 'boolean';
-                              
-                              console.log('Testing with actual prompt:', actualPrompt);
-                              console.log('Prompt type:', promptType);
-                              
-                              const testResponse = await fetch('/api/debug/cohere-test', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  imageUrl,
-                                  prompt: actualPrompt,
-                                  promptType: promptType
-                                })
-                              });
-                              const data = await testResponse.json();
-                              
-                              // Set test result for modal
-                              const testResultData: TestResult = {
-                                imageId: result.image_id,
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            setTestLoading(true);
+                            setShowTestModal(true);
+                            
+                            const imageUrl = await imageService.getSignedImageUrl(result.image_id);
+                            
+                            // Use the actual prompt text, not just the name
+                            const actualPrompt = result.stage?.prompt?.prompt || result.prompt_name || 'Is there a flare burning in this image?';
+                            const promptType = result.prompt_type || 'boolean';
+                            
+                            console.log('Testing with actual prompt:', actualPrompt);
+                            console.log('Prompt type:', promptType);
+                            
+                            const testResponse = await fetch('/api/debug/cohere-test', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                imageUrl,
                                 prompt: actualPrompt,
-                                promptType: promptType,
-                                originalResult: result.result,
-                                originalConfidence: result.confidence,
-                                freshResult: data.result?.response || 'Failed',
-                                freshConfidence: data.result?.confidence,
-                                model: data.result?.metadata?.model || 'Unknown',
-                                match: result.result === data.result?.response,
-                                error: data.error
-                              };
-                              
-                              setTestResult(testResultData);
-                            } catch (error) {
-                              setTestResult({
-                                imageId: result.image_id,
-                                prompt: result.stage?.prompt?.prompt || 'Unknown',
-                                promptType: result.prompt_type || 'boolean',
-                                originalResult: result.result,
-                                originalConfidence: result.confidence,
-                                freshResult: 'Error',
-                                freshConfidence: 0,
-                                model: 'Unknown',
-                                match: false,
-                                error: `Test failed: ${error}`
-                              });
-                            } finally {
-                              setTestLoading(false);
-                            }
-                          }}
-                          className="h-6 px-2 text-xs"
-                          disabled={testLoading}
-                        >
-                          {testLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Test'}
-                        </Button>
-                      </div>
+                                promptType: promptType
+                              })
+                            });
+                            const data = await testResponse.json();
+                            
+                            // Set test result for modal
+                            const testResultData: TestResult = {
+                              imageId: result.image_id,
+                              prompt: actualPrompt,
+                              promptType: promptType,
+                              originalResult: result.result,
+                              originalConfidence: result.confidence,
+                              freshResult: data.result?.response || 'Failed',
+                              freshConfidence: data.result?.confidence,
+                              model: data.result?.metadata?.model || 'Unknown',
+                              match: result.result === data.result?.response,
+                              error: data.error
+                            };
+                            
+                            setTestResult(testResultData);
+                          } catch (error) {
+                            setTestResult({
+                              imageId: result.image_id,
+                              prompt: result.stage?.prompt?.prompt || 'Unknown',
+                              promptType: result.prompt_type || 'boolean',
+                              originalResult: result.result,
+                              originalConfidence: result.confidence,
+                              freshResult: 'Error',
+                              freshConfidence: 0,
+                              model: 'Unknown',
+                              match: false,
+                              error: `Test failed: ${error}`
+                            });
+                          } finally {
+                            setTestLoading(false);
+                          }
+                        }}
+                        className="h-8 px-3 text-xs"
+                        disabled={testLoading}
+                      >
+                        {testLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Test'}
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -797,7 +1077,7 @@ export default function JobDetailsPage() {
             <CardDescription>Technical details and metadata</CardDescription>
           </CardHeader>
           <CardContent>
-            <pre className="text-xs bg-gray-50 p-4 rounded overflow-auto">
+            <pre className="text-xs bg-gray-50 dark:bg-gray-800 dark:text-gray-100 p-4 rounded overflow-auto">
               {JSON.stringify(jobDetails.job.results_summary, null, 2)}
             </pre>
           </CardContent>

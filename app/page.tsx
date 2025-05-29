@@ -1,202 +1,193 @@
 'use client'
 
 import { AuthGuard } from './components/auth/AuthGuard'
+import { useDashboardData } from './hooks/useDashboardData'
+import { StatCard, QuickActions, RecentActivity } from './components/dashboard'
 
 export default function Home() {
+  const {
+    stats,
+    recentActivity,
+    isStatsLoading,
+    isActivityLoading,
+    statsError,
+    activityError,
+    isRealTimeConnected,
+    realTimeError,
+    refreshAll,
+  } = useDashboardData();
+
   return (
     <AuthGuard>
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome to Coice - Your AI-powered image catalog management platform
-        </p>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="tracking-tight text-sm font-medium">Libraries</h3>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-            </svg>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Monitor your image analysis projects and recent activity
+            </p>
           </div>
-          <div className="text-2xl font-bold">0</div>
-          <p className="text-xs text-muted-foreground">
-            No libraries created yet
-          </p>
+          
+          <div className="flex items-center space-x-2">
+            {/* Refresh button */}
+            <button
+              onClick={refreshAll}
+              className="flex items-center space-x-2 px-3 py-2 text-sm border rounded-md hover:bg-gray-50 transition-colors"
+              title="Refresh dashboard data"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                className="h-4 w-4"
+              >
+                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                <path d="M21 3v5h-5" />
+                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                <path d="M3 21v-5h5" />
+              </svg>
+              <span>Refresh</span>
+            </button>
+            
+            {/* Real-time connection indicator */}
+            <div className="flex items-center space-x-2 text-sm">
+              <div className={`h-2 w-2 rounded-full ${
+                isRealTimeConnected 
+                  ? 'bg-green-500 animate-pulse' 
+                  : 'bg-red-500'
+              }`} />
+              <span className="text-muted-foreground">
+                {isRealTimeConnected ? 'Live' : 'Disconnected'}
+              </span>
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="tracking-tight text-sm font-medium">Analysis Jobs</h3>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="m22 21-3-3m0 0a5.5 5.5 0 1 0-7.78-7.78 5.5 5.5 0 0 0 7.78 7.78Z" />
-            </svg>
+        {/* Error States */}
+        {(statsError || activityError || realTimeError) && (
+          <div className="rounded-lg bg-destructive/15 border border-destructive/20 p-4">
+            <div className="text-sm text-destructive">
+              {statsError && <div>Stats Error: {statsError}</div>}
+              {activityError && <div>Activity Error: {activityError}</div>}
+              {realTimeError && <div>Real-time Error: {realTimeError}</div>}
+            </div>
           </div>
-          <div className="text-2xl font-bold">0</div>
-          <p className="text-xs text-muted-foreground">
-            No analysis jobs running
-          </p>
-        </div>
+        )}
 
-        <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="tracking-tight text-sm font-medium">Images</h3>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-4 w-4 text-muted-foreground"
-            >
-              <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-              <circle cx="9" cy="9" r="2" />
-              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-            </svg>
-          </div>
-          <div className="text-2xl font-bold">0</div>
-          <p className="text-xs text-muted-foreground">
-            No images uploaded yet
-          </p>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+        {/* Statistics Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <button className="flex flex-col items-center justify-center p-4 border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-8 w-8 mb-2"
-            >
-              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-              <circle cx="12" cy="13" r="3" />
-            </svg>
-            <span className="text-sm font-medium">Create Library</span>
-          </button>
-
-          <button className="flex flex-col items-center justify-center p-4 border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-8 w-8 mb-2"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7,10 12,15 17,10" />
-              <line x1="12" x2="12" y1="15" y2="3" />
-            </svg>
-            <span className="text-sm font-medium">Upload Images</span>
-          </button>
-
-          <button className="flex flex-col items-center justify-center p-4 border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-8 w-8 mb-2"
-            >
-              <path d="M9 12l2 2 4-4" />
-              <path d="M21 12c.552 0 1-.448 1-1V8a2 2 0 0 0-2-2h-5L9.5 3h-3A2 2 0 0 0 4 5v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3c0-.552-.448-1-1-1z" />
-            </svg>
-            <span className="text-sm font-medium">Run Analysis</span>
-          </button>
-
-          <button className="flex flex-col items-center justify-center p-4 border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              className="h-8 w-8 mb-2"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-            <span className="text-sm font-medium">Search Images</span>
-          </button>
+          <StatCard
+            title="Libraries"
+            value={stats.libraryCount.toString()}
+            description="Active image collections"
+            isLoading={isStatsLoading}
+            icon={
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            }
+          />
+          <StatCard
+            title="Total Images"
+            value={stats.totalImageCount.toString()}
+            description="Across all libraries"
+            isLoading={isStatsLoading}
+            icon={
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            }
+          />
+          <StatCard
+            title="Active Jobs"
+            value={stats.activeJobCount.toString()}
+            description="Currently processing"
+            isLoading={isStatsLoading}
+            icon={
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            }
+          />
+          <StatCard
+            title="Recent Jobs"
+            value={stats.recentJobCount.toString()}
+            description="Completed this week"
+            isLoading={isStatsLoading}
+            icon={
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+          />
         </div>
-      </div>
 
-      {/* Sprint Status */}
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <h3 className="text-lg font-semibold mb-4">Sprint 4 Status</h3>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Catalog & Library API Routes</span>
-            <span className="text-sm font-medium text-green-600">✓ Complete</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">UI Components (Forms & Lists)</span>
-            <span className="text-sm font-medium text-green-600">✓ Complete</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Role-Based Permissions</span>
-            <span className="text-sm font-medium text-green-600">✓ Complete</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Confirmation Dialogs & UI Polish</span>
-            <span className="text-sm font-medium text-green-600">✓ Complete</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm">Admin Panel Foundation</span>
-            <span className="text-sm font-medium text-green-600">✓ Complete</span>
-          </div>
+        {/* Quick Actions */}
+        <div>
+          <QuickActions />
         </div>
-        
-        <div className="mt-4 pt-4 border-t">
-          <h4 className="text-sm font-medium mb-2">Previous Sprints</h4>
-          <div className="space-y-1 text-xs text-muted-foreground">
-            <div className="flex items-center justify-between">
-              <span>Sprint 2: Supabase Integration & Auth</span>
-              <span className="text-green-600">✓ Complete</span>
+
+        {/* Sprint Status */}
+        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+          {/* Sprint Status */}
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Sprint 11: Advanced Job Processing & Results</h3>
+              <div className="text-muted-foreground">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  className="h-4 w-4"
+                >
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                </svg>
+              </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span>Sprint 3: Navigation & Layout</span>
-              <span className="text-green-600">✓ Complete</span>
+            <p className="text-sm text-muted-foreground mb-4">
+              Complete job processing pipeline, implement result storage, and build results viewing interface
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Sprint 10 Complete</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-24 bg-green-200 rounded-full h-2">
+                    <div className="bg-green-600 h-2 rounded-full w-full"></div>
+                  </div>
+                  <span className="text-xs text-green-600 font-medium">100%</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Sprint 11 Planning</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-24 bg-gray-200 rounded-full h-2">
+                    <div className="bg-blue-600 h-2 rounded-full w-1/4"></div>
+                  </div>
+                  <span className="text-xs text-blue-600 font-medium">25%</span>
+                </div>
+              </div>
             </div>
+            <div className="mt-4 pt-4 border-t">
+              <div className="text-xs text-muted-foreground">
+                <strong>Sprint 10 Achievements:</strong> Real-time job monitoring, toast notifications, live dashboards, job comparison tools, notification management, bug fixes
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div>
+            <RecentActivity 
+              activities={recentActivity} 
+              isLoading={isActivityLoading}
+            />
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +67,7 @@ export default function JobMonitoringDashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const router = useRouter();
 
   useEffect(() => {
     loadJobs();
@@ -253,19 +255,6 @@ export default function JobMonitoringDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Job Monitoring</h2>
-          <p className="text-muted-foreground">
-            Monitor the progress of your AI analysis jobs
-          </p>
-        </div>
-        <Button onClick={loadJobs} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
-
       {error && (
         <Alert variant="destructive">
           <XCircle className="h-4 w-4" />
@@ -274,11 +263,17 @@ export default function JobMonitoringDashboard() {
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Recent Jobs</CardTitle>
-          <CardDescription>
-            Your analysis jobs and their current status
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="space-y-1">
+            <CardTitle>Recent Jobs</CardTitle>
+            <CardDescription>
+              Your analysis jobs and their current status
+            </CardDescription>
+          </div>
+          <Button onClick={loadJobs} disabled={loading} variant="outline" size="sm">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </CardHeader>
         
         <CardContent>
@@ -351,7 +346,7 @@ export default function JobMonitoringDashboard() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open(`/analysis/jobs/${job.id}`, '_blank')}
+                          onClick={() => router.push(`/analysis/jobs/${job.id}`)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
