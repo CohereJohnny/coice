@@ -27,5 +27,23 @@
 - **Description**: Excessive API calls to /api/images endpoint - hundreds of duplicate requests for same images on job details page load
 - **Discovered**: Sprint 10 testing - single page load generating 100+ API requests for same image IDs
 - **Context**: Sprint 10, Job details page with multiple ImageDisplay components causing race conditions
-- **Fix**: In Progress
-- **Status**: In Progress
+- **Fix**: 
+  - Created centralized imageService with request deduplication and proper caching
+  - Implemented singleton pattern to prevent multiple simultaneous requests for same image
+  - Added request counter and debugging capabilities to monitor API calls
+  - Replaced problematic inline caching with proper service-based caching
+  - Added debug panel in development mode to track request statistics
+- **Status**: Resolved
+
+## Bug Entry: [2024-01-25]
+- **ID**: BUG-004
+- **Description**: Dashboard showing incorrect statistics - Images shows 0 despite having images across multiple catalogs/libraries, Active Jobs and Recent Jobs counts may be inaccurate
+- **Discovered**: Sprint 10 testing - dashboard statistics not reflecting actual data
+- **Context**: Sprint 10, Dashboard data fetching and aggregation issues
+- **Fix**: 
+  - Created dedicated `/api/dashboard/stats` endpoint with proper counting logic
+  - Added role-based access control for catalog and library counting
+  - Implemented proper image counting across all accessible libraries
+  - Updated useDashboardData hook to use new dedicated stats API
+  - Fixed job status filtering for accurate active and recent job counts
+- **Status**: Resolved

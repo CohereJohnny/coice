@@ -103,38 +103,18 @@ export function useDashboardData(): UseDashboardDataReturn {
     setStatsError(null);
     
     try {
-      // Fetch libraries count
-      const librariesResponse = await fetch('/api/libraries');
-      const librariesData = await librariesResponse.json();
-      const libraryCount = librariesData.libraries?.length || 0;
-      
-      // Calculate total images from libraries
-      let totalImageCount = 0;
-      if (librariesData.libraries) {
-        totalImageCount = librariesData.libraries.reduce((sum: number, lib: any) => {
-          return sum + (lib.image_count || 0);
-        }, 0);
+      // Use dedicated dashboard stats API
+      const statsResponse = await fetch('/api/dashboard/stats');
+      if (!statsResponse.ok) {
+        throw new Error(`Failed to fetch dashboard stats: ${statsResponse.statusText}`);
       }
       
-      // Fetch recent jobs for active job count
-      const jobsResponse = await fetch('/api/jobs/history?limit=50');
-      const jobsData = await jobsResponse.json();
-      
-      const activeJobCount = jobsData.jobs?.filter((job: any) => 
-        job.status === 'pending' || job.status === 'processing'
-      ).length || 0;
-      
-      const recentJobCount = jobsData.jobs?.filter((job: any) => {
-        const jobDate = new Date(job.created_at);
-        const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        return jobDate > dayAgo;
-      }).length || 0;
-      
-      const newStats = {
-        libraryCount,
-        activeJobCount,
-        totalImageCount,
-        recentJobCount,
+      const statsData = await statsResponse.json();
+      const newStats = statsData.stats || {
+        libraryCount: 0,
+        activeJobCount: 0,
+        totalImageCount: 0,
+        recentJobCount: 0,
       };
       
       setStats(newStats);
