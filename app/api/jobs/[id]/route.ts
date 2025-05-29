@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase';
-import { getQueueService } from '@/lib/services/queue';
+import { getQueueService } from '@/lib/services/simpleQueue';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -15,16 +15,16 @@ export async function GET(
 
     // Get user from session
     const supabase = await createSupabaseServerClient();
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
+    const userId = user.id;
 
     // Get job details from database
     const serviceSupabase = createSupabaseServiceClient();
@@ -54,44 +54,6 @@ export async function GET(
       );
     }
 
-    // Get progress from Bull queue if job is active
-    let progress = null;
-    if (job.status === 'pending' || job.status === 'processing') {
-      try {
-        const queueService = getQueueService();
-        const queueJob = await queueService.getJob(jobId);
-        
-        if (queueJob && queueJob.progress) {
-          progress = queueJob.progress();
-        } else {
-          // Fallback to basic progress calculation from database
-          progress = {
-            percentage: job.total_images > 0 ? Math.round((job.processed_images / job.total_images) * 100) : 0,
-            stage: 'Processing...',
-            processedImages: job.processed_images,
-            totalImages: job.total_images,
-          };
-        }
-      } catch (queueError) {
-        console.warn('Failed to get queue progress:', queueError);
-        // Fallback to basic progress
-        progress = {
-          percentage: job.total_images > 0 ? Math.round((job.processed_images / job.total_images) * 100) : 0,
-          stage: 'Processing...',
-          processedImages: job.processed_images,
-          totalImages: job.total_images,
-        };
-      }
-    } else {
-      // For completed/failed jobs, show final progress
-      progress = {
-        percentage: job.status === 'completed' ? 100 : (job.total_images > 0 ? Math.round((job.processed_images / job.total_images) * 100) : 0),
-        stage: job.status === 'completed' ? 'Completed' : (job.status === 'failed' ? 'Failed' : job.status),
-        processedImages: job.processed_images,
-        totalImages: job.total_images,
-      };
-    }
-
     // Get job results if completed
     let results = null;
     if (job.status === 'completed') {
@@ -116,52 +78,50 @@ export async function GET(
           )
         `)
         .eq('job_id', jobId)
-        .order('executed_at', { ascending: true });
+        .order('created_at', { ascending: true });
 
-      results = jobResults;
+      // Flatten the results to include stage_order for easier UI display
+      results = jobResults?.map(result => ({
+        ...result,
+        stage_order: result.stage?.stage_order,
+        prompt_name: result.stage?.prompt?.name,
+        prompt_type: result.stage?.prompt?.type,
+      })) || [];
     }
 
-    // Get queue status if job is in queue
-    let queueStatus = null;
-    if (job.status === 'pending' || job.status === 'processing') {
-      try {
-        const queueService = getQueueService();
-        const queueJob = await queueService.getJob(jobId);
-        
-        if (queueJob) {
-          queueStatus = {
-            id: queueJob.id,
-            state: await queueJob.getState(),
-            progress: queueJob.progress(),
-            attempts: queueJob.attemptsMade,
-            failedReason: queueJob.failedReason,
-            processedOn: queueJob.processedOn,
-            finishedOn: queueJob.finishedOn,
-          };
-        }
-      } catch (queueError) {
-        console.warn('Failed to get queue status:', queueError);
-        // Continue without queue status
-      }
-    }
+    // Get job details from queue if available
+    const queueService = getQueueService();
+    const queueJob = await queueService.getJob(jobId);
+
+    // Combine database and queue information
+    const jobDetails = {
+      id: job.id,
+      status: job.status,
+      progress: job.progress || 0,
+      createdAt: job.created_at,
+      completedAt: job.completed_at,
+      totalImages: job.total_images,
+      processedImages: job.processed_images,
+      imageIds: job.image_ids,
+      errorMessage: job.error_message,
+      resultsSummary: job.results_summary,
+      pipeline: job.pipeline,
+      library: job.library,
+      // Add queue-specific information if available
+      queueInfo: queueJob ? {
+        id: queueJob.id,
+        status: queueJob.status,
+        progress: queueJob.progress,
+        attempts: queueJob.attempts,
+        maxAttempts: queueJob.maxAttempts,
+        startedAt: queueJob.startedAt,
+        error: queueJob.error,
+      } : null,
+    };
 
     return NextResponse.json({
-      job: {
-        id: job.id,
-        status: job.status,
-        createdAt: job.created_at,
-        completedAt: job.completed_at,
-        totalImages: job.total_images,
-        processedImages: job.processed_images,
-        imageIds: job.image_ids,
-        errorMessage: job.error_message,
-        resultsSummary: job.results_summary,
-        pipeline: job.pipeline,
-        library: job.library,
-      },
-      progress,
-      results,
-      queueStatus,
+      job: jobDetails,
+      results: results,
     });
 
   } catch (error) {
@@ -182,16 +142,16 @@ export async function DELETE(
 
     // Get user from session
     const supabase = await createSupabaseServerClient();
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
+    const userId = user.id;
 
     // Check if job exists and user owns it
     const serviceSupabase = createSupabaseServiceClient();

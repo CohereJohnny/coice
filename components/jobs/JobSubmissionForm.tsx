@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle, AlertCircle, Play } from 'lucide-react';
-import { createSupabaseClient } from '@/lib/supabase';
 
 interface Pipeline {
   id: string;
@@ -51,8 +50,6 @@ export default function JobSubmissionForm({
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
 
-  const supabase = createSupabaseClient();
-
   // Load pipelines and libraries on mount
   useEffect(() => {
     loadPipelines();
@@ -70,13 +67,14 @@ export default function JobSubmissionForm({
 
   const loadPipelines = async () => {
     try {
-      const { data, error } = await supabase
-        .from('pipelines')
-        .select('id, name, description, library_id')
-        .order('name');
-
-      if (error) throw error;
-      setPipelines(data || []);
+      const response = await fetch('/api/pipelines');
+      if (!response.ok) {
+        throw new Error('Failed to load pipelines');
+      }
+      
+      const data = await response.json();
+      const pipelinesData = data.pipelines || [];
+      setPipelines(pipelinesData);
     } catch (err) {
       console.error('Error loading pipelines:', err);
       setError('Failed to load pipelines');
@@ -85,13 +83,19 @@ export default function JobSubmissionForm({
 
   const loadLibraries = async () => {
     try {
-      const { data, error } = await supabase
-        .from('libraries')
-        .select('id, name, description')
-        .order('name');
-
-      if (error) throw error;
-      setLibraries(data || []);
+      const response = await fetch('/api/libraries?format=flat');
+      if (!response.ok) {
+        throw new Error('Failed to load libraries');
+      }
+      
+      const data = await response.json();
+      const librariesData = data.libraries || [];
+      // Convert string IDs back to numbers for the form
+      const formattedLibraries = librariesData.map((lib: any) => ({
+        ...lib,
+        id: parseInt(lib.id),
+      }));
+      setLibraries(formattedLibraries);
     } catch (err) {
       console.error('Error loading libraries:', err);
       setError('Failed to load libraries');
@@ -101,18 +105,49 @@ export default function JobSubmissionForm({
   const loadImages = async (libraryId: number) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('images')
-        .select('id, gcs_path, metadata')
-        .eq('library_id', libraryId)
-        .order('created_at', { ascending: false })
-        .limit(100); // Limit to prevent overwhelming UI
-
-      if (error) throw error;
-      setImages(data || []);
+      setError(''); // Clear any previous errors
+      
+      console.log(`Loading images for library ${libraryId}`);
+      
+      // First get library details to get the catalog_id
+      const libraryResponse = await fetch(`/api/libraries/${libraryId}`);
+      if (!libraryResponse.ok) {
+        const errorData = await libraryResponse.json();
+        throw new Error(`Failed to load library details: ${errorData.error || libraryResponse.statusText}`);
+      }
+      
+      const libraryData = await libraryResponse.json();
+      const library = libraryData.library;
+      
+      console.log('Library data:', library);
+      
+      if (!library) {
+        throw new Error('Library not found');
+      }
+      
+      if (!library.catalog_id) {
+        throw new Error('Library does not have a catalog assigned');
+      }
+      
+      console.log(`Loading images for library ${libraryId} in catalog ${library.catalog_id}`);
+      
+      // Now get images using the correct API with both libraryId and catalogId
+      const imagesResponse = await fetch(`/api/images?libraryId=${libraryId}&catalogId=${library.catalog_id}&limit=100`);
+      if (!imagesResponse.ok) {
+        const errorData = await imagesResponse.json();
+        throw new Error(`Failed to load images: ${errorData.error || imagesResponse.statusText}`);
+      }
+      
+      const imagesData = await imagesResponse.json();
+      const imagesList = imagesData.images || [];
+      
+      console.log(`Loaded ${imagesList.length} images`);
+      setImages(imagesList);
     } catch (err) {
       console.error('Error loading images:', err);
-      setError('Failed to load images');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load images';
+      setError(`Images loading error: ${errorMessage}`);
+      setImages([]); // Clear images on error
     } finally {
       setLoading(false);
     }
@@ -222,10 +257,10 @@ export default function JobSubmissionForm({
               <SelectContent>
                 {pipelines.map((pipeline) => (
                   <SelectItem key={pipeline.id} value={pipeline.id}>
-                    <div className="flex flex-col">
-                      <span>{pipeline.name}</span>
+                    <div className="flex flex-col text-left w-full">
+                      <span className="font-medium">{pipeline.name}</span>
                       {pipeline.description && (
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-sm text-muted-foreground line-clamp-2">
                           {pipeline.description}
                         </span>
                       )}
@@ -234,9 +269,11 @@ export default function JobSubmissionForm({
                 ))}
               </SelectContent>
             </Select>
-            {selectedPipelineData && (
-              <div className="text-sm text-muted-foreground">
-                {selectedPipelineData.description}
+            {selectedPipelineData && selectedPipelineData.description && (
+              <div className="mt-2 p-3 bg-muted/50 rounded-md">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {selectedPipelineData.description}
+                </p>
               </div>
             )}
           </div>

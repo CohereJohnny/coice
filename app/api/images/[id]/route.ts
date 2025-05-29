@@ -144,6 +144,10 @@ export async function GET(
 
     const { id } = await params;
     const imageId = id;
+    
+    // Check if this is a request for a signed URL
+    const url = new URL(request.url);
+    const requestSignedUrl = url.searchParams.get('signed') === 'true';
 
     // Use service role to bypass RLS issues
     const { createClient } = await import('@supabase/supabase-js');
@@ -202,57 +206,62 @@ export async function GET(
     }
 
     const catalog = (image.libraries as any).catalogs;
-    
+
     // Check access rules
     const hasAccess = 
       catalog.user_id === user.id || // User owns the catalog
-      profile?.role === 'admin' || profile?.role === 'manager' || // User is admin/manager
-      accessibleCatalogIds.includes(catalog.id); // Group access
+      profile?.role === 'admin' || // User is admin
+      accessibleCatalogIds.includes(catalog.id); // User has group access
 
     if (!hasAccess) {
-      return NextResponse.json({ error: 'Access denied to catalog' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Access denied' },
+        { status: 403 }
+      );
     }
 
-    // Generate signed URLs for the image and thumbnail
-    let signedUrls: { original?: string; thumbnail?: string } = {};
-    
-    try {
-      // Generate signed URL for original image
-      if (image.gcs_path) {
-        const fileName = image.gcs_path.replace('gs://' + process.env.GCS_BUCKET_NAME + '/', '');
-        signedUrls.original = await getSignedUrl(fileName, 'read', new Date(Date.now() + 60 * 60 * 1000)); // 1 hour
+    // If requesting a signed URL, generate it and return
+    if (requestSignedUrl && image.gcs_path) {
+      try {
+        // Extract the file path from the GCS path
+        const fileName = image.gcs_path.replace(`gs://${process.env.GCS_BUCKET_NAME}/`, '');
+        
+        // Generate signed URL valid for 1 hour
+        const expires = new Date(Date.now() + 60 * 60 * 1000);
+        const signedUrl = await getSignedUrl(fileName, 'read', expires);
+        
+        return NextResponse.json({
+          success: true,
+          signedUrl,
+          expiresAt: expires.toISOString(),
+          imageId: image.id,
+        });
+      } catch (error) {
+        console.error('Failed to generate signed URL:', error);
+        return NextResponse.json(
+          { error: 'Failed to generate signed URL' },
+          { status: 500 }
+        );
       }
-
-      // Generate signed URL for thumbnail if exists
-      if (image.metadata && typeof image.metadata === 'object' && 'thumbnail' in image.metadata) {
-        const thumbnail = (image.metadata as any).thumbnail;
-        if (thumbnail && thumbnail.path) {
-          try {
-            const thumbnailFileName = thumbnail.path.replace('gs://' + process.env.GCS_BUCKET_NAME + '/', '');
-            signedUrls.thumbnail = await getSignedUrl(thumbnailFileName, 'read', new Date(Date.now() + 60 * 60 * 1000)); // 1 hour
-          } catch (thumbnailError) {
-            console.error('Failed to generate thumbnail signed URL, using original as fallback:', thumbnailError);
-            // Use original image as thumbnail fallback
-            signedUrls.thumbnail = signedUrls.original;
-          }
-        }
-      }
-      
-      // If no thumbnail was generated, use original as thumbnail
-      if (!signedUrls.thumbnail && signedUrls.original) {
-        signedUrls.thumbnail = signedUrls.original;
-      }
-    } catch (error) {
-      console.error('Failed to generate signed URLs:', error);
-      // Continue without signed URLs - they'll be generated on demand
     }
 
+    // Return regular image metadata
     return NextResponse.json({
       image: {
-        ...image,
-        signedUrls
+        id: image.id,
+        filename: image.filename,
+        size: image.size,
+        mime_type: image.mime_type,
+        gcs_path: image.gcs_path,
+        metadata: image.metadata,
+        created_at: image.created_at,
+        updated_at: image.updated_at,
+        library: {
+          id: image.libraries.id,
+          name: image.libraries.name,
+          catalog_id: image.libraries.catalog_id,
+        },
       },
-      userRole: profile?.role || 'end_user',
     });
 
   } catch (error) {

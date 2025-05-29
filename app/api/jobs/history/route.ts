@@ -5,16 +5,16 @@ export async function GET(request: NextRequest) {
   try {
     // Get user from session
     const supabase = await createSupabaseServerClient();
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    if (sessionError || !session?.user) {
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
+    const userId = user.id;
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
         completed_at,
         total_images,
         processed_images,
+        progress,
         error_message,
         results_summary,
         pipeline:pipelines!jobs_pipeline_id_fkey(
@@ -107,9 +108,11 @@ export async function GET(request: NextRequest) {
       duration: job.completed_at && job.created_at 
         ? Math.round((new Date(job.completed_at).getTime() - new Date(job.created_at).getTime()) / 1000)
         : null,
-      progress: job.total_images > 0 
-        ? Math.round((job.processed_images / job.total_images) * 100)
-        : 0,
+      progress: job.progress !== null && job.progress !== undefined 
+        ? job.progress
+        : job.total_images > 0 
+          ? Math.round((job.processed_images / job.total_images) * 100)
+          : 0,
       isComplete: job.status === 'completed',
       isFailed: job.status === 'failed',
       isActive: job.status === 'processing',

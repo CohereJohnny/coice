@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient, createSupabaseServiceClient } from '@/lib/supabase';
-import { getQueueService } from '@/lib/services/queue';
+import { getQueueService } from '@/lib/services/simpleQueue';
 import { z } from 'zod';
+import { ensureWorkerInitialized } from '@/lib/workers/workerManager';
+
+// Ensure worker is initialized when this route is loaded
+ensureWorkerInitialized();
 
 // Input validation schema
 const JobSubmissionSchema = z.object({
@@ -12,22 +16,25 @@ const JobSubmissionSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse and validate request body
-    const body = await request.json();
-    const { pipelineId, imageIds, libraryId } = JobSubmissionSchema.parse(body);
-
-    // Get user from session
-    const supabase = await createSupabaseServerClient();
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    console.log('Processing job submission request...');
     
-    if (sessionError || !session?.user) {
+    // Get authenticated user
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !user) {
+      console.error('Authentication error:', userError);
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const userId = session.user.id;
+    const userId = user.id;
+
+    // Parse and validate request body
+    const body = await request.json();
+    const { pipelineId, imageIds, libraryId } = JobSubmissionSchema.parse(body);
 
     // Validate pipeline exists and user has access
     const serviceSupabase = createSupabaseServiceClient();

@@ -15,14 +15,6 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { 
   Loader2, 
   Eye, 
   X, 
@@ -35,14 +27,15 @@ import {
   MoreHorizontal
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { createSupabaseClient } from '@/lib/supabase';
 
 interface Job {
   id: string;
   status: string;
-  createdAt: string;
-  completedAt: string | null;
-  totalImages: number;
-  processedImages: number;
+  created_at: string;
+  completed_at: string | null;
+  total_images: number;
+  processed_images: number;
   pipeline: {
     id: string;
     name: string;
@@ -52,8 +45,8 @@ interface Job {
     id: number;
     name: string;
   };
-  errorMessage?: string;
-  resultsSummary?: any;
+  error_message?: string;
+  results_summary?: any;
   progress?: number;
   isComplete: boolean;
   isFailed: boolean;
@@ -73,17 +66,114 @@ export default function JobMonitoringDashboard() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
-  const [selectedJob, setSelectedJob] = useState<JobDetails | null>(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
     loadJobs();
-    // Set up polling for active jobs
-    const interval = setInterval(() => {
+    
+    // Set up more frequent polling for active jobs
+    const pollInterval = setInterval(() => {
       loadJobs();
-    }, 5000); // Poll every 5 seconds
+    }, 5000); // Increased frequency to 5 seconds for better progress tracking
 
-    return () => clearInterval(interval);
+    // Set up Supabase real-time subscription for job updates using authenticated client
+    const setupRealtimeSubscription = async () => {
+      try {
+        const supabase = createSupabaseClient();
+        
+        // Check if user is authenticated
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.log('No authenticated user for real-time updates');
+          return null;
+        }
+
+        console.log('Setting up real-time subscription for user:', user.id);
+
+        const subscription = supabase
+          .channel('job-updates')
+          .on(
+            'postgres_changes',
+            { 
+              event: '*', 
+              schema: 'public', 
+              table: 'jobs',
+              filter: `created_by=eq.${user.id}` // Only listen to current user's jobs
+            },
+            (payload: any) => {
+              console.log('Real-time job update received:', payload);
+              
+              // Type guard to ensure payload.new exists and has required properties
+              if (!payload.new || typeof payload.new !== 'object' || !('id' in payload.new)) {
+                console.log('Invalid payload structure:', payload);
+                return;
+              }
+
+              const newJobData = payload.new as any; // Type assertion for Supabase payload
+              
+              // Update the jobs list with the new data
+              setJobs(currentJobs => {
+                const updatedJobs = [...currentJobs];
+                const jobIndex = updatedJobs.findIndex(job => job.id === newJobData.id);
+                
+                if (payload.eventType === 'INSERT' && newJobData && jobIndex === -1) {
+                  // Add new job - trigger a full reload to get complete data with joins
+                  setTimeout(() => loadJobs(), 1000);
+                  return updatedJobs;
+                } else if (payload.eventType === 'UPDATE' && newJobData && jobIndex >= 0) {
+                  console.log('Updating job progress in real-time:', {
+                    jobId: newJobData.id,
+                    status: newJobData.status,
+                    progress: newJobData.progress,
+                    processed: newJobData.processed_images,
+                    total: newJobData.total_images
+                  });
+                  
+                  // Update existing job with new data
+                  const updatedJob = { 
+                    ...updatedJobs[jobIndex], 
+                    ...newJobData,
+                    // Recalculate derived fields based on actual database values
+                    progress: newJobData.progress || (newJobData.total_images > 0 
+                      ? Math.round((newJobData.processed_images / newJobData.total_images) * 100)
+                      : 0),
+                    isComplete: newJobData.status === 'completed',
+                    isFailed: newJobData.status === 'failed',
+                    isActive: newJobData.status === 'processing',
+                    isPending: newJobData.status === 'pending',
+                  };
+                  updatedJobs[jobIndex] = updatedJob;
+                  
+                  return updatedJobs;
+                }
+                
+                return updatedJobs;
+              });
+            }
+          )
+          .subscribe((status: string) => {
+            console.log('Subscription status:', status);
+          });
+
+        return subscription;
+      } catch (error) {
+        console.error('Failed to setup real-time subscription:', error);
+        return null;
+      }
+    };
+
+    let subscription: any = null;
+    setupRealtimeSubscription().then(sub => {
+      subscription = sub;
+      console.log('Real-time subscription established:', sub);
+    });
+
+    return () => {
+      clearInterval(pollInterval);
+      if (subscription) {
+        console.log('Unsubscribing from real-time updates');
+        subscription.unsubscribe();
+      }
+    };
   }, []);
 
   const loadJobs = async () => {
@@ -102,41 +192,6 @@ export default function JobMonitoringDashboard() {
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadJobDetails = async (jobId: string) => {
-    try {
-      setLoadingDetails(true);
-      
-      const response = await fetch(`/api/jobs/${jobId}`);
-      if (!response.ok) {
-        throw new Error('Failed to load job details');
-      }
-      
-      const data = await response.json();
-      setSelectedJob(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load job details');
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  const cancelJob = async (jobId: string) => {
-    try {
-      const response = await fetch(`/api/jobs/${jobId}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to cancel job');
-      }
-      
-      await loadJobs(); // Refresh the job list
-      setSelectedJob(null); // Close details if it was the cancelled job
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel job');
     }
   };
 
@@ -178,6 +233,22 @@ export default function JobMonitoringDashboard() {
     if (seconds < 60) return `${seconds}s`;
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
     return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+  };
+
+  // Helper function to safely format dates
+  const safeFormatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Unknown';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid date';
+      }
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      console.error('Date formatting error:', error);
+      return 'Invalid date';
+    }
   };
 
   return (
@@ -258,7 +329,7 @@ export default function JobMonitoringDashboard() {
                     <TableCell>
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-sm">
-                          <span>{job.processedImages} / {job.totalImages} images</span>
+                          <span>{job.processed_images} / {job.total_images} images</span>
                           <span>{job.progress || 0}%</span>
                         </div>
                         <Progress value={job.progress || 0} className="h-2" />
@@ -266,7 +337,7 @@ export default function JobMonitoringDashboard() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        {formatDistanceToNow(new Date(job.createdAt), { addSuffix: true })}
+                        {safeFormatDate(job.created_at)}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -277,107 +348,13 @@ export default function JobMonitoringDashboard() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => loadJobDetails(job.id)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                            <DialogHeader>
-                              <DialogTitle>Job Details</DialogTitle>
-                              <DialogDescription>
-                                Detailed information about job {job.id}
-                              </DialogDescription>
-                            </DialogHeader>
-                            
-                            {loadingDetails ? (
-                              <div className="flex items-center justify-center py-8">
-                                <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                                Loading details...
-                              </div>
-                            ) : selectedJob ? (
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <h4 className="font-medium">Pipeline</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {selectedJob.job.pipeline.name}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <h4 className="font-medium">Library</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {selectedJob.job.library.name}
-                                    </p>
-                                  </div>
-                                  <div>
-                                    <h4 className="font-medium">Status</h4>
-                                    <Badge className={getStatusColor(selectedJob.job.status)}>
-                                      {selectedJob.job.status}
-                                    </Badge>
-                                  </div>
-                                  <div>
-                                    <h4 className="font-medium">Progress</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {selectedJob.job.processedImages} / {selectedJob.job.totalImages} images
-                                    </p>
-                                  </div>
-                                </div>
-                                
-                                {selectedJob.progress && (
-                                  <div>
-                                    <h4 className="font-medium mb-2">Current Progress</h4>
-                                    <div className="space-y-2">
-                                      <div className="flex justify-between text-sm">
-                                        <span>{selectedJob.progress.stage}</span>
-                                        <span>{selectedJob.progress.percentage}%</span>
-                                      </div>
-                                      <Progress value={selectedJob.progress.percentage} />
-                                      {selectedJob.progress.currentImage && (
-                                        <p className="text-sm text-muted-foreground">
-                                          Processing: {selectedJob.progress.currentImage}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                                
-                                {selectedJob.job.errorMessage && (
-                                  <div>
-                                    <h4 className="font-medium mb-2 text-red-600">Error</h4>
-                                    <p className="text-sm bg-red-50 p-2 rounded">
-                                      {selectedJob.job.errorMessage}
-                                    </p>
-                                  </div>
-                                )}
-                                
-                                {selectedJob.results && selectedJob.results.length > 0 && (
-                                  <div>
-                                    <h4 className="font-medium mb-2">Results</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {selectedJob.results.length} results available
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            ) : null}
-                          </DialogContent>
-                        </Dialog>
-                        
-                        {(job.status === 'pending' || job.status === 'processing') && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => cancelJob(job.id)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(`/analysis/jobs/${job.id}`, '_blank')}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
