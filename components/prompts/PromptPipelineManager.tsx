@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PromptManager } from './PromptManager';
 import { PipelineManager } from './PipelineManager';
 import { Users, Workflow, Settings, HelpCircle, ChevronDown } from 'lucide-react';
@@ -21,8 +22,6 @@ interface PromptPipelineManagerProps {
   selectedLibraryId?: string;
 }
 
-type TabMode = 'prompts' | 'pipelines';
-
 export function PromptPipelineManager({
   userRole,
   userId,
@@ -30,22 +29,18 @@ export function PromptPipelineManager({
   displayName,
   selectedLibraryId
 }: PromptPipelineManagerProps) {
-  const [activeTab, setActiveTab] = useState<TabMode>('prompts');
-
   const tabs = [
     {
-      id: 'prompts' as TabMode,
+      value: 'prompts',
       label: 'Prompts',
       icon: Settings,
-      description: 'Create and manage AI prompts for image analysis',
-      mobileLabel: 'Prompts'
+      description: 'Create and manage AI prompts for image analysis'
     },
     {
-      id: 'pipelines' as TabMode,
+      value: 'pipelines',
       label: 'Pipelines',
       icon: Workflow,
-      description: 'Build multi-stage analysis workflows with templates',
-      mobileLabel: 'Pipelines'
+      description: 'Build multi-stage analysis workflows with templates'
     }
   ];
 
@@ -67,30 +62,6 @@ export function PromptPipelineManager({
       description: 'Understand what actions are available for your role level'
     }
   ];
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'prompts':
-        return (
-          <PromptManager
-            userRole={userRole}
-            userId={userId}
-          />
-        );
-      case 'pipelines':
-        return (
-          <PipelineManager
-            userRole={userRole}
-            userId={userId}
-            selectedLibraryId={selectedLibraryId}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  const currentTab = tabs.find(tab => tab.id === activeTab);
 
   return (
     <div className="min-h-screen">
@@ -127,7 +98,7 @@ export function PromptPipelineManager({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={() => setActiveTab('prompts')}>
+                  <DropdownMenuItem>
                     <Settings className="w-4 h-4 mr-2" />
                     Full access to create and manage prompts & pipelines
                   </DropdownMenuItem>
@@ -140,28 +111,34 @@ export function PromptPipelineManager({
             </div>
           </div>
 
-          {/* Tab Navigation - pill style like Libraries & Catalogs */}
-          <div className="flex space-x-2">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          {/* Tabs - using shadcn/ui Tabs component like Libraries & Catalogs */}
+          <Tabs defaultValue="prompts" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="prompts" className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Prompts
+              </TabsTrigger>
+              <TabsTrigger value="pipelines" className="flex items-center gap-2">
+                <Workflow className="h-4 w-4" />
+                Pipelines
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Tab Content */}
-          <div>
-            {renderTabContent()}
-          </div>
+            <TabsContent value="prompts">
+              <PromptManager
+                userRole={userRole}
+                userId={userId}
+              />
+            </TabsContent>
+
+            <TabsContent value="pipelines">
+              <PipelineManager
+                userRole={userRole}
+                userId={userId}
+                selectedLibraryId={selectedLibraryId}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
