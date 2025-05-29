@@ -106,98 +106,93 @@ export function PromptPipelineManager({
   };
 
   return (
-    <div className="min-h-screen">
-      <div className="container mx-auto max-w-7xl">
-        {/* Header Section - matching Libraries & Catalogs style */}
-        <div className="space-y-8">
-          {/* Page Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                Prompt & Pipeline Management
-              </h1>
-              <p className="text-muted-foreground">
-                Create and manage AI prompts and multi-stage analysis pipelines
-              </p>
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Prompt & Pipeline Management
+          </h1>
+          <p className="text-muted-foreground">
+            Create and manage AI prompts and multi-stage analysis pipelines
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
+            <div className="flex items-center gap-2 justify-end">
+              <Users className="w-4 h-4" />
+              <span>{displayName}</span>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
-                <div className="flex items-center gap-2 justify-end">
-                  <Users className="w-4 h-4" />
-                  <span>{displayName}</span>
-                </div>
-                <div className="text-xs text-gray-400 dark:text-gray-500">
-                  Role: {userRole}
-                </div>
-              </div>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    Quick Access
-                    <ChevronDown className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Full access to create and manage prompts & pipelines
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <HelpCircle className="w-4 h-4 mr-2" />
-                    Help
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <div className="text-xs text-gray-400 dark:text-gray-500">
+              Role: {userRole}
             </div>
           </div>
-
-          {/* Tabs - now with three main tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="prompts" className="flex items-center gap-2">
-                <Settings className="h-4 w-4" />
-                Prompts
-              </TabsTrigger>
-              <TabsTrigger value="pipelines" className="flex items-center gap-2">
-                <Workflow className="h-4 w-4" />
-                Pipelines
-              </TabsTrigger>
-              <TabsTrigger value="templates" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Templates
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="prompts" className="mt-6">
-              <PromptManager
-                userRole={userRole}
-                userId={userId}
-              />
-            </TabsContent>
-
-            <TabsContent value="pipelines" className="mt-6">
-              <PipelineManager
-                userRole={userRole}
-                userId={userId}
-                selectedLibraryId={selectedLibraryId}
-                onLoadTemplate={handleLoadTemplate}
-                onCreateFromTemplate={handleCreateFromTemplate}
-              />
-            </TabsContent>
-
-            <TabsContent value="templates" className="mt-6">
-              <PipelineTemplates
-                onLoadTemplate={handleLoadTemplate}
-                onCreateFromTemplate={handleCreateFromTemplate}
-                userRole={userRole}
-                userId={userId}
-              />
-            </TabsContent>
-          </Tabs>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                Quick Access
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem>
+                <Settings className="w-4 h-4 mr-2" />
+                Full access to create and manage prompts & pipelines
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <HelpCircle className="w-4 h-4 mr-2" />
+                Help
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+
+      {/* Tabs - now with three main tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="prompts" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Prompts
+          </TabsTrigger>
+          <TabsTrigger value="pipelines" className="flex items-center gap-2">
+            <Workflow className="h-4 w-4" />
+            Pipelines
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Templates
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="prompts" className="space-y-4">
+          <PromptManager
+            userRole={userRole}
+            userId={userId}
+          />
+        </TabsContent>
+
+        <TabsContent value="pipelines" className="space-y-4">
+          <PipelineManager
+            userRole={userRole}
+            userId={userId}
+            selectedLibraryId={selectedLibraryId}
+            onLoadTemplate={handleLoadTemplate}
+            onCreateFromTemplate={handleCreateFromTemplate}
+          />
+        </TabsContent>
+
+        <TabsContent value="templates" className="space-y-4">
+          <PipelineTemplates
+            onLoadTemplate={handleLoadTemplate}
+            onCreateFromTemplate={handleCreateFromTemplate}
+            userRole={userRole}
+            userId={userId}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 } 
