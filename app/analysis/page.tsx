@@ -1,24 +1,79 @@
-import { AuthGuard } from '../components/auth/AuthGuard'
+'use client';
+
+import { AuthGuard } from '../components/auth/AuthGuard';
+import { JobSubmissionForm, JobMonitoringDashboard } from '@/components/jobs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Play, BarChart3 } from 'lucide-react';
 
 export default function AnalysisPage() {
   return (
     <AuthGuard>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Analysis</h1>
+          <h1 className="text-3xl font-bold tracking-tight">AI Analysis</h1>
           <p className="text-muted-foreground">
-            AI-powered image analysis and job management
+            Submit image analysis jobs and monitor their progress in real-time
           </p>
         </div>
 
-        <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-          <h3 className="text-lg font-semibold mb-4">Analysis Dashboard</h3>
-          <p className="text-muted-foreground">
-            This page will contain job management, pipeline execution, and analysis results.
-            Coming in Sprint 9: Cohere AI Integration & Job Foundation.
-          </p>
-        </div>
+        <Tabs defaultValue="submit" className="space-y-6">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="submit" className="flex items-center gap-2">
+              <Play className="h-4 w-4" />
+              Submit Job
+            </TabsTrigger>
+            <TabsTrigger value="monitor" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Monitor Jobs
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="submit" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold mb-2">Submit Analysis Job</h2>
+              <p className="text-muted-foreground mb-6">
+                Select a pipeline and images to analyze with AI-powered vision models
+              </p>
+              <JobSubmissionForm 
+                onJobSubmitted={(jobId) => {
+                  console.log('Job submitted:', jobId);
+                  // You could switch to monitor tab or show a success message
+                }}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="monitor" className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold mb-2">Job Monitoring</h2>
+              <p className="text-muted-foreground mb-6">
+                Track the progress of your analysis jobs and view results
+              </p>
+              <JobMonitoringDashboard />
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Info Card */}
+        <Card className="bg-blue-50 border-blue-200">
+          <CardHeader>
+            <CardTitle className="text-blue-900">How to Use AI Analysis</CardTitle>
+            <CardDescription className="text-blue-700">
+              Follow these steps to analyze your images with AI
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-blue-800">
+            <ol className="list-decimal list-inside space-y-2">
+              <li>First, create a <strong>Pipeline</strong> with analysis prompts in the Prompts section</li>
+              <li>Upload images to a <strong>Library</strong> in the Libraries section</li>
+              <li>Use the <strong>Submit Job</strong> tab to select your pipeline and images</li>
+              <li>Monitor progress in the <strong>Monitor Jobs</strong> tab</li>
+              <li>View results when the job completes</li>
+            </ol>
+          </CardContent>
+        </Card>
       </div>
     </AuthGuard>
-  )
+  );
 } 

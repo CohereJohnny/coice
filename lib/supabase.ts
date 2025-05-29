@@ -48,6 +48,16 @@ export const createSupabaseServerClient = async () => {
 // Legacy export for backward compatibility
 export const supabase = createSupabaseClient()
 
+// Service role client (for server-side operations that bypass RLS)
+export const createSupabaseServiceClient = () => {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY environment variable is not set');
+  }
+
+  return createBrowserClient(supabaseUrl, serviceRoleKey);
+}
+
 // Database types - Generated from Supabase
 export type Json =
   | string

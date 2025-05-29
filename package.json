@@ -29,10 +29,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cohere-ai": "^7.17.1",
+    "date-fns": "^4.1.0",
     "embla-carousel": "^8.6.0",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
     "exif-js": "^2.3.0",
+    "ioredis": "^5.6.1",
     "lucide-react": "^0.511.0",
     "next": "15.3.2",
     "react": "^19.0.0",
@@ -41,6 +43,7 @@
     "sharp": "^0.34.2",
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.3.0",
+    "zod": "^3.25.34",
     "zustand": "^5.0.5"
   },
   "devDependencies": {
