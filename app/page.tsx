@@ -3,9 +3,6 @@
 import { AuthGuard } from './components/auth/AuthGuard'
 import { useDashboardData } from './hooks/useDashboardData'
 import { StatCard, QuickActions, RecentActivity } from './components/dashboard'
-import { NotificationCenter } from '@/components/ui/NotificationCenter'
-import { notificationService } from '@/lib/services/notificationService'
-import { useState } from 'react'
 
 export default function Home() {
   const {
@@ -20,83 +17,22 @@ export default function Home() {
     refreshAll,
   } = useDashboardData();
 
-  // Notification center state
-  const [showNotifications, setShowNotifications] = useState(false);
-
-  // Test notification function
-  const showTestNotification = () => {
-    const testTypes = ['success', 'error', 'warning', 'info'] as const;
-    const randomType = testTypes[Math.floor(Math.random() * testTypes.length)];
-    
-    notificationService.show({
-      type: randomType,
-      title: `Test ${randomType} notification`,
-      description: `This is a test ${randomType} notification to demonstrate the notification center functionality.`,
-      action: {
-        label: 'View',
-        onClick: () => alert('Test action clicked!'),
-      },
-    });
-  };
-
   return (
     <AuthGuard>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <div className="flex items-center space-x-4">
-              <p className="text-muted-foreground">
-                Welcome to Coice - Your AI-powered image catalog management platform
-              </p>
-              {/* Real-time status indicator */}
-              <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${isRealTimeConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className="text-xs text-muted-foreground">
-                  {isRealTimeConnected ? 'Live updates active' : 'Live updates disconnected'}
-                </span>
-                {realTimeError && (
-                  <span className="text-xs text-red-500" title={realTimeError}>
-                    ⚠️
-                  </span>
-                )}
-              </div>
-            </div>
+            <p className="text-muted-foreground">
+              Monitor your image analysis projects and recent activity
+            </p>
           </div>
           
           <div className="flex items-center space-x-2">
-            {/* Test notification button (for development) */}
-            <button
-              onClick={showTestNotification}
-              className="flex items-center space-x-2 px-3 py-2 text-sm border rounded-md bg-blue-50 hover:bg-blue-100 transition-colors"
-              title="Test notification system"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-4 w-4"
-              >
-                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-              </svg>
-              <span>Test</span>
-            </button>
-            
-            {/* Notification Center */}
-            <NotificationCenter
-              open={showNotifications}
-              onOpenChange={setShowNotifications}
-            />
-            
+            {/* Refresh button */}
             <button
               onClick={refreshAll}
-              className="flex items-center space-x-2 px-3 py-2 text-sm border rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+              className="flex items-center space-x-2 px-3 py-2 text-sm border rounded-md hover:bg-gray-50 transition-colors"
               title="Refresh dashboard data"
             >
               <svg
@@ -116,120 +52,71 @@ export default function Home() {
               </svg>
               <span>Refresh</span>
             </button>
+            
+            {/* Real-time connection indicator */}
+            <div className="flex items-center space-x-2 text-sm">
+              <div className={`h-2 w-2 rounded-full ${
+                isRealTimeConnected 
+                  ? 'bg-green-500 animate-pulse' 
+                  : 'bg-red-500'
+              }`} />
+              <span className="text-muted-foreground">
+                {isRealTimeConnected ? 'Live' : 'Disconnected'}
+              </span>
+            </div>
           </div>
         </div>
+
+        {/* Error States */}
+        {(statsError || activityError || realTimeError) && (
+          <div className="rounded-lg bg-destructive/15 border border-destructive/20 p-4">
+            <div className="text-sm text-destructive">
+              {statsError && <div>Stats Error: {statsError}</div>}
+              {activityError && <div>Activity Error: {activityError}</div>}
+              {realTimeError && <div>Real-time Error: {realTimeError}</div>}
+            </div>
+          </div>
+        )}
 
         {/* Statistics Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Libraries"
-            value={stats.libraryCount}
-            description={stats.libraryCount === 0 ? "No libraries created yet" : `${stats.libraryCount} image ${stats.libraryCount === 1 ? 'library' : 'libraries'}`}
+            value={stats.libraryCount.toString()}
+            description="Active image collections"
             isLoading={isStatsLoading}
-            error={statsError}
-            icon={
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-4 w-4"
-              >
-                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
-                <circle cx="12" cy="13" r="3" />
-              </svg>
-            }
+            icon="folder"
           />
-
+          <StatCard
+            title="Total Images"
+            value={stats.totalImageCount.toString()}
+            description="Across all libraries"
+            isLoading={isStatsLoading}
+            icon="image"
+          />
           <StatCard
             title="Active Jobs"
-            value={stats.activeJobCount}
-            description={stats.activeJobCount === 0 ? "No analysis jobs running" : `${stats.activeJobCount} ${stats.activeJobCount === 1 ? 'job' : 'jobs'} in progress`}
+            value={stats.activeJobCount.toString()}
+            description="Currently processing"
             isLoading={isStatsLoading}
-            error={statsError}
-            variant={stats.activeJobCount > 0 ? "warning" : "default"}
-            icon={
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-4 w-4"
-              >
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="m22 21-3-3m0 0a5.5 5.5 0 1 0-7.78-7.78 5.5 5.5 0 0 0 7.78 7.78Z" />
-              </svg>
-            }
+            icon="activity"
           />
-
-          <StatCard
-            title="Images"
-            value={stats.totalImageCount}
-            description={stats.totalImageCount === 0 ? "No images uploaded yet" : `${stats.totalImageCount} ${stats.totalImageCount === 1 ? 'image' : 'images'} total`}
-            isLoading={isStatsLoading}
-            error={statsError}
-            icon={
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-4 w-4"
-              >
-                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                <circle cx="9" cy="9" r="2" />
-                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-              </svg>
-            }
-          />
-
           <StatCard
             title="Recent Jobs"
-            value={stats.recentJobCount}
-            description={stats.recentJobCount === 0 ? "No jobs in last 24 hours" : `${stats.recentJobCount} ${stats.recentJobCount === 1 ? 'job' : 'jobs'} today`}
+            value={stats.recentJobCount.toString()}
+            description="Completed this week"
             isLoading={isStatsLoading}
-            error={statsError}
-            variant={stats.recentJobCount > 0 ? "success" : "default"}
-            icon={
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-4 w-4"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12,6 12,12 16,14" />
-              </svg>
-            }
+            icon="clock"
           />
         </div>
 
         {/* Quick Actions */}
-        <QuickActions />
+        <div>
+          <QuickActions />
+        </div>
 
-        {/* Recent Activity and Sprint Status */}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <RecentActivity
-            activities={recentActivity}
-            isLoading={isActivityLoading}
-            error={activityError}
-            maxItems={6}
-          />
-
+        {/* Sprint Status */}
+        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
           {/* Sprint Status */}
           <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
@@ -249,59 +136,42 @@ export default function Home() {
                 </svg>
               </div>
             </div>
-            
+            <p className="text-sm text-muted-foreground mb-4">
+              Complete job processing pipeline, implement result storage, and build results viewing interface
+            </p>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm">Phase 1: Complete Multi-stage Job Processing</span>
-                <span className="text-sm font-medium text-muted-foreground">⏳ Pending</span>
+                <span className="text-sm">Sprint 10 Complete</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-24 bg-green-200 rounded-full h-2">
+                    <div className="bg-green-600 h-2 rounded-full w-full"></div>
+                  </div>
+                  <span className="text-xs text-green-600 font-medium">100%</span>
+                </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Phase 2: Job Result Storage & Retrieval</span>
-                <span className="text-sm font-medium text-muted-foreground">⏳ Pending</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Phase 3: Results Viewing Interface</span>
-                <span className="text-sm font-medium text-muted-foreground">⏳ Pending</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Phase 4: Job Comparison & Analysis Tools</span>
-                <span className="text-sm font-medium text-muted-foreground">⏳ Pending</span>
+                <span className="text-sm">Sprint 11 Planning</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-24 bg-gray-200 rounded-full h-2">
+                    <div className="bg-blue-600 h-2 rounded-full w-1/4"></div>
+                  </div>
+                  <span className="text-xs text-blue-600 font-medium">25%</span>
+                </div>
               </div>
             </div>
-            
             <div className="mt-4 pt-4 border-t">
-              <h4 className="text-sm font-medium mb-2">Recently Completed</h4>
-              <div className="space-y-1 text-xs">
-                <div className="flex items-center justify-between p-2 bg-green-50 rounded border-l-2 border-green-500">
-                  <span className="font-medium">Sprint 10: Real-time Notifications & Bug Fixes</span>
-                  <span className="text-green-600 font-bold">✅ COMPLETED</span>
-                </div>
-                <div className="pl-4 space-y-1 text-muted-foreground">
-                  <div>✅ Real-time job progress monitoring</div>
-                  <div>✅ Toast notifications with Sonner</div>
-                  <div>✅ Job history & comparison tools</div>
-                  <div>✅ Bug fixes: Navigation, image loading, dashboard stats</div>
-                </div>
-              </div>
-              
-              <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                <div className="flex items-center justify-between">
-                  <span>Sprint 9: Cohere AI Integration & Job Foundation</span>
-                  <span className="text-green-600">✅ Complete</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Sprint 8: Prompt & Pipeline Management</span>
-                  <span className="text-green-600">✅ Complete</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Sprint 7: Image Viewing - Carousel & Full-Screen</span>
-                  <span className="text-green-600">✅ Complete</span>
-                </div>
-                <div className="text-center pt-2">
-                  <span className="text-xs text-muted-foreground">... and 6 more completed sprints</span>
-                </div>
+              <div className="text-xs text-muted-foreground">
+                <strong>Sprint 10 Achievements:</strong> Real-time job monitoring, toast notifications, live dashboards, job comparison tools, notification management, bug fixes
               </div>
             </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div>
+            <RecentActivity 
+              activities={recentActivity} 
+              isLoading={isActivityLoading}
+            />
           </div>
         </div>
       </div>

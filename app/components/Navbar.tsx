@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useAuth, useAuthActions } from '@/lib/stores/auth'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { NotificationCenter } from '@/components/ui/NotificationCenter'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import { createSupabaseClient } from '@/lib/supabase'
@@ -11,6 +12,7 @@ export function Navbar() {
   const { user, profile, isAuthenticated } = useAuth()
   const { reset } = useAuthActions()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
 
   const handleSignOut = async () => {
     try {
@@ -115,9 +117,17 @@ export function Navbar() {
         )}
 
         {/* Right Side Controls */}
-        <div className="flex flex-1 items-center justify-end space-x-2">
+        <div className="flex items-center justify-end space-x-3 ml-auto">
           {/* Theme Toggle */}
           <ThemeToggle />
+
+          {/* Notification Center - only show when authenticated */}
+          {isAuthenticated && (
+            <NotificationCenter
+              open={showNotifications}
+              onOpenChange={setShowNotifications}
+            />
+          )}
 
           {/* User Controls */}
           {isAuthenticated ? (
