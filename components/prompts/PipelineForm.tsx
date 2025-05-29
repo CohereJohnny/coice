@@ -98,6 +98,11 @@ export function PipelineForm({
     fetchAvailablePrompts();
   }, []);
 
+  // Debug logging for available libraries
+  useEffect(() => {
+    console.log('PipelineForm received availableLibraries:', availableLibraries);
+  }, [availableLibraries]);
+
   const fetchAvailablePrompts = async () => {
     try {
       setLoadingPrompts(true);

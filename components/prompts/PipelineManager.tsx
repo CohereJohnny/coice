@@ -36,10 +36,16 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
 
   const fetchLibraries = async () => {
     try {
+      console.log('PipelineManager: Fetching libraries...');
       const response = await fetch('/api/libraries?limit=100');
+      console.log('PipelineManager: Libraries response status:', response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log('PipelineManager: Libraries data received:', data);
         setAvailableLibraries(data.libraries || []);
+        console.log('PipelineManager: Set availableLibraries to:', data.libraries || []);
+      } else {
+        console.error('PipelineManager: Libraries API response not ok:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching libraries:', error);
