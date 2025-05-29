@@ -21,3 +21,11 @@
   - Reduced dependency array in useEffect to only imageId
   - Added error state to prevent infinite error loops
 - **Status**: Resolved
+
+## Bug Entry: [2024-01-25]
+- **ID**: BUG-003
+- **Description**: Excessive API calls to /api/images endpoint - hundreds of duplicate requests for same images on job details page load
+- **Discovered**: Sprint 10 testing - single page load generating 100+ API requests for same image IDs
+- **Context**: Sprint 10, Job details page with multiple ImageDisplay components causing race conditions
+- **Fix**: In Progress
+- **Status**: In Progress

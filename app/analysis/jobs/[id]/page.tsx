@@ -40,6 +40,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ProgressBar, JobTimeline } from '@/components/jobs';
 import type { ProgressStage, TimelineEvent } from '@/components/jobs';
 import { useJobSubscription } from '@/app/hooks/useJobSubscription';
+import { imageService } from '@/lib/services/imageService';
 
 interface JobResult {
   id: string;
@@ -118,12 +119,12 @@ export default function JobDetailsPage() {
   const [filter, setFilter] = useState<'all' | 'success' | 'failed'>('all');
   const [stageFilter, setStageFilter] = useState<number | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
   
   // Modal state
   const [showTestModal, setShowTestModal] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testLoading, setTestLoading] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // Real-time job subscription for live updates
   const {
@@ -171,33 +172,12 @@ export default function JobDetailsPage() {
     loadJobDetails();
   }, [loadJobDetails]);
 
-  // Function to get signed URL for an image
-  const getSignedImageUrl = useCallback(async (imageId: string): Promise<string> => {
-    // Check if we already have the URL cached
-    if (imageUrls.has(imageId)) {
-      return imageUrls.get(imageId)!;
-    }
+  // Debug function to get cache stats
+  const getCacheStats = () => {
+    return imageService.getCacheStats();
+  };
 
-    try {
-      const response = await fetch(`/api/images/${imageId}?signed=true`);
-      if (!response.ok) {
-        throw new Error('Failed to get signed URL');
-      }
-      
-      const data = await response.json();
-      const signedUrl = data.signedUrl;
-      
-      // Cache the URL
-      setImageUrls(prev => new Map(prev).set(imageId, signedUrl));
-      
-      return signedUrl;
-    } catch (error) {
-      console.error('Error getting signed URL:', error);
-      return '/api/placeholder-image';
-    }
-  }, [imageUrls]);
-
-  // Component to handle image display with signed URL
+  // Component to handle image display with signed URL using the new service
   const ImageDisplay = memo(function ImageDisplay({ imageId, className }: { imageId: string; className?: string }) {
     const [imageSrc, setImageSrc] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
@@ -206,22 +186,12 @@ export default function JobDetailsPage() {
     useEffect(() => {
       let isMounted = true;
       
-      // Check cache first
-      if (imageUrls.has(imageId)) {
-        if (isMounted) {
-          setImageSrc(imageUrls.get(imageId)!);
-          setIsLoading(false);
-        }
-        return;
-      }
-      
-      // Only fetch if not in cache
-      getSignedImageUrl(imageId)
+      imageService.getSignedImageUrl(imageId)
         .then(url => {
           if (isMounted) {
             setImageSrc(url);
             setIsLoading(false);
-            setError(false);
+            setError(url === '/api/placeholder-image');
           }
         })
         .catch(err => {
@@ -236,7 +206,7 @@ export default function JobDetailsPage() {
       return () => {
         isMounted = false;
       };
-    }, [imageId]); // Only depend on imageId, not imageUrls
+    }, [imageId]);
 
     return (
       <div className={`relative ${className || ''}`}>
@@ -615,6 +585,15 @@ export default function JobDetailsPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+          {process.env.NODE_ENV === 'development' && (
+            <Button 
+              onClick={() => setShowDebugPanel(!showDebugPanel)} 
+              variant="outline"
+              size="sm"
+            >
+              Debug
+            </Button>
+          )}
           {jobDetails.results.length > 0 && (
             <Button variant="outline">
               <Download className="h-4 w-4 mr-2" />
@@ -703,6 +682,37 @@ export default function JobDetailsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Debug Panel for Development */}
+      {process.env.NODE_ENV === 'development' && showDebugPanel && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Debug: Image Request Statistics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xs space-y-2">
+              <div>Cache Size: {getCacheStats().cacheSize}</div>
+              <div>Pending Requests: {getCacheStats().pendingRequests}</div>
+              <div className="space-y-1">
+                <div className="font-medium">Request Counts by Image ID:</div>
+                {Object.entries(getCacheStats().requestCounts).map(([imageId, count]) => (
+                  <div key={imageId} className={`ml-2 ${count > 1 ? 'text-red-600 font-bold' : 'text-green-600'}`}>
+                    {imageId.slice(0, 8)}...: {count} requests {count > 1 && '⚠️'}
+                  </div>
+                ))}
+              </div>
+              <Button 
+                onClick={() => imageService.clearCache()} 
+                variant="outline" 
+                size="sm"
+                className="mt-2"
+              >
+                Clear Cache
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Job Timeline */}
       {timelineEvents.length > 0 && (
@@ -937,7 +947,7 @@ export default function JobDetailsPage() {
                           size="sm"
                           onClick={async () => {
                             try {
-                              const imageUrl = await getSignedImageUrl(result.image_id);
+                              const imageUrl = await imageService.getSignedImageUrl(result.image_id);
                               window.open(imageUrl, '_blank');
                             } catch (error) {
                               alert('Failed to load image');
@@ -957,7 +967,7 @@ export default function JobDetailsPage() {
                               setTestLoading(true);
                               setShowTestModal(true);
                               
-                              const imageUrl = await getSignedImageUrl(result.image_id);
+                              const imageUrl = await imageService.getSignedImageUrl(result.image_id);
                               
                               // Use the actual prompt text, not just the name
                               const actualPrompt = result.stage?.prompt?.prompt || result.prompt_name || 'Is there a flare burning in this image?';
