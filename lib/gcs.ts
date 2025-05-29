@@ -1,10 +1,33 @@
 import { Storage } from '@google-cloud/storage';
 
 // Initialize Google Cloud Storage client
-const storage = new Storage({
-  projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
-  keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
-});
+let storage: Storage;
+
+try {
+  // For Vercel deployment, use service account key from environment variables
+  if (process.env.GOOGLE_CLOUD_PRIVATE_KEY) {
+    storage = new Storage({
+      projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      credentials: {
+        type: 'service_account',
+        project_id: process.env.GOOGLE_CLOUD_PROJECT_ID,
+        private_key_id: process.env.GOOGLE_CLOUD_PRIVATE_KEY_ID,
+        private_key: process.env.GOOGLE_CLOUD_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        client_email: process.env.GOOGLE_CLOUD_CLIENT_EMAIL,
+        client_id: process.env.GOOGLE_CLOUD_CLIENT_ID,
+      },
+    });
+  } else {
+    // For local development, use key file
+    storage = new Storage({
+      projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+    });
+  }
+} catch (error) {
+  console.error('Failed to initialize Google Cloud Storage:', error);
+  throw new Error('GCS initialization failed');
+}
 
 const bucketName = process.env.GCS_BUCKET_NAME;
 

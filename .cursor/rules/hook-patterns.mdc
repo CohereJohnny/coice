@@ -1,0 +1,312 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Custom Hook Design Patterns
+
+## Hook Naming Conventions
+
+All custom hooks must start with `use` and describe their primary responsibility.
+
+### ✅ Good Examples
+- `useCarouselState` - Manages carousel state
+- `useImagePreloader` - Handles image preloading logic
+- `useKeyboardNavigation` - Manages keyboard event handling
+- `useAnalyticsTracking` - Handles analytics events
+
+### ❌ Avoid
+- `carouselHelper` - Missing `use` prefix
+- `useEverything` - Too broad scope
+- `useData` - Too generic
+
+## State Management Hook Pattern
+
+Extract all component state logic into focused custom hooks.
+
+### Template Structure
+```typescript
+interface UseFeatureStateProps {
+  // Input parameters
+  initialData: DataType[];
+  isEnabled: boolean;
+  onEvent?: (data: EventData) => void;
+}
+
+export function useFeatureState({
+  initialData,
+  isEnabled,
+  onEvent
+}: UseFeatureStateProps) {
+  // Internal state
+  const [currentState, setCurrentState] = useState(initialData);
+  
+  // Computed values
+  const derivedValue = useMemo(() => {
+    return currentState.filter(item => item.active);
+  }, [currentState]);
+  
+  // Actions
+  const updateState = useCallback((newData: DataType) => {
+    setCurrentState(prev => [...prev, newData]);
+    onEvent?.(newData);
+  }, [onEvent]);
+  
+  // Side effects
+  useEffect(() => {
+    // Handle side effects
+  }, [isEnabled]);
+  
+  return {
+    // State values
+    currentState,
+    derivedValue,
+    
+    // Actions
+    updateState,
+    
+    // Status flags
+    isEmpty: currentState.length === 0,
+    isLoading: false
+  };
+}
+```
+
+### Real Example
+See [useCarouselState.ts](mdc:components/images/carousel/hooks/useCarouselState.ts) for complete implementation.
+
+## Business Logic Hook Pattern
+
+Separate complex business logic from UI components.
+
+### Example Structure
+```typescript
+export function useImageProcessing(images: Image[]) {
+  const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  const processImages = useCallback(async () => {
+    setIsProcessing(true);
+    try {
+      const results = await Promise.all(
+        images.map(img => processImage(img))
+      );
+      setProcessedImages(results);
+    } catch (error) {
+      console.error('Processing failed:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [images]);
+  
+  return {
+    processedImages,
+    isProcessing,
+    processImages
+  };
+}
+```
+
+## Event Handling Hook Pattern
+
+Centralize event handling logic for reusability.
+
+### Keyboard Events Example
+```typescript
+export function useKeyboardNavigation(callbacks: {
+  onPrevious: () => void;
+  onNext: () => void;
+  onClose: () => void;
+  onToggle: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault();
+          callbacks.onPrevious();
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          callbacks.onNext();
+          break;
+        case 'Escape':
+          event.preventDefault();
+          callbacks.onClose();
+          break;
+        case ' ':
+          event.preventDefault();
+          callbacks.onToggle();
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [callbacks]);
+}
+```
+
+## Performance Monitoring Hook Pattern
+
+Create hooks for tracking and optimizing performance.
+
+### Example Structure
+```typescript
+export function usePerformanceMonitoring(componentName: string) {
+  const [metrics, setMetrics] = useState<PerformanceMetrics>({});
+  
+  const trackRender = useCallback(() => {
+    const startTime = performance.now();
+    return () => {
+      const endTime = performance.now();
+      setMetrics(prev => ({
+        ...prev,
+        [componentName]: endTime - startTime
+      }));
+    };
+  }, [componentName]);
+  
+  const trackInteraction = useCallback((action: string, data?: any) => {
+    // Analytics tracking logic
+    console.log(`${componentName}: ${action}`, data);
+  }, [componentName]);
+  
+  return {
+    metrics,
+    trackRender,
+    trackInteraction
+  };
+}
+```
+
+## URL State Persistence Hook Pattern
+
+Manage URL state synchronization for deep linking.
+
+### Example Implementation
+```typescript
+export function useUrlState<T>(
+  key: string,
+  defaultValue: T,
+  serializer?: {
+    serialize: (value: T) => string;
+    deserialize: (value: string) => T;
+  }
+) {
+  const [state, setState] = useState<T>(() => {
+    if (typeof window === 'undefined') return defaultValue;
+    
+    const params = new URLSearchParams(window.location.search);
+    const stored = params.get(key);
+    
+    if (!stored) return defaultValue;
+    
+    try {
+      return serializer 
+        ? serializer.deserialize(stored)
+        : JSON.parse(stored);
+    } catch {
+      return defaultValue;
+    }
+  });
+  
+  const updateState = useCallback((newState: T) => {
+    setState(newState);
+    
+    // Debounced URL update
+    const timeoutId = setTimeout(() => {
+      const url = new URL(window.location.href);
+      const serialized = serializer
+        ? serializer.serialize(newState)
+        : JSON.stringify(newState);
+        
+      url.searchParams.set(key, serialized);
+      window.history.replaceState({}, '', url.toString());
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [key, serializer]);
+  
+  return [state, updateState] as const;
+}
+```
+
+## Hook Testing Guidelines
+
+### Unit Testing Custom Hooks
+```typescript
+import { renderHook, act } from '@testing-library/react-hooks';
+import { useFeatureState } from './useFeatureState';
+
+describe('useFeatureState', () => {
+  it('should initialize with default state', () => {
+    const { result } = renderHook(() => 
+      useFeatureState({ initialData: [], isEnabled: true })
+    );
+    
+    expect(result.current.currentState).toEqual([]);
+    expect(result.current.isEmpty).toBe(true);
+  });
+  
+  it('should update state correctly', () => {
+    const { result } = renderHook(() => 
+      useFeatureState({ initialData: [], isEnabled: true })
+    );
+    
+    act(() => {
+      result.current.updateState({ id: 1, name: 'Test' });
+    });
+    
+    expect(result.current.currentState).toHaveLength(1);
+    expect(result.current.isEmpty).toBe(false);
+  });
+});
+```
+
+## Hook Composition Guidelines
+
+### Combining Multiple Hooks
+```typescript
+// Main component using multiple hooks
+export function ComplexComponent(props: Props) {
+  const state = useFeatureState(props);
+  const performance = usePerformanceMonitoring('ComplexComponent');
+  const keyboard = useKeyboardNavigation({
+    onPrevious: state.goToPrevious,
+    onNext: state.goToNext,
+    onClose: props.onClose,
+    onToggle: state.toggleMode
+  });
+  
+  // Component logic using all hooks
+  return (
+    <div>
+      {/* Component JSX */}
+    </div>
+  );
+}
+```
+
+### Hook Dependencies
+- Keep hooks focused and independent
+- Use composition over large monolithic hooks
+- Pass specific callbacks rather than entire objects
+- Avoid deep hook nesting or circular dependencies
+
+## Best Practices
+
+### Performance
+- Use `useCallback` for functions returned from hooks
+- Use `useMemo` for expensive computations
+- Implement proper dependency arrays for `useEffect`
+
+### Error Handling
+- Always handle errors within hooks
+- Provide fallback states for failed operations
+- Use error boundaries for critical failures
+
+### TypeScript
+- Define precise interfaces for hook parameters and return values
+- Use generic types for reusable hooks
+- Provide proper JSDoc comments for hook documentation

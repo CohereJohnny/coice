@@ -1,0 +1,150 @@
+---
+description: 
+globs: *.tsx
+alwaysApply: false
+---
+# Component Architecture Guidelines
+
+## Single Responsibility Principle
+
+Each component should have **one clear purpose** and be no longer than 200-250 lines.
+
+### ✅ Good Example
+The carousel refactoring in [components/images/carousel/](mdc:components/images/carousel) demonstrates proper separation:
+- [Carousel.tsx](mdc:components/images/carousel/Carousel.tsx) - Main orchestration (150 lines)
+- [CarouselImage.tsx](mdc:components/images/carousel/CarouselImage.tsx) - Image display only
+- [CarouselControls.tsx](mdc:components/images/carousel/CarouselControls.tsx) - Control buttons only
+- [CarouselNavigation.tsx](mdc:components/images/carousel/CarouselNavigation.tsx) - Navigation elements only
+
+### ❌ Avoid
+- Components over 500 lines
+- Mixing multiple concerns (UI + business logic + state management)
+- Components that handle both display and data fetching
+
+## Component Composition Pattern
+
+Break down complex components into smaller, focused pieces that compose together.
+
+### Structure
+```
+components/
+  feature-name/
+    FeatureName.tsx          # Main orchestrator (150-200 lines)
+    FeatureSubComponent.tsx  # Focused sub-components (100-200 lines)
+    hooks/
+      useFeatureState.ts     # State management hook
+      useFeatureLogic.ts     # Business logic hook
+    types.ts                 # TypeScript interfaces
+    index.ts                 # Clean exports
+```
+
+### Example Implementation
+See [components/images/carousel/index.ts](mdc:components/images/carousel/index.ts) for proper export structure.
+
+## Custom Hooks for Reusability
+
+Extract state management and business logic into custom hooks for reusability and testing.
+
+### State Management Hook Pattern
+```typescript
+// Example: useCarouselState.ts
+export function useCarouselState(props: UseCarouselStateProps) {
+  // All state logic here
+  return {
+    // State values
+    // Action functions
+    // Computed values
+  };
+}
+```
+
+See [useCarouselState.ts](mdc:components/images/carousel/hooks/useCarouselState.ts) for complete implementation.
+
+### Benefits
+- **Testable**: Hooks can be unit tested independently
+- **Reusable**: Same logic can be used in multiple components
+- **Maintainable**: Business logic separated from UI concerns
+
+## TypeScript Interface Design
+
+Create comprehensive type definitions for clean component contracts.
+
+### Interface Structure
+```typescript
+// Component Props Interface
+export interface ComponentProps {
+  // Required props
+  data: DataType[];
+  onAction: (item: DataType) => void;
+  
+  // Optional props with defaults
+  variant?: 'primary' | 'secondary';
+  size?: 'small' | 'medium' | 'large';
+}
+
+// Internal State Interface
+export interface ComponentState {
+  // All state shape definitions
+}
+```
+
+See [types.ts](mdc:components/images/carousel/types.ts) for comprehensive type definitions.
+
+## File Organization Standards
+
+### Directory Structure
+```
+feature/
+  Feature.tsx              # Main component
+  FeatureSubComponent.tsx  # Sub-components
+  hooks/
+    useFeatureHook.ts      # Custom hooks
+  types.ts                 # Type definitions
+  index.ts                 # Exports
+  utils.ts                 # Utility functions (if needed)
+```
+
+### Import/Export Conventions
+- Use named exports for all components and hooks
+- Provide clean public API through index.ts
+- Group related types in dedicated types.ts file
+
+## Performance Considerations
+
+### Component Optimization
+- Use `React.memo()` for expensive components
+- Extract utility functions outside components to prevent re-renders
+- Use `useCallback()` and `useMemo()` appropriately in custom hooks
+
+### Code Splitting
+- Each feature directory should be importable independently
+- Avoid circular dependencies between components
+- Use dynamic imports for large feature sets
+
+## Testing Strategy
+
+### Component Testing
+- Test each sub-component independently
+- Mock custom hooks in component tests
+- Test component composition and integration
+
+### Hook Testing
+- Use `@testing-library/react-hooks` for hook testing
+- Test state transitions and side effects
+- Mock external dependencies
+
+## Migration Guidelines
+
+### When to Refactor
+- Component exceeds 300-400 lines
+- Multiple developers struggling to work on same component
+- Testing becomes difficult due to complexity
+- Performance issues due to unnecessary re-renders
+
+### Refactoring Process
+1. Identify distinct responsibilities within the component
+2. Extract state management into custom hooks
+3. Break UI into focused sub-components
+4. Create TypeScript interfaces for all contracts
+5. Implement proper testing for each piece
+6. Update documentation and examples

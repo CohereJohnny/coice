@@ -5,11 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ImageUpload from '@/components/images/ImageUpload';
 import CardView from '@/components/images/CardView';
 import ListView from '@/components/images/ListView';
 import ViewSwitcher, { ViewMode, GridSize, SortOption, SortDirection } from '@/components/images/ViewSwitcher';
-import { Grid, List, Download, Trash2, Eye, Calendar, FileImage, HardDrive } from 'lucide-react';
+import MetadataDisplay from '@/components/images/MetadataDisplay';
+import Carousel from '@/components/images/Carousel';
+import { Grid, List, Download, Trash2, Eye, Calendar, FileImage, HardDrive, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Library {
@@ -69,6 +72,11 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
   const [loading, setLoading] = useState(true);
   const [imagesLoading, setImagesLoading] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
+  const [showMetadataDialog, setShowMetadataDialog] = useState(false);
+  const [selectedImageForMetadata, setSelectedImageForMetadata] = useState<Image | null>(null);
+  const [showCarousel, setShowCarousel] = useState(false);
+  const [carouselInitialIndex, setCarouselInitialIndex] = useState(0);
   
   // View state with URL persistence
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -89,7 +97,6 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
   const [showMetadata, setShowMetadata] = useState(() => {
     return searchParams.get('showMetadata') !== 'false';
   });
-  const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
   
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -359,6 +366,24 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
     toast.success(`Deleted ${selectedImageList.length} images`);
   };
 
+  const handleImageClick = useCallback((image: Image) => {
+    const imageIndex = filteredImages.findIndex(img => img.id === image.id);
+    if (imageIndex !== -1) {
+      setCarouselInitialIndex(imageIndex);
+      setShowCarousel(true);
+    }
+  }, [filteredImages]);
+
+  const handleShowMetadata = useCallback((image: Image) => {
+    setSelectedImageForMetadata(image);
+    setShowMetadataDialog(true);
+  }, []);
+
+  const handleOpenCarousel = useCallback((imageIndex: number) => {
+    setCarouselInitialIndex(imageIndex);
+    setShowCarousel(true);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -447,6 +472,7 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
             loading={imagesLoading}
             selectedImages={selectedImages}
             onImageSelect={handleImageSelect}
+            onImagePreview={handleImageClick}
             onImageDownload={handleDownloadImage}
             onImageDelete={handleDeleteImage}
             gridSize={gridSize}
@@ -458,6 +484,7 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
             loading={imagesLoading}
             selectedImages={selectedImages}
             onImageSelect={handleImageSelect}
+            onImagePreview={handleImageClick}
             onImageDownload={handleDownloadImage}
             onImageDelete={handleDeleteImage}
             pageSize={20}
@@ -489,6 +516,90 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
           </div>
         )}
       </div>
+
+      {/* Metadata Button */}
+      {selectedImages.size > 0 && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">
+            {selectedImages.size} selected
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const firstSelectedImage = images.find(img => selectedImages.has(img.id));
+              if (firstSelectedImage) {
+                handleShowMetadata(firstSelectedImage);
+              }
+            }}
+            className="flex items-center gap-2"
+          >
+            <Info className="h-4 w-4" />
+            View Metadata
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkDownload}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Download
+          </Button>
+        </div>
+      )}
+
+      {/* Upload Dialog */}
+      {showUpload && (
+        <ImageUpload
+          libraryId={libraryId}
+          catalogId={library.catalog_id.toString()}
+          onUploadComplete={handleUploadComplete}
+        />
+      )}
+
+      {/* Metadata Dialog */}
+      <Dialog open={showMetadataDialog} onOpenChange={setShowMetadataDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              Image Metadata
+            </DialogTitle>
+          </DialogHeader>
+          {selectedImageForMetadata && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <img
+                  src={selectedImageForMetadata.signedUrls?.original || selectedImageForMetadata.signedUrls?.thumbnail || '/placeholder-image.jpg'}
+                  alt={selectedImageForMetadata.metadata.original_filename}
+                  className="w-32 h-32 object-cover rounded"
+                />
+                <div>
+                  <h3 className="font-semibold">{selectedImageForMetadata.metadata.original_filename}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedImageForMetadata.metadata.width} × {selectedImageForMetadata.metadata.height}
+                  </p>
+                </div>
+              </div>
+              <MetadataDisplay 
+                metadata={selectedImageForMetadata.metadata}
+                variant="panel"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Carousel */}
+      <Carousel
+        images={filteredImages}
+        initialIndex={carouselInitialIndex}
+        isOpen={showCarousel}
+        onClose={() => setShowCarousel(false)}
+        showMetadata={false}
+        autoplay={false}
+      />
     </div>
   );
 } 
