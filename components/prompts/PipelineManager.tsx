@@ -5,21 +5,47 @@ import { PipelineForm } from './PipelineForm';
 import { PipelineList } from './PipelineList';
 import { PipelineViewer } from './PipelineViewer';
 import { PipelineTemplates } from './PipelineTemplates';
-import { Pipeline, PipelineFormData } from './types';
+import { Pipeline, PipelineFormData, PipelineStage } from './types';
+import { toast } from 'sonner';
+
+// Types for form data compatibility
+interface EditablePipeline {
+  id: string;
+  name: string;
+  description: string;
+  library_id: string;
+  stages: PipelineStage[];
+}
+
+interface PipelineSubmissionData {
+  name: string;
+  description: string;
+  library_id: number;
+  stages: any[];
+}
 
 interface PipelineManagerProps {
   userRole?: string;
   userId?: string;
   selectedLibraryId?: string;
+  onLoadTemplate?: (template: any) => void;
+  onCreateFromTemplate?: (template: any) => void;
 }
 
-type ViewMode = 'list' | 'create' | 'edit' | 'view' | 'templates';
+type ViewMode = 'list' | 'create' | 'edit' | 'view';
 
-export function PipelineManager({ userRole, userId, selectedLibraryId }: PipelineManagerProps) {
+export function PipelineManager({ 
+  userRole, 
+  userId, 
+  selectedLibraryId,
+  onLoadTemplate,
+  onCreateFromTemplate 
+}: PipelineManagerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [availableLibraries, setAvailableLibraries] = useState<{ id: string; name: string }[]>([]);
+  const [availableLibraries, setAvailableLibraries] = useState<{id: string, name: string}[]>([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Permission checks
   const canCreate = userRole === 'admin' || userRole === 'manager';
@@ -31,21 +57,24 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
   };
 
   useEffect(() => {
-    fetchLibraries();
-  }, []);
+    if (viewMode === 'create' || viewMode === 'edit') {
+      fetchLibraries();
+    }
+  }, [viewMode]);
 
   const fetchLibraries = async () => {
     try {
-      console.log('PipelineManager: Fetching libraries...');
-      const response = await fetch('/api/libraries?limit=100');
-      console.log('PipelineManager: Libraries response status:', response.status);
+      const response = await fetch('/api/libraries?limit=100&format=flat');
       if (response.ok) {
         const data = await response.json();
-        console.log('PipelineManager: Libraries data received:', data);
-        setAvailableLibraries(data.libraries || []);
-        console.log('PipelineManager: Set availableLibraries to:', data.libraries || []);
-      } else {
-        console.error('PipelineManager: Libraries API response not ok:', response.status, response.statusText);
+        console.log('PipelineManager received libraries:', data);
+        // Ensure the data structure matches what PipelineForm expects
+        const processedLibraries = (data.libraries || data || []).map((lib: any) => ({
+          id: lib.id?.toString() || '',
+          name: lib.name || 'Unnamed Library'
+        }));
+        console.log('PipelineManager processed libraries:', processedLibraries);
+        setAvailableLibraries(processedLibraries);
       }
     } catch (error) {
       console.error('Error fetching libraries:', error);
@@ -57,36 +86,17 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
     setViewMode('create');
   };
 
-  const handleViewTemplates = () => {
-    setViewMode('templates');
-  };
-
-  const handleLoadTemplate = (template: any) => {
-    // Pre-fill form with template data
-    setSelectedPipeline({
-      id: '',
-      name: template.template_data.name,
-      description: template.template_data.description,
-      library_id: selectedLibraryId || template.template_data.library_id,
-      created_by: userId || '',
-      created_at: new Date().toISOString(),
-      stages: template.template_data.stages
-    } as Pipeline);
-    setViewMode('create');
-  };
-
-  const handleCreateFromTemplate = (template: any) => {
-    // Similar to load template but with a modified name
-    setSelectedPipeline({
-      id: '',
-      name: `${template.template_data.name} (Copy)`,
-      description: template.template_data.description,
-      library_id: selectedLibraryId || template.template_data.library_id,
-      created_by: userId || '',
-      created_at: new Date().toISOString(),
-      stages: template.template_data.stages
-    } as Pipeline);
-    setViewMode('create');
+  // Helper function to convert Pipeline to form-compatible data
+  const convertPipelineToFormData = (pipeline: Pipeline | null) => {
+    if (!pipeline) return undefined;
+    
+    return {
+      id: pipeline.id,
+      name: pipeline.name,
+      description: pipeline.description,
+      library_id: pipeline.library_id?.toString() || '',
+      stages: pipeline.stages
+    };
   };
 
   const handleEdit = (pipeline: Pipeline) => {
@@ -100,7 +110,22 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
   };
 
   const handleDelete = async (pipeline: Pipeline) => {
-    if (!window.confirm(`Are you sure you want to delete "${pipeline.name}"?`)) {
+    // Use a promise-based confirmation
+    const confirmed = await new Promise<boolean>((resolve) => {
+      toast('Are you sure you want to delete this pipeline?', {
+        description: `"${pipeline.name}" will be permanently deleted.`,
+        action: {
+          label: 'Delete',
+          onClick: () => resolve(true),
+        },
+        cancel: {
+          label: 'Cancel',
+          onClick: () => resolve(false),
+        },
+      });
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -115,17 +140,20 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
         throw new Error(error.error || 'Failed to delete pipeline');
       }
 
-      alert('Pipeline deleted successfully');
+      toast.success('Pipeline deleted successfully');
       setViewMode('list');
+      const newTrigger = refreshTrigger + 1;
+      console.log('PipelineManager: Setting refreshTrigger to:', newTrigger);
+      setRefreshTrigger(newTrigger);
     } catch (error) {
       console.error('Error deleting pipeline:', error);
-      alert(error instanceof Error ? error.message : 'Failed to delete pipeline');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete pipeline');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSubmit = async (data: PipelineFormData) => {
+  const handleSubmit = async (data: PipelineSubmissionData) => {
     try {
       setIsLoading(true);
       
@@ -150,12 +178,15 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
 
       const result = await response.json();
 
-      alert(`Pipeline ${selectedPipeline?.id ? 'updated' : 'created'} successfully`);
+      toast.success(`Pipeline ${selectedPipeline?.id ? 'updated' : 'created'} successfully`);
       setViewMode('list');
       setSelectedPipeline(null);
+      const newTrigger = refreshTrigger + 1;
+      console.log('PipelineManager: Setting refreshTrigger after save to:', newTrigger);
+      setRefreshTrigger(newTrigger);
     } catch (error) {
       console.error('Error submitting pipeline:', error);
-      alert(error instanceof Error ? error.message : 'Failed to save pipeline');
+      toast.error(error instanceof Error ? error.message : 'Failed to save pipeline');
     } finally {
       setIsLoading(false);
     }
@@ -176,7 +207,7 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
       case 'create':
         return (
           <PipelineForm
-            initialData={selectedPipeline || undefined}
+            initialData={convertPipelineToFormData(selectedPipeline)}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             submitLabel={selectedPipeline?.id ? "Update Pipeline" : "Create Pipeline"}
@@ -188,7 +219,7 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
       case 'edit':
         return selectedPipeline ? (
           <PipelineForm
-            initialData={selectedPipeline}
+            initialData={convertPipelineToFormData(selectedPipeline)}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             submitLabel="Update Pipeline"
@@ -209,16 +240,6 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
           />
         ) : null;
 
-      case 'templates':
-        return (
-          <PipelineTemplates
-            onLoadTemplate={handleLoadTemplate}
-            onCreateFromTemplate={handleCreateFromTemplate}
-            userRole={userRole}
-            userId={userId}
-          />
-        );
-
       case 'list':
       default:
         return (
@@ -231,41 +252,14 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
             canEdit={canEdit}
             canDelete={canDelete}
             selectedLibraryId={selectedLibraryId}
+            refreshTrigger={refreshTrigger}
           />
         );
     }
   };
 
-  // Navigation tabs
-  const renderNavigation = () => (
-    <div className="flex gap-4 mb-6">
-      <button
-        onClick={() => setViewMode('list')}
-        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-          viewMode === 'list' 
-            ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' 
-            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-        }`}
-      >
-        Pipelines
-      </button>
-      <button
-        onClick={handleViewTemplates}
-        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-          viewMode === 'templates' 
-            ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' 
-            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-        }`}
-      >
-        Templates
-      </button>
-    </div>
-  );
-
   return (
-    <div className="container mx-auto py-6">
-      {/* Show navigation only for list and templates views */}
-      {(['list', 'templates'].includes(viewMode)) && renderNavigation()}
+    <div className="container mx-auto">
       {renderContent()}
     </div>
   );

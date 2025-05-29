@@ -183,7 +183,7 @@ export function PromptManager({ userRole, userId }: PromptManagerProps) {
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto">
       {renderContent()}
     </div>
   );

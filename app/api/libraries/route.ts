@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       if (accessibleCatalogIdsList.length > 0) {
         query = query.in('catalog_id', accessibleCatalogIdsList);
       } else {
-        // User has no accessible catalogs
+        // User has no accessible catalogs, return empty response immediately
         return NextResponse.json({ libraries: [] });
       }
     }
@@ -111,6 +111,11 @@ export async function GET(request: NextRequest) {
     if (error) {
       console.error('Error fetching libraries:', error);
       return NextResponse.json({ error: 'Failed to fetch libraries' }, { status: 500 });
+    }
+
+    // If no libraries found, return empty array
+    if (!libraries || libraries.length === 0) {
+      return NextResponse.json({ libraries: [] });
     }
 
     // Manually fetch catalog information for each library
@@ -137,7 +142,21 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    // Build hierarchy structure
+    // Check if the request wants flat format (for pipeline manager)
+    const requestParams = new URL(request.url);
+    const format = requestParams.searchParams.get('format');
+    
+    if (format === 'flat') {
+      // Return flat array with just id and name for forms/dropdowns
+      const flatLibraries = librariesWithCatalogs.map(library => ({
+        id: library.id.toString(),
+        name: library.name
+      }));
+      
+      return NextResponse.json({ libraries: flatLibraries });
+    }
+
+    // Build hierarchy structure (default behavior)
     const libraryMap = new Map();
     const rootLibraries: Array<Record<string, unknown>> = [];
 

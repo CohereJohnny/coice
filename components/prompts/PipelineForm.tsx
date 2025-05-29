@@ -51,6 +51,13 @@ interface PipelineFormData {
   stages: PipelineStage[];
 }
 
+interface PipelineSubmissionData {
+  name: string;
+  description: string;
+  library_id: number;
+  stages: PipelineStage[];
+}
+
 interface PipelineFormProps {
   initialData?: {
     id: string;
@@ -59,7 +66,7 @@ interface PipelineFormProps {
     library_id: string;
     stages: PipelineStage[];
   };
-  onSubmit: (data: PipelineFormData) => Promise<void>;
+  onSubmit: (data: PipelineSubmissionData) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
   isLoading?: boolean;
@@ -103,13 +110,31 @@ export function PipelineForm({
     console.log('PipelineForm received availableLibraries:', availableLibraries);
   }, [availableLibraries]);
 
+  // Debug logging for available prompts
+  useEffect(() => {
+    console.log('PipelineForm received availablePrompts:', availablePrompts);
+  }, [availablePrompts]);
+
   const fetchAvailablePrompts = async () => {
     try {
       setLoadingPrompts(true);
       const response = await fetch('/api/prompts?limit=100');
       if (response.ok) {
         const data = await response.json();
-        setAvailablePrompts(data.prompts || []);
+        console.log('Raw prompts data:', data);
+        
+        // Process and validate prompts data
+        const processedPrompts = (data.prompts || [])
+          .filter((prompt: any) => prompt && prompt.id && prompt.name) // Filter out invalid prompts
+          .map((prompt: any) => ({
+            id: prompt.id.toString(), // Ensure ID is string
+            name: prompt.name,
+            prompt: prompt.prompt,
+            type: prompt.type
+          }));
+        
+        console.log('Processed prompts:', processedPrompts);
+        setAvailablePrompts(processedPrompts);
       }
     } catch (error) {
       console.error('Error fetching prompts:', error);
@@ -168,6 +193,7 @@ export function PipelineForm({
 
       await onSubmit({
         ...formData,
+        library_id: parseInt(formData.library_id), // Convert to number for API
         stages: stagesWithOrder
       });
     } catch (error) {
@@ -403,7 +429,9 @@ export function PipelineForm({
                                   <SelectValue placeholder="Select a prompt" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {availablePrompts.map((prompt) => (
+                                  {availablePrompts
+                                    .filter(prompt => prompt.id && prompt.id.toString().trim() !== '') // Extra safety check
+                                    .map((prompt) => (
                                     <SelectItem key={prompt.id} value={prompt.id}>
                                       <div className="flex items-center gap-2">
                                         <Badge className={getPromptTypeColor(prompt.type)}>
@@ -444,14 +472,16 @@ export function PipelineForm({
                               <div className="space-y-2">
                                 <Label>Filter Condition (Optional)</Label>
                                 <Select
-                                  value={stage.filter_condition || ''}
-                                  onValueChange={(value) => updateStage(index, { filter_condition: value })}
+                                  value={stage.filter_condition || 'none'}
+                                  onValueChange={(value) => updateStage(index, { 
+                                    filter_condition: value === 'none' ? '' : value 
+                                  })}
                                 >
                                   <SelectTrigger>
                                     <SelectValue placeholder="No filtering" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="">No filtering</SelectItem>
+                                    <SelectItem value="none">No filtering</SelectItem>
                                     <SelectItem value="true">Continue only if true</SelectItem>
                                     <SelectItem value="false">Continue only if false</SelectItem>
                                   </SelectContent>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,6 +37,7 @@ import {
   User
 } from 'lucide-react';
 import { Pipeline, PromptType } from './types';
+import { toast } from 'sonner';
 
 interface PipelineListProps {
   onCreateNew: () => void;
@@ -47,6 +48,7 @@ interface PipelineListProps {
   canEdit?: (pipeline: Pipeline) => boolean;
   canDelete?: (pipeline: Pipeline) => boolean;
   selectedLibraryId?: string;
+  refreshTrigger?: number;
 }
 
 type SortField = 'name' | 'created_at' | 'library_name';
@@ -60,7 +62,8 @@ export function PipelineList({
   canCreate = true,
   canEdit = () => true,
   canDelete = () => true,
-  selectedLibraryId
+  selectedLibraryId,
+  refreshTrigger
 }: PipelineListProps) {
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,7 +76,7 @@ export function PipelineList({
   const [error, setError] = useState<string | null>(null);
   const [availableLibraries, setAvailableLibraries] = useState<{ id: string; name: string }[]>([]);
 
-  const fetchPipelines = async () => {
+  const fetchPipelines = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -108,7 +111,7 @@ export function PipelineList({
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, sortField, sortDirection, searchTerm, libraryFilter]);
 
   const fetchLibraries = async () => {
     try {
@@ -124,7 +127,7 @@ export function PipelineList({
 
   useEffect(() => {
     fetchPipelines();
-  }, [page, sortField, sortDirection, searchTerm, libraryFilter]);
+  }, [fetchPipelines]);
 
   useEffect(() => {
     fetchLibraries();
@@ -135,6 +138,15 @@ export function PipelineList({
       setLibraryFilter(selectedLibraryId);
     }
   }, [selectedLibraryId]);
+
+  // Refresh pipelines when refreshTrigger changes
+  useEffect(() => {
+    console.log('PipelineList: refreshTrigger changed:', refreshTrigger);
+    if (refreshTrigger !== undefined && refreshTrigger > 0) {
+      console.log('PipelineList: Triggering fetchPipelines due to refreshTrigger');
+      fetchPipelines();
+    }
+  }, [fetchPipelines, refreshTrigger]);
 
   const handleSearch = (value: string) => {
     setSearchTerm(value);
@@ -161,16 +173,17 @@ export function PipelineList({
       const pipelineData = {
         name: pipeline.name,
         description: pipeline.description,
-        stages: pipeline.stages.map(stage => ({
+        stages: (pipeline.stages || []).map(stage => ({
           prompt_id: stage.prompt_id,
           stage_order: stage.stage_order,
           filter_condition: stage.filter_condition
         }))
       };
       await navigator.clipboard.writeText(JSON.stringify(pipelineData, null, 2));
-      // You might want to show a toast notification here
+      toast.success('Pipeline configuration copied to clipboard');
     } catch (error) {
       console.error('Failed to copy pipeline:', error);
+      toast.error('Failed to copy pipeline configuration');
     }
   };
 
@@ -371,7 +384,7 @@ export function PipelineList({
                   {/* Stages */}
                   <div className="col-span-3">
                     <div className="flex flex-wrap gap-1">
-                      {pipeline.stages.slice(0, 3).map((stage, index) => (
+                      {(pipeline.stages || []).slice(0, 3).map((stage, index) => (
                         <Badge 
                           key={stage.id || index} 
                           variant="outline" 
@@ -380,9 +393,9 @@ export function PipelineList({
                           {index + 1}. {stage.prompt?.type || 'Unknown'}
                         </Badge>
                       ))}
-                      {pipeline.stages.length > 3 && (
+                      {(pipeline.stages || []).length > 3 && (
                         <Badge variant="outline" className="text-xs">
-                          +{pipeline.stages.length - 3} more
+                          +{(pipeline.stages || []).length - 3} more
                         </Badge>
                       )}
                     </div>
@@ -391,9 +404,9 @@ export function PipelineList({
                   {/* Description */}
                   <div className="col-span-2">
                     <p className="text-sm text-gray-600 line-clamp-2">
-                      {pipeline.description.length > 80 
-                        ? `${pipeline.description.substring(0, 80)}...`
-                        : pipeline.description
+                      {(pipeline.description || '').length > 80 
+                        ? `${(pipeline.description || '').substring(0, 80)}...`
+                        : (pipeline.description || 'No description')
                       }
                     </p>
                   </div>

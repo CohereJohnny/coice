@@ -51,14 +51,21 @@ export async function GET(
       return NextResponse.json({ error: 'Failed to fetch pipeline' }, { status: 500 });
     }
 
-    // Get pipeline stages
-    const { data: stages, error: stagesError } = await supabase
+    // Get pipeline stages with prompts using service role client for reliable access
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: stages, error: stagesError } = await adminSupabase
       .from('pipeline_stages')
       .select(`
         id,
         stage_order,
         filter_condition,
-        prompts:prompt_id (
+        prompt_id,
+        prompt:prompt_id (
           id,
           name,
           prompt,
@@ -193,25 +200,31 @@ export async function PUT(
     }
 
     // Verify all prompts exist and user has access
-    const promptIds = stages.map(s => s.prompt_id);
+    const promptIdsForValidation = stages.map(s => s.prompt_id);
     const { data: prompts, error: promptsError } = await supabase
       .from('prompts')
       .select('id')
-      .in('id', promptIds);
+      .in('id', promptIdsForValidation);
 
     if (promptsError) {
       console.error('Error verifying prompts:', promptsError);
       return NextResponse.json({ error: 'Failed to verify prompts' }, { status: 500 });
     }
 
-    if (!prompts || prompts.length !== promptIds.length) {
+    if (!prompts || prompts.length !== promptIdsForValidation.length) {
       return NextResponse.json({ 
         error: 'One or more prompts not found or access denied' 
       }, { status: 400 });
     }
 
-    // Update pipeline
-    const { data: updatedPipeline, error: updateError } = await supabase
+    // Update pipeline using service role client
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    const { data: updatedPipeline, error: updateError } = await adminSupabase
       .from('pipelines')
       .update({
         name: name.trim(),
@@ -225,10 +238,7 @@ export async function PUT(
         description,
         library_id,
         created_at,
-        profiles:created_by (
-          display_name,
-          email
-        )
+        created_by
       `)
       .single();
 
@@ -237,8 +247,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Failed to update pipeline' }, { status: 500 });
     }
 
-    // Delete existing stages
-    const { error: deleteStagesError } = await supabase
+    // Delete existing stages using service role client
+    const { error: deleteStagesError } = await adminSupabase
       .from('pipeline_stages')
       .delete()
       .eq('pipeline_id', id);
@@ -248,7 +258,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Failed to update pipeline stages' }, { status: 500 });
     }
 
-    // Create new stages
+    // Create new stages using service role client
     const stageInserts = stages.map(stage => ({
       pipeline_id: id,
       prompt_id: stage.prompt_id,
@@ -256,18 +266,14 @@ export async function PUT(
       filter_condition: stage.filter_condition || null
     }));
 
-    const { data: newStages, error: stagesError } = await supabase
+    const { data: newStages, error: stagesError } = await adminSupabase
       .from('pipeline_stages')
       .insert(stageInserts)
       .select(`
         id,
         stage_order,
         filter_condition,
-        prompts:prompt_id (
-          id,
-          name,
-          type
-        )
+        prompt_id
       `);
 
     if (stagesError) {
@@ -275,11 +281,31 @@ export async function PUT(
       return NextResponse.json({ error: 'Failed to create pipeline stages' }, { status: 500 });
     }
 
+    // Fetch user profile and prompt details separately
+    const { data: userProfile } = await adminSupabase
+      .from('profiles')
+      .select('display_name, email')
+      .eq('id', updatedPipeline.created_by)
+      .single();
+
+    const promptIds = stages.map(s => s.prompt_id);
+    const { data: stagePrompts } = await adminSupabase
+      .from('prompts')
+      .select('id, name, type')
+      .in('id', promptIds);
+
+    // Combine stage data with prompt information
+    const stagesWithPrompts = newStages?.map(stage => ({
+      ...stage,
+      prompt: stagePrompts?.find(p => p.id === stage.prompt_id)
+    }));
+
     return NextResponse.json({
       message: 'Pipeline updated successfully',
       pipeline: {
         ...updatedPipeline,
-        stages: newStages
+        profiles: userProfile,
+        stages: stagesWithPrompts
       }
     });
   } catch (error) {
@@ -357,8 +383,15 @@ export async function DELETE(
       }, { status: 400 });
     }
 
-    // Delete the pipeline (stages will be deleted automatically due to CASCADE)
-    const { error: deleteError } = await supabase
+    // Delete the pipeline using service role client (stages will be deleted automatically due to CASCADE)
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    console.log(`Attempting to delete pipeline ${id} for user ${user.id}`);
+    const { error: deleteError } = await adminSupabase
       .from('pipelines')
       .delete()
       .eq('id', id);
@@ -368,6 +401,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Failed to delete pipeline' }, { status: 500 });
     }
 
+    console.log(`Pipeline ${id} deleted successfully`);
     return NextResponse.json({
       message: 'Pipeline deleted successfully'
     });

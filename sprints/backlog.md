@@ -4,6 +4,59 @@ This file tracks new feature ideas, non-critical enhancements, and "nice-to-have
 
 ---
 
+## Prompt Edit/Delete Functionality
+
+**Added**: Sprint 8  
+**Priority**: High  
+**Complexity**: Medium  
+**Estimated Effort**: 0.5-1 sprint  
+
+### Description
+Implement comprehensive edit and delete functionality for prompts with proper permissions and safety checks:
+- Edit prompt name, content, and type
+- Delete prompts with dependency checking
+- Permission-based access control
+- Toast notifications using Sonner
+- Real-time list refresh after operations
+
+### Technical Considerations
+- **Permission System**: Only creators and admins can edit/delete prompts
+- **Dependency Checking**: Prevent deletion of prompts used in active pipelines
+- **Database Operations**: Use service role client to bypass RLS restrictions
+- **UI Integration**: Consistent with pipeline management patterns
+- **Form Validation**: Proper validation for prompt content and type changes
+- **Error Handling**: Comprehensive error messages and user feedback
+
+### User Stories
+- As a prompt creator, I want to edit my prompts to improve their effectiveness
+- As a prompt creator, I want to delete prompts I no longer need
+- As a manager, I want to edit any prompt to maintain quality standards
+- As a user, I want to be warned if I try to delete a prompt that's being used by pipelines
+- As a user, I want immediate feedback when operations succeed or fail
+
+### Implementation Tasks
+1. Add edit/delete buttons to prompt list actions dropdown
+2. Create prompt edit form (reuse/extend existing PromptForm)
+3. Implement PUT endpoint for prompt updates
+4. Implement DELETE endpoint with dependency checking
+5. Add refresh mechanism to PromptList component
+6. Integrate Sonner toast notifications
+7. Add permission checks in UI and API
+8. Handle type conversion issues (similar to pipeline fixes)
+
+### Dependencies
+- Prompt management system (✅ completed in Sprint 8)
+- User permission system (✅ available)
+- Pipeline system (✅ completed in Sprint 8) - for dependency checking
+- Sonner integration (✅ available)
+
+### Notes
+- Follow the same patterns established in pipeline management for consistency
+- Ensure proper error handling and user feedback
+- Consider impact on pipeline integrity when editing prompts
+
+---
+
 ## Prompt Versioning System
 
 **Added**: Sprint 8  

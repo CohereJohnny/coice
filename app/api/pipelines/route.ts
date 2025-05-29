@@ -12,6 +12,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Use service role client for all data fetching to ensure access to related tables
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     const { searchParams } = new URL(request.url);
     const libraryId = searchParams.get('library_id');
     const search = searchParams.get('search');
@@ -19,8 +26,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = (page - 1) * limit;
 
-    // Build query with filters
-    let query = supabase
+    // Build query with filters - fetch pipelines without relationships first
+    let query = adminSupabase
       .from('pipelines')
       .select(`
         id,
@@ -28,18 +35,7 @@ export async function GET(request: NextRequest) {
         description,
         library_id,
         created_at,
-        profiles:created_by (
-          display_name,
-          email
-        ),
-        libraries:library_id (
-          id,
-          name,
-          catalogs:catalog_id (
-            id,
-            name
-          )
-        )
+        created_by
       `)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -63,8 +59,76 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch pipelines' }, { status: 500 });
     }
 
+    // If no pipelines found, return empty array
+    if (!pipelines || pipelines.length === 0) {
+      return NextResponse.json({
+        pipelines: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          pages: 0
+        }
+      });
+    }
+
+    // Fetch related data separately
+    const libraryIds = [...new Set(pipelines.map(p => p.library_id).filter(Boolean))];
+    const creatorIds = [...new Set(pipelines.map(p => p.created_by))];
+
+    // Fetch libraries
+    const { data: libraries } = libraryIds.length > 0 ? await adminSupabase
+      .from('libraries')
+      .select('id, name')
+      .in('id', libraryIds) : { data: [] };
+
+    // Fetch creators (profiles)
+    const { data: creators } = await adminSupabase
+      .from('profiles')
+      .select('id, display_name, email')
+      .in('id', creatorIds);
+
+    // Fetch pipeline stages separately for all pipelines
+    const pipelineIds = pipelines.map(p => p.id);
+    const { data: allStages } = await adminSupabase
+      .from('pipeline_stages')
+      .select(`
+        id,
+        pipeline_id,
+        stage_order,
+        filter_condition,
+        prompt_id,
+        prompt:prompt_id (
+          id,
+          name,
+          prompt,
+          type
+        )
+      `)
+      .in('pipeline_id', pipelineIds)
+      .order('stage_order');
+
+    // Group stages by pipeline_id
+    const stagesByPipeline = new Map();
+    allStages?.forEach(stage => {
+      if (!stagesByPipeline.has(stage.pipeline_id)) {
+        stagesByPipeline.set(stage.pipeline_id, []);
+      }
+      stagesByPipeline.get(stage.pipeline_id).push(stage);
+    });
+
+    // Transform data to match frontend expectations
+    const transformedPipelines = (pipelines || []).map(pipeline => ({
+      ...pipeline,
+      stages: stagesByPipeline.get(pipeline.id) || [],
+      creator_name: creators?.find(c => c.id === pipeline.created_by)?.display_name || creators?.find(c => c.id === pipeline.created_by)?.email || 'Unknown',
+      library_name: libraries?.find(l => l.id === pipeline.library_id)?.name || 'No Library',
+      // Remove the raw pipeline_stages to avoid confusion
+      pipeline_stages: undefined
+    }));
+
     // Get total count for pagination
-    let countQuery = supabase
+    let countQuery = adminSupabase
       .from('pipelines')
       .select('*', { count: 'exact', head: true });
 
@@ -87,7 +151,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      pipelines,
+      pipelines: transformedPipelines,
       pagination: {
         page,
         limit,
@@ -163,6 +227,13 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Use service role client to bypass RLS for database operations
+    const { createClient } = await import('@supabase/supabase-js');
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     // If library_id is provided, verify it exists and user has access
     if (library_id) {
       const { error: libraryError } = await supabase
@@ -197,8 +268,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Start transaction - create pipeline and stages
-    const { data: newPipeline, error: createError } = await supabase
+    // Start transaction - create pipeline and stages using service role
+    const { data: newPipeline, error: createError } = await adminSupabase
       .from('pipelines')
       .insert({
         name: name.trim(),
@@ -212,10 +283,7 @@ export async function POST(request: NextRequest) {
         description,
         library_id,
         created_at,
-        profiles:created_by (
-          display_name,
-          email
-        )
+        created_by
       `)
       .single();
 
@@ -224,7 +292,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create pipeline' }, { status: 500 });
     }
 
-    // Create pipeline stages
+    // Create pipeline stages using service role
     const stageInserts = stages.map(stage => ({
       pipeline_id: newPipeline.id,
       prompt_id: stage.prompt_id,
@@ -232,32 +300,48 @@ export async function POST(request: NextRequest) {
       filter_condition: stage.filter_condition || null
     }));
 
-    const { data: newStages, error: stagesError } = await supabase
+    const { data: newStages, error: stagesError } = await adminSupabase
       .from('pipeline_stages')
       .insert(stageInserts)
       .select(`
         id,
         stage_order,
         filter_condition,
-        prompts:prompt_id (
-          id,
-          name,
-          type
-        )
+        prompt_id
       `);
 
     if (stagesError) {
       console.error('Error creating pipeline stages:', stagesError);
       // Try to clean up the pipeline
-      await supabase.from('pipelines').delete().eq('id', newPipeline.id);
+      await adminSupabase.from('pipelines').delete().eq('id', newPipeline.id);
       return NextResponse.json({ error: 'Failed to create pipeline stages' }, { status: 500 });
     }
+
+    // Fetch created user profile for response using service role
+    const { data: userProfile } = await adminSupabase
+      .from('profiles')
+      .select('display_name, email')
+      .eq('id', user.id)
+      .single();
+
+    // Fetch prompt details for stages using service role
+    const { data: stagePrompts } = await adminSupabase
+      .from('prompts')
+      .select('id, name, type')
+      .in('id', promptIds);
+
+    // Combine stage data with prompt information
+    const stagesWithPrompts = newStages?.map(stage => ({
+      ...stage,
+      prompts: stagePrompts?.find(p => p.id === stage.prompt_id)
+    }));
 
     return NextResponse.json({
       message: 'Pipeline created successfully',
       pipeline: {
         ...newPipeline,
-        stages: newStages
+        profiles: userProfile,
+        stages: stagesWithPrompts
       }
     }, { status: 201 });
   } catch (error) {

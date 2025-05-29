@@ -25,13 +25,21 @@ export const createSupabaseServerClient = async () => {
       get(name: string) {
         return cookieStore.get(name)?.value
       },
-      set: async (name: string, value: string, options: unknown) => {
-        const cookieStore = await cookies();
-        cookieStore.set({ name, value, ...options as Record<string, unknown> });
+      set(name: string, value: string, options: unknown) {
+        try {
+          cookieStore.set({ name, value, ...options as Record<string, unknown> });
+        } catch (error) {
+          // In some contexts (like API routes), cookies can't be set
+          // This is expected behavior and we can safely ignore it
+        }
       },
-      remove: async (name: string, options: unknown) => {
-        const cookieStore = await cookies();
-        cookieStore.set({ name, value: '', ...options as Record<string, unknown> });
+      remove(name: string, options: unknown) {
+        try {
+          cookieStore.set({ name, value: '', ...options as Record<string, unknown> });
+        } catch (error) {
+          // In some contexts (like API routes), cookies can't be set
+          // This is expected behavior and we can safely ignore it
+        }
       },
     },
   })

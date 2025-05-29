@@ -31,7 +31,7 @@ export interface Pipeline {
   id: string;
   name: string;
   description: string;
-  library_id: string;
+  library_id: number | null;
   created_by: string;
   created_at: string;
   creator_name?: string;
