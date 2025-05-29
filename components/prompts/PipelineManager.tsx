@@ -243,8 +243,8 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
         onClick={() => setViewMode('list')}
         className={`px-4 py-2 rounded-lg font-medium transition-colors ${
           viewMode === 'list' 
-            ? 'bg-blue-100 text-blue-700' 
-            : 'text-gray-600 hover:text-gray-900'
+            ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' 
+            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
         }`}
       >
         Pipelines
@@ -253,8 +253,8 @@ export function PipelineManager({ userRole, userId, selectedLibraryId }: Pipelin
         onClick={handleViewTemplates}
         className={`px-4 py-2 rounded-lg font-medium transition-colors ${
           viewMode === 'templates' 
-            ? 'bg-blue-100 text-blue-700' 
-            : 'text-gray-600 hover:text-gray-900'
+            ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' 
+            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
         }`}
       >
         Templates
