@@ -51,24 +51,29 @@ export function JobTimeline({
   const enrichedEvents = useMemo(() => {
     return sortedEvents.map((event, index) => {
       const timestamp = new Date(event.timestamp);
+      
+      // Check if timestamp is valid
+      const isValidDate = !isNaN(timestamp.getTime());
+      
       const nextEvent = sortedEvents[index + 1];
-      const calculatedDuration = nextEvent 
+      const calculatedDuration = nextEvent && isValidDate
         ? new Date(nextEvent.timestamp).getTime() - timestamp.getTime()
         : event.duration;
 
       return {
         ...event,
         calculatedDuration,
-        relativeTime: formatRelativeTime(timestamp),
-        formattedTime: timestamp.toLocaleTimeString(),
-        formattedDate: timestamp.toLocaleDateString(),
+        relativeTime: isValidDate ? formatRelativeTime(timestamp) : 'Unknown time',
+        formattedTime: isValidDate ? timestamp.toLocaleTimeString() : 'Invalid time',
+        formattedDate: isValidDate ? timestamp.toLocaleDateString() : 'Invalid date',
+        isValidTimestamp: isValidDate,
       };
     });
   }, [sortedEvents]);
 
   // Format duration
   const formatDuration = (ms?: number) => {
-    if (!ms) return null;
+    if (!ms || isNaN(ms)) return null;
     
     if (ms < 1000) return `${ms}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
@@ -80,6 +85,9 @@ export function JobTimeline({
   function formatRelativeTime(date: Date) {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
+    
+    // Handle negative or invalid differences
+    if (isNaN(diffMs) || diffMs < 0) return 'Unknown time';
     
     if (diffMs < 60000) return 'Just now';
     if (diffMs < 3600000) return `${Math.floor(diffMs / 60000)}m ago`;
@@ -142,7 +150,7 @@ export function JobTimeline({
   if (enrichedEvents.length === 0) {
     return (
       <div className={`text-center py-8 text-muted-foreground ${className}`}>
-        <div className="w-12 h-12 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+        <div className="w-12 h-12 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -165,7 +173,7 @@ export function JobTimeline({
       {/* Timeline */}
       <div className="relative">
         {/* Timeline line */}
-        <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
+        <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200 dark:bg-gray-600" />
 
         {/* Timeline events */}
         <div className="space-y-4">
@@ -177,8 +185,8 @@ export function JobTimeline({
               <div
                 key={event.id}
                 className={`relative flex items-start space-x-4 ${
-                  onEventClick ? 'cursor-pointer hover:bg-gray-50 rounded-lg p-2 -m-2' : ''
-                } ${isCurrent ? 'bg-blue-50 rounded-lg p-2 -m-2' : ''}`}
+                  onEventClick ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-2 -m-2' : ''
+                } ${isCurrent ? 'bg-blue-50 dark:bg-blue-950 rounded-lg p-2 -m-2' : ''}`}
                 onClick={() => onEventClick?.(event)}
               >
                 {/* Timeline marker */}
@@ -195,7 +203,7 @@ export function JobTimeline({
                         <h4 className={`font-medium ${compact ? 'text-sm' : 'text-base'}`}>
                           {event.title}
                         </h4>
-                        <span className={`text-xs px-2 py-1 rounded-full bg-gray-100 ${getStatusColor(event.status)}`}>
+                        <span className={`text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 ${getStatusColor(event.status)}`}>
                           {event.status}
                         </span>
                       </div>
@@ -217,13 +225,13 @@ export function JobTimeline({
                           )}
                           
                           {event.details.errors && event.details.errors.length > 0 && (
-                            <div className="text-xs text-red-600">
+                            <div className="text-xs text-red-600 dark:text-red-400">
                               {event.details.errors.length} error(s)
                             </div>
                           )}
                           
                           {event.details.warnings && event.details.warnings.length > 0 && (
-                            <div className="text-xs text-yellow-600">
+                            <div className="text-xs text-yellow-600 dark:text-yellow-400">
                               {event.details.warnings.length} warning(s)
                             </div>
                           )}
@@ -232,7 +240,7 @@ export function JobTimeline({
 
                       {/* Metadata */}
                       {showMetadata && event.metadata && Object.keys(event.metadata).length > 0 && (
-                        <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
+                        <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs">
                           <details>
                             <summary className="cursor-pointer text-muted-foreground">
                               Metadata ({Object.keys(event.metadata).length} items)
@@ -269,28 +277,28 @@ export function JobTimeline({
 
       {/* Summary */}
       {!compact && (
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+        <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <div className="font-medium text-green-600">
+              <div className="font-medium text-green-600 dark:text-green-400">
                 {enrichedEvents.filter(e => e.status === 'completed').length}
               </div>
               <div className="text-muted-foreground">Completed</div>
             </div>
             <div>
-              <div className="font-medium text-blue-600">
+              <div className="font-medium text-blue-600 dark:text-blue-400">
                 {enrichedEvents.filter(e => e.status === 'processing').length}
               </div>
               <div className="text-muted-foreground">Processing</div>
             </div>
             <div>
-              <div className="font-medium text-red-600">
+              <div className="font-medium text-red-600 dark:text-red-400">
                 {enrichedEvents.filter(e => e.status === 'failed').length}
               </div>
               <div className="text-muted-foreground">Failed</div>
             </div>
             <div>
-              <div className="font-medium text-gray-600">
+              <div className="font-medium text-gray-600 dark:text-gray-400">
                 {enrichedEvents.filter(e => e.status === 'pending').length}
               </div>
               <div className="text-muted-foreground">Pending</div>
