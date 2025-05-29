@@ -1,5 +1,464 @@
 ---
-description:
-globs:
+description: 
+globs: *.tsx
 alwaysApply: false
 ---
+# TypeScript Design Patterns
+
+## Interface Design Principles
+
+Create comprehensive, well-structured interfaces that serve as contracts between components and layers.
+
+## Component Interface Pattern
+
+### Props Interface Structure
+```typescript
+// Component props should be descriptive and complete
+export interface ComponentProps {
+  // Required data props
+  data: DataType[];
+  selectedIds: Set<number>;
+  
+  // Required event handlers
+  onSelect: (id: number) => void;
+  onAction: (action: ActionType, data: DataType) => void;
+  
+  // Optional configuration with defaults
+  variant?: 'primary' | 'secondary' | 'danger';
+  size?: 'small' | 'medium' | 'large';
+  disabled?: boolean;
+  
+  // Optional event handlers
+  onHover?: (id: number) => void;
+  onFocus?: (id: number) => void;
+  
+  // Styling overrides
+  className?: string;
+  style?: React.CSSProperties;
+}
+```
+
+### Real Example
+See [types.ts](mdc:components/images/carousel/types.ts) for comprehensive component interface design.
+
+## Hook Interface Pattern
+
+### Hook Parameters Interface
+```typescript
+interface UseFeatureHookParams {
+  // Input data
+  initialData: DataType[];
+  
+  // Configuration
+  enabled?: boolean;
+  autoRefresh?: boolean;
+  refreshInterval?: number;
+  
+  // Callbacks
+  onSuccess?: (data: DataType[]) => void;
+  onError?: (error: Error) => void;
+  onChange?: (newData: DataType[]) => void;
+}
+
+// Hook return type with clear structure
+interface UseFeatureHookReturn {
+  // State data
+  data: DataType[];
+  error: Error | null;
+  
+  // Status flags
+  isLoading: boolean;
+  isError: boolean;
+  isEmpty: boolean;
+  
+  // Actions
+  refresh: () => Promise<void>;
+  update: (item: DataType) => void;
+  remove: (id: number) => void;
+  
+  // Computed values
+  filteredData: DataType[];
+  totalCount: number;
+}
+
+export function useFeatureHook(params: UseFeatureHookParams): UseFeatureHookReturn {
+  // Implementation
+}
+```
+
+## State Interface Pattern
+
+### Component State Structure
+```typescript
+// Main state interface
+export interface ComponentState {
+  // Core data
+  items: ItemType[];
+  selectedItem: ItemType | null;
+  
+  // UI state
+  isOpen: boolean;
+  viewMode: 'list' | 'grid' | 'detail';
+  sortBy: SortOption;
+  sortDirection: 'asc' | 'desc';
+  
+  // Loading states
+  isLoading: boolean;
+  isSubmitting: boolean;
+  loadingStates: Map<number, boolean>;
+  
+  // Error states
+  error: string | null;
+  fieldErrors: Record<string, string>;
+  
+  // User preferences
+  preferences: UserPreferences;
+  theme: 'light' | 'dark' | 'system';
+}
+
+// Supporting interfaces
+export interface UserPreferences {
+  itemsPerPage: number;
+  defaultView: ViewMode;
+  showMetadata: boolean;
+}
+
+export interface SortOption {
+  field: string;
+  label: string;
+}
+```
+
+## API Response Interface Pattern
+
+### API Response Types
+```typescript
+// Base API response structure
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data: T;
+  message?: string;
+  errors?: ApiError[];
+  meta?: ApiMeta;
+}
+
+// Error structure
+export interface ApiError {
+  code: string;
+  message: string;
+  field?: string;
+  details?: Record<string, unknown>;
+}
+
+// Metadata structure
+export interface ApiMeta {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
+// Specific response types
+export interface ImageListResponse extends ApiResponse<Image[]> {
+  meta: ApiMeta;
+}
+
+export interface ImageUploadResponse extends ApiResponse<{
+  imageId: number;
+  url: string;
+  thumbnailUrl: string;
+}> {}
+```
+
+## Generic Type Patterns
+
+### Utility Types
+```typescript
+// Make specific fields optional
+export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+// Make specific fields required
+export type RequiredBy<T, K extends keyof T> = T & Required<Pick<T, K>>;
+
+// Extract function parameters
+export type ExtractParams<T> = T extends (...args: infer P) => any ? P : never;
+
+// Extract async function return type
+export type ExtractAsyncReturn<T> = T extends (...args: any[]) => Promise<infer R> ? R : never;
+
+// Example usage
+export interface CreateImageRequest extends PartialBy<Image, 'id' | 'created_at'> {}
+export interface UpdateImageRequest extends RequiredBy<Partial<Image>, 'id'> {}
+```
+
+### Generic Component Types
+```typescript
+// Generic list component interface
+export interface ListComponentProps<T, K extends keyof T = keyof T> {
+  items: T[];
+  selectedKeys: Set<T[K]>;
+  keyField: K;
+  
+  onSelect: (key: T[K]) => void;
+  renderItem: (item: T, isSelected: boolean) => React.ReactNode;
+  
+  // Optional configuration
+  multiSelect?: boolean;
+  virtualized?: boolean;
+  
+  // Optional callbacks
+  onFilter?: (items: T[]) => T[];
+  onSort?: (items: T[]) => T[];
+}
+
+// Usage example
+<ListComponent<Image, 'id'>
+  items={images}
+  selectedKeys={selectedImageIds}
+  keyField="id"
+  onSelect={handleImageSelect}
+  renderItem={renderImageItem}
+  multiSelect
+/>
+```
+
+## Event Handler Type Patterns
+
+### Event Handler Interfaces
+```typescript
+// Standard event handlers
+export interface ComponentEventHandlers<T> {
+  onClick?: (item: T, event: React.MouseEvent) => void;
+  onDoubleClick?: (item: T, event: React.MouseEvent) => void;
+  onContextMenu?: (item: T, event: React.MouseEvent) => void;
+  
+  onKeyDown?: (item: T, event: React.KeyboardEvent) => void;
+  onKeyUp?: (item: T, event: React.KeyboardEvent) => void;
+  
+  onFocus?: (item: T, event: React.FocusEvent) => void;
+  onBlur?: (item: T, event: React.FocusEvent) => void;
+  
+  onDragStart?: (item: T, event: React.DragEvent) => void;
+  onDrop?: (item: T, event: React.DragEvent) => void;
+}
+
+// Custom event handlers
+export interface CustomEventHandlers<T> {
+  onSelect?: (item: T) => void;
+  onActivate?: (item: T) => void;
+  onRemove?: (item: T) => void;
+  onChange?: (oldItem: T, newItem: T) => void;
+  onBulkAction?: (items: T[], action: string) => void;
+}
+
+// Combined event handlers
+export interface AllEventHandlers<T> 
+  extends ComponentEventHandlers<T>, 
+          CustomEventHandlers<T> {}
+```
+
+## Form Interface Patterns
+
+### Form State and Validation
+```typescript
+// Form field interface
+export interface FormField<T = string> {
+  value: T;
+  error?: string;
+  touched: boolean;
+  dirty: boolean;
+  validating: boolean;
+}
+
+// Form state interface
+export interface FormState<T extends Record<string, any>> {
+  fields: {
+    [K in keyof T]: FormField<T[K]>;
+  };
+  
+  // Form-level state
+  isSubmitting: boolean;
+  isValid: boolean;
+  isDirty: boolean;
+  submitCount: number;
+  
+  // Form-level errors
+  submitError?: string;
+  generalErrors: string[];
+}
+
+// Validation rules
+export interface ValidationRule<T> {
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: RegExp;
+  custom?: (value: T) => string | null;
+  asyncValidator?: (value: T) => Promise<string | null>;
+}
+
+// Form configuration
+export interface FormConfig<T extends Record<string, any>> {
+  initialValues: T;
+  validationRules: {
+    [K in keyof T]?: ValidationRule<T[K]>;
+  };
+  onSubmit: (values: T) => Promise<void>;
+  validateOnChange?: boolean;
+  validateOnBlur?: boolean;
+}
+```
+
+## Discriminated Union Patterns
+
+### State Machine Types
+```typescript
+// Loading states as discriminated union
+export type LoadingState = 
+  | { status: 'idle' }
+  | { status: 'loading'; progress?: number }
+  | { status: 'success'; data: any; timestamp: number }
+  | { status: 'error'; error: Error; retryCount: number };
+
+// Component modes
+export type ComponentMode = 
+  | { mode: 'view'; item: ItemType }
+  | { mode: 'edit'; item: ItemType; originalItem: ItemType }
+  | { mode: 'create'; template?: Partial<ItemType> }
+  | { mode: 'bulk'; selectedItems: ItemType[] };
+
+// Usage in component
+function handleModeChange(newMode: ComponentMode) {
+  switch (newMode.mode) {
+    case 'view':
+      // TypeScript knows newMode.item exists
+      console.log('Viewing:', newMode.item.name);
+      break;
+    case 'edit':
+      // TypeScript knows both item and originalItem exist
+      console.log('Editing:', newMode.item.name);
+      break;
+    case 'create':
+      // TypeScript knows template might exist
+      const template = newMode.template || getDefaultTemplate();
+      break;
+    case 'bulk':
+      // TypeScript knows selectedItems exists
+      console.log('Bulk action on', newMode.selectedItems.length, 'items');
+      break;
+  }
+}
+```
+
+## Configuration Interface Patterns
+
+### Feature Configuration
+```typescript
+// Feature flags and configuration
+export interface FeatureConfig {
+  // Feature toggles
+  features: {
+    multiSelect: boolean;
+    dragAndDrop: boolean;
+    virtualScrolling: boolean;
+    realTimeUpdates: boolean;
+    advancedFiltering: boolean;
+  };
+  
+  // Performance settings
+  performance: {
+    itemsPerPage: number;
+    virtualScrollThreshold: number;
+    debounceMs: number;
+    maxCacheSize: number;
+  };
+  
+  // UI customization
+  ui: {
+    theme: 'light' | 'dark' | 'auto';
+    density: 'compact' | 'comfortable' | 'spacious';
+    animations: boolean;
+    reducedMotion: boolean;
+  };
+  
+  // Accessibility settings
+  accessibility: {
+    announceChanges: boolean;
+    keyboardNavigation: boolean;
+    highContrast: boolean;
+    fontSize: 'small' | 'medium' | 'large';
+  };
+}
+
+// Provider pattern for configuration
+export interface ConfigProvider {
+  config: FeatureConfig;
+  updateConfig: (updates: DeepPartial<FeatureConfig>) => void;
+  resetConfig: () => void;
+}
+```
+
+## Best Practices
+
+### Interface Naming
+- Use descriptive names: `UserProfileProps` not `Props`
+- Include the purpose: `CreateUserRequest`, `UserListResponse`
+- Use consistent suffixes: `Props`, `State`, `Config`, `Response`
+
+### Property Organization
+1. **Required properties first**
+2. **Optional properties second**
+3. **Event handlers last**
+4. **Group related properties together**
+
+### Documentation
+```typescript
+/**
+ * Props for the ImageCarousel component
+ * @example
+ * ```tsx
+ * <ImageCarousel
+ *   images={imageList}
+ *   initialIndex={0}
+ *   onClose={() => setIsOpen(false)}
+ * />
+ * ```
+ */
+export interface ImageCarouselProps {
+  /** Array of images to display */
+  images: Image[];
+  
+  /** Initial image index (default: 0) */
+  initialIndex?: number;
+  
+  /** Called when carousel is closed */
+  onClose: () => void;
+  
+  /** Whether to show metadata overlay */
+  showMetadata?: boolean;
+}
+```
+
+### Extensibility
+```typescript
+// Base interface that can be extended
+export interface BaseComponentProps {
+  className?: string;
+  style?: React.CSSProperties;
+  'data-testid'?: string;
+}
+
+// Specific component extends base
+export interface ButtonProps extends BaseComponentProps {
+  variant: 'primary' | 'secondary';
+  onClick: () => void;
+  children: React.ReactNode;
+}
+
+// Generic extension pattern
+export interface ExtendableProps<T = {}> extends BaseComponentProps {
+  customProps?: T;
+}
+```

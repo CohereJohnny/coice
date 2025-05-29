@@ -36,32 +36,7 @@ import {
   Calendar,
   User
 } from 'lucide-react';
-
-type PromptType = 'boolean' | 'descriptive' | 'keywords';
-
-interface PipelineStage {
-  id: string;
-  prompt_id: string;
-  stage_order: number;
-  filter_condition?: string;
-  prompt?: {
-    id: string;
-    name: string;
-    type: PromptType;
-  };
-}
-
-interface Pipeline {
-  id: string;
-  name: string;
-  description: string;
-  library_id: string;
-  created_by: string;
-  created_at: string;
-  creator_name?: string;
-  library_name?: string;
-  stages: PipelineStage[];
-}
+import { Pipeline, PromptType } from './types';
 
 interface PipelineListProps {
   onCreateNew: () => void;
@@ -398,7 +373,7 @@ export function PipelineList({
                     <div className="flex flex-wrap gap-1">
                       {pipeline.stages.slice(0, 3).map((stage, index) => (
                         <Badge 
-                          key={stage.id} 
+                          key={stage.id || index} 
                           variant="outline" 
                           className={`text-xs ${stage.prompt?.type ? getPromptTypeColor(stage.prompt.type) : 'bg-gray-100 text-gray-800'}`}
                         >

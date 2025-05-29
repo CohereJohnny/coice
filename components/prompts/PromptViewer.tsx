@@ -195,7 +195,7 @@ export function PromptViewer({
                 <div className="bg-white p-3 rounded border">
                   <div className="text-xs text-gray-500 mb-1">AI Model Input:</div>
                   <div className="text-sm text-gray-800 italic">
-                    "{prompt.prompt}"
+                    &ldquo;{prompt.prompt}&rdquo;
                   </div>
                 </div>
                 <div className="bg-white p-3 rounded border">

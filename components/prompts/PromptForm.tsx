@@ -134,8 +134,8 @@ export function PromptForm({
   };
 
   const loadExample = () => {
-    if (formData.type && formData.type !== '') {
-      const example = promptTypeExamples[formData.type as PromptType];
+    if (formData.type && isValidType(formData.type)) {
+      const example = promptTypeExamples[formData.type];
       setFormData(prev => ({
         ...prev,
         name: example.name,

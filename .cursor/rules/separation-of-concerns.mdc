@@ -1,5 +1,400 @@
 ---
-description:
-globs:
-alwaysApply: false
+description: 
+globs: 
+alwaysApply: true
 ---
+# Separation of Concerns Guidelines
+
+## Core Principle
+
+Each file, component, and function should have **one primary responsibility**. Avoid mixing UI logic, business logic, state management, and data fetching.
+
+## Layer Separation
+
+### 1. Presentation Layer (UI Components)
+**Responsibility**: Render UI elements and handle user interactions.
+
+```typescript
+// ✅ Good: Pure UI component
+export function Button({ onClick, children, variant = 'primary' }: ButtonProps) {
+  return (
+    <button 
+      className={`btn btn-${variant}`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+```
+
+```typescript
+// ❌ Bad: Mixing UI with business logic
+export function Button({ userId, onSuccess }: BadButtonProps) {
+  const [loading, setLoading] = useState(false);
+  
+  const handleClick = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/users/${userId}`);
+      const data = await response.json();
+      // Complex business logic here...
+      onSuccess(data);
+    } catch (error) {
+      // Error handling...
+    }
+    setLoading(false);
+  };
+
+  return <button onClick={handleClick}>Submit</button>;
+}
+```
+
+### 2. State Management Layer (Custom Hooks)
+**Responsibility**: Manage component state, side effects, and state transitions.
+
+See [useCarouselState.ts](mdc:components/images/carousel/hooks/useCarouselState.ts) for proper state management separation.
+
+```typescript
+// ✅ Good: Focused state management
+export function useFormState(initialData: FormData) {
+  const [formData, setFormData] = useState(initialData);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const updateField = useCallback((field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setErrors(prev => ({ ...prev, [field]: undefined }));
+  }, []);
+  
+  const validateForm = useCallback(() => {
+    // Validation logic
+    return isValid;
+  }, [formData]);
+  
+  return {
+    formData,
+    errors,
+    isSubmitting,
+    updateField,
+    validateForm,
+    setIsSubmitting
+  };
+}
+```
+
+### 3. Business Logic Layer (Services/Utils)
+**Responsibility**: Handle business rules, data processing, and external API communication.
+
+```typescript
+// ✅ Good: Pure business logic
+export class ImageProcessor {
+  static async processImage(image: File): Promise<ProcessedImage> {
+    // Image processing logic
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Processing steps...
+    
+    return {
+      processed: true,
+      dimensions: { width, height },
+      blob: processedBlob
+    };
+  }
+  
+  static validateImageFile(file: File): ValidationResult {
+    // Validation business rules
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    
+    if (file.size > maxSize) {
+      return { valid: false, error: 'File too large' };
+    }
+    
+    if (!allowedTypes.includes(file.type)) {
+      return { valid: false, error: 'Invalid file type' };
+    }
+    
+    return { valid: true };
+  }
+}
+```
+
+### 4. Data Layer (API Services)
+**Responsibility**: Handle external data communication and caching.
+
+```typescript
+// ✅ Good: Data access layer
+export class ApiService {
+  private static baseURL = process.env.NEXT_PUBLIC_API_URL;
+  
+  static async fetchImages(libraryId: number): Promise<Image[]> {
+    const response = await fetch(`${this.baseURL}/libraries/${libraryId}/images`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch images: ${response.statusText}`);
+    }
+    
+    return response.json();
+  }
+  
+  static async uploadImage(image: File, metadata: ImageMetadata): Promise<UploadResult> {
+    const formData = new FormData();
+    formData.append('image', image);
+    formData.append('metadata', JSON.stringify(metadata));
+    
+    const response = await fetch(`${this.baseURL}/images/upload`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    return response.json();
+  }
+}
+```
+
+## Component Composition Example
+
+### ✅ Good: Proper Separation
+```typescript
+// Main component - orchestration only
+export function ImageGallery({ libraryId }: ImageGalleryProps) {
+  // State management hook
+  const { 
+    images, 
+    selectedImages, 
+    viewMode,
+    setViewMode,
+    selectImage,
+    loadImages 
+  } = useImageGalleryState();
+  
+  // Business logic hook
+  const { 
+    processImages, 
+    isProcessing 
+  } = useImageProcessing();
+  
+  // Data fetching hook
+  const { 
+    fetchImages, 
+    isLoading,
+    error 
+  } = useImageData(libraryId);
+  
+  // Load images on mount
+  useEffect(() => {
+    fetchImages().then(loadImages);
+  }, [libraryId, fetchImages, loadImages]);
+  
+  return (
+    <div className="image-gallery">
+      <GalleryControls 
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        selectedCount={selectedImages.length}
+        onProcessImages={processImages}
+        isProcessing={isProcessing}
+      />
+      
+      {error && <ErrorDisplay error={error} />}
+      
+      {isLoading ? (
+        <LoadingSpinner />
+      ) : (
+        <ImageGrid 
+          images={images}
+          selectedImages={selectedImages}
+          onImageSelect={selectImage}
+          viewMode={viewMode}
+        />
+      )}
+    </div>
+  );
+}
+```
+
+### ❌ Bad: Mixed Concerns
+```typescript
+// Everything mixed together - hard to maintain
+export function BadImageGallery({ libraryId }: Props) {
+  const [images, setImages] = useState<Image[]>([]);
+  const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Mixed data fetching with business logic
+  const loadImages = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/libraries/${libraryId}/images`);
+      const data = await response.json();
+      
+      // Business logic mixed with data fetching
+      const processedImages = data.map((img: any) => ({
+        ...img,
+        thumbnail: img.thumbnail || generateThumbnail(img),
+        metadata: processMetadata(img.metadata)
+      }));
+      
+      setImages(processedImages);
+    } catch (err) {
+      setError('Failed to load images');
+    }
+    setIsLoading(false);
+  };
+  
+  // More mixed logic...
+  
+  return (
+    <div>
+      {/* Huge JSX with inline logic */}
+    </div>
+  );
+}
+```
+
+## File Organization by Concern
+
+```
+feature/
+  components/           # UI Components only
+    FeatureMain.tsx
+    FeatureControls.tsx
+    FeatureList.tsx
+    
+  hooks/               # State management
+    useFeatureState.ts
+    useFeatureData.ts
+    useFeatureLogic.ts
+    
+  services/            # Business logic & API
+    FeatureService.ts
+    FeatureValidator.ts
+    FeatureProcessor.ts
+    
+  types/               # Type definitions
+    feature.types.ts
+    api.types.ts
+    
+  utils/               # Pure utility functions
+    feature.utils.ts
+    
+  index.ts             # Clean exports
+```
+
+## Testing by Layer
+
+### UI Component Tests
+- Test rendering with different props
+- Test user interactions (clicks, form submissions)
+- Mock all hooks and external dependencies
+
+### Hook Tests
+- Test state transitions
+- Test side effects
+- Test edge cases and error conditions
+
+### Service Tests
+- Test business logic with various inputs
+- Test API communication (with mocked responses)
+- Test error handling and edge cases
+
+### Integration Tests
+- Test component composition
+- Test data flow between layers
+- Test complete user workflows
+
+## Benefits of Proper Separation
+
+### 1. Maintainability
+- Easy to locate and fix bugs
+- Changes in one layer don't affect others
+- Clear ownership of responsibilities
+
+### 2. Testability
+- Each layer can be tested independently
+- Easy to mock dependencies
+- Better test coverage
+
+### 3. Reusability
+- Hooks can be used in multiple components
+- Services can be shared across features
+- UI components are more flexible
+
+### 4. Team Collaboration
+- Different developers can work on different layers
+- Reduced merge conflicts
+- Clear interfaces between layers
+
+## Common Anti-Patterns to Avoid
+
+### 1. God Components
+```typescript
+// ❌ Bad: 500+ line component doing everything
+export function GodComponent() {
+  // 50+ state variables
+  // API calls mixed with UI logic
+  // Business rules scattered throughout
+  // Complex JSX with inline logic
+}
+```
+
+### 2. Leaky Abstractions
+```typescript
+// ❌ Bad: Hook exposing implementation details
+export function useBadHook() {
+  const [internalState, setInternalState] = useState();
+  const [anotherInternal, setAnotherInternal] = useState();
+  
+  return {
+    internalState,        // ❌ Leaking internal state
+    setInternalState,     // ❌ Leaking internal setter
+    anotherInternal,      // ❌ More leaked internals
+    // ... exposing everything
+  };
+}
+```
+
+### 3. Tight Coupling
+```typescript
+// ❌ Bad: Component tightly coupled to specific API
+export function TightlyCoupledList() {
+  const [data, setData] = useState();
+  
+  useEffect(() => {
+    // Hardcoded API endpoint
+    fetch('/api/specific-endpoint')
+      .then(response => response.json())
+      .then(data => {
+        // Specific data structure assumptions
+        setData(data.results.items.map(item => ({
+          id: item.uuid,
+          name: item.display_name
+        })));
+      });
+  }, []);
+  
+  // ...
+}
+```
+
+## Refactoring Guidelines
+
+### When to Refactor
+1. Component exceeds 200-300 lines
+2. Function has multiple responsibilities
+3. Testing becomes difficult
+4. Code duplication across components
+5. Tight coupling between unrelated concerns
+
+### Refactoring Steps
+1. Identify distinct responsibilities
+2. Extract business logic into services
+3. Move state management to custom hooks
+4. Split UI into focused components
+5. Create clear interfaces between layers
+6. Add comprehensive tests for each layer
