@@ -255,19 +255,6 @@ export default function JobMonitoringDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Job Monitoring</h2>
-          <p className="text-muted-foreground">
-            Monitor the progress of your AI analysis jobs
-          </p>
-        </div>
-        <Button onClick={loadJobs} disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
-
       {error && (
         <Alert variant="destructive">
           <XCircle className="h-4 w-4" />
@@ -276,11 +263,17 @@ export default function JobMonitoringDashboard() {
       )}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Recent Jobs</CardTitle>
-          <CardDescription>
-            Your analysis jobs and their current status
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="space-y-1">
+            <CardTitle>Recent Jobs</CardTitle>
+            <CardDescription>
+              Your analysis jobs and their current status
+            </CardDescription>
+          </div>
+          <Button onClick={loadJobs} disabled={loading} variant="outline" size="sm">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </CardHeader>
         
         <CardContent>
