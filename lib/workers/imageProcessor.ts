@@ -221,33 +221,27 @@ export class ImageProcessor {
   }
 
   /**
-   * Get a signed URL for the image from GCS
+   * Get a public URL for the image from GCS
    */
   private async getImageUrl(gcsPath: string): Promise<string> {
-    // Handle GCS path format - remove gs:// prefix if present and construct proper URL
-    let cleanPath = gcsPath;
+    // Handle GCS path format - convert gs:// to https:// for direct public access
     if (gcsPath.startsWith('gs://')) {
-      cleanPath = gcsPath.replace('gs://', '');
-    }
-    
-    // Extract the file name from the GCS path
-    const fileName = cleanPath.replace(`${process.env.GCS_BUCKET_NAME}/`, '');
-    
-    try {
-      // Use the GCS signed URL function directly
-      const { getSignedUrl } = await import('@/lib/gcs');
-      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-      const signedUrl = await getSignedUrl(fileName, 'read', expires);
-      
-      console.log(`Generated signed URL for: ${fileName}`);
-      return signedUrl;
-    } catch (error) {
-      console.error('Failed to generate signed URL:', error);
-      // Fallback to direct GCS URL (may not work if bucket is private)
-      const publicUrl = `https://storage.googleapis.com/${cleanPath}`;
-      console.log(`Falling back to public URL: ${publicUrl}`);
+      const fileName = gcsPath.replace('gs://coice-bucket/', '');
+      const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${fileName}`;
+      console.log(`Using direct public URL: ${publicUrl}`);
       return publicUrl;
     }
+    
+    // If already in https format, use as-is
+    if (gcsPath.startsWith('https://storage.googleapis.com/')) {
+      console.log(`Using existing public URL: ${gcsPath}`);
+      return gcsPath;
+    }
+    
+    // Fallback: assume it's a relative path and construct the URL
+    const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${gcsPath}`;
+    console.log(`Constructed public URL: ${publicUrl}`);
+    return publicUrl;
   }
 
   /**

@@ -91,26 +91,94 @@ export class CohereService {
       
       let finalImageUrl = imageUrl;
       
-      // Check if this is a GCS URL and get a signed URL
-      if (imageUrl.includes('storage.googleapis.com/coice-bucket/')) {
-        console.log('Detected GCS URL, generating signed URL...');
-        try {
-          const { getSignedUrl } = await import('@/lib/gcs');
-          const fileName = imageUrl.replace(`https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/`, '');
-          const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-          finalImageUrl = await getSignedUrl(fileName, 'read', expires);
-          console.log('Generated signed URL successfully');
-        } catch (signedUrlError) {
-          console.error('Failed to generate signed URL:', signedUrlError);
-          throw new Error(`Failed to generate signed URL: ${signedUrlError instanceof Error ? signedUrlError.message : 'Unknown error'}`);
+      // Check if this is a GCS URL - try direct access first since bucket is public
+      if (imageUrl.includes('storage.googleapis.com/coice-bucket/') || imageUrl.startsWith('gs://')) {
+        console.log('Detected GCS URL, using direct public access...');
+        
+        // Convert gs:// to https:// format if needed
+        if (imageUrl.startsWith('gs://')) {
+          finalImageUrl = imageUrl.replace('gs://coice-bucket/', `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/`);
+        } else {
+          finalImageUrl = imageUrl; // Already in https format
         }
+        
+        console.log(`Using public GCS URL: ${finalImageUrl}`);
       }
       
       // Fetch the image and convert to base64
       console.log('Fetching image for base64 conversion...');
       const imageResponse = await fetch(finalImageUrl);
       if (!imageResponse.ok) {
-        throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+        // If direct access fails and this is a GCS URL, try generating a signed URL as fallback
+        if (imageUrl.includes('storage.googleapis.com/coice-bucket/') || imageUrl.startsWith('gs://')) {
+          console.log('Direct access failed, trying signed URL fallback...');
+          try {
+            const { getSignedUrl } = await import('@/lib/gcs');
+            const fileName = imageUrl.replace(`https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/`, '')
+                                      .replace('gs://coice-bucket/', '');
+            const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+            finalImageUrl = await getSignedUrl(fileName, 'read', expires);
+            console.log('Generated signed URL successfully, retrying...');
+            
+            const retryResponse = await fetch(finalImageUrl);
+            if (!retryResponse.ok) {
+              throw new Error(`Failed to fetch image even with signed URL: ${retryResponse.statusText}`);
+            }
+            // Use the retry response for processing
+            const imageBuffer = await retryResponse.arrayBuffer();
+            const base64Image = Buffer.from(imageBuffer).toString('base64');
+            const mimeType = retryResponse.headers.get('content-type') || 'image/jpeg';
+            const base64DataUrl = `data:${mimeType};base64,${base64Image}`;
+            
+            console.log('Image converted to base64 using signed URL, making Cohere API call...');
+            
+            // Continue with API call...
+            const response = await this.executeWithRetry(async () => {
+              return await this.client.chat({
+                model: this.config.visionModel || 'c4ai-aya-vision-8b',
+                messages: [
+                  {
+                    role: 'user',
+                    content: [
+                      {
+                        type: 'text',
+                        text: formattedPrompt,
+                      },
+                      {
+                        type: 'image_url',
+                        imageUrl: {
+                          url: base64DataUrl,
+                        },
+                      },
+                    ],
+                  },
+                ],
+                maxTokens: promptType === 'boolean' ? 50 : promptType === 'keywords' ? 200 : 1000,
+                temperature: 0.1,
+              });
+            });
+
+            const responseText = response.message?.content?.[0]?.text || '';
+            const parsedResponse = this.parseResponseByType(responseText, promptType);
+            const confidence = this.calculateConfidence(parsedResponse, promptType);
+
+            return {
+              success: true,
+              response: parsedResponse,
+              confidence,
+              metadata: {
+                model: this.config.visionModel || 'c4ai-aya-vision-8b',
+                timestamp: new Date().toISOString(),
+                promptType,
+              },
+            };
+          } catch (signedUrlError) {
+            console.error('Signed URL fallback also failed:', signedUrlError);
+            throw new Error(`Failed to fetch image: ${imageResponse.statusText}. Signed URL fallback failed: ${signedUrlError instanceof Error ? signedUrlError.message : 'Unknown error'}`);
+          }
+        } else {
+          throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+        }
       }
       
       const imageBuffer = await imageResponse.arrayBuffer();
