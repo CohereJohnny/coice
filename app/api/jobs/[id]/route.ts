@@ -80,13 +80,32 @@ export async function GET(
         .eq('job_id', jobId)
         .order('created_at', { ascending: true });
 
-      // Flatten the results to include stage_order for easier UI display
-      results = jobResults?.map(result => ({
-        ...result,
-        stage_order: result.stage?.stage_order,
-        prompt_name: result.stage?.prompt?.name,
-        prompt_type: result.stage?.prompt?.type,
-      })) || [];
+      // Flatten the results and extract data from JSONB result field
+      results = jobResults?.map(dbResult => {
+        // Extract the actual result data from the JSONB field
+        const resultData = dbResult.result || {};
+        
+        return {
+          id: dbResult.id,
+          job_id: dbResult.job_id,
+          image_id: dbResult.image_id,
+          stage_id: dbResult.stage_id,
+          created_at: dbResult.created_at,
+          // Extract from JSONB result field
+          result: resultData.response || 'No response',
+          success: resultData.success !== undefined ? resultData.success : true,
+          confidence: resultData.confidence,
+          error_message: resultData.error,
+          metadata: resultData.metadata,
+          // Add stage info for easier UI display
+          stage_order: dbResult.stage?.stage_order,
+          prompt_name: dbResult.stage?.prompt?.name,
+          prompt_type: dbResult.stage?.prompt?.type,
+          // Include nested relations
+          image: dbResult.image,
+          stage: dbResult.stage,
+        };
+      }) || [];
     }
 
     // Get job details from queue if available
