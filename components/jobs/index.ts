@@ -7,6 +7,7 @@ export { JobComparison } from './JobComparison';
 export { JobAnalytics } from './JobAnalytics';
 export { JobAnalyticsDashboard } from './JobAnalyticsDashboard';
 export { JobComparisonTools } from './JobComparisonTools';
+export { ResultValidationPanel } from './ResultValidationPanel';
 
 // Job Results Components
 export { JobResultsView } from './JobResultsView';
@@ -48,6 +49,10 @@ export type {
   JobComparisonData as JobComparisonToolsData,
   ABTestConfig
 } from './JobComparisonTools';
+
+export type {
+  ResultValidationPanelProps
+} from './ResultValidationPanel';
 
 // Job Results Types
 export type {
