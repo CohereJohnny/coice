@@ -1,91 +1,130 @@
 # Sprint 12 Tasks
 
 ## Goals
-Implement comprehensive search functionality across all content types
+Implement comprehensive search functionality across all content types using Cohere V4 multimodal embeddings
 
 ## Key Deliverables
-- Global search interface
-- Search across catalogs, libraries, images, and job results
+- Global search interface with vector similarity search
+- Multimodal search across catalogs, libraries, images, and job results using Cohere V4 embeddings
 - Advanced filtering and sorting options
 - Search result highlighting and relevance scoring
 - Search history and saved searches
+- Embedding generation for images and text content
 
 ## Tasks
 
-### Backend Development
-- [ ] Create search API with full-text search capabilities
-  - [ ] Implement PostgreSQL full-text search with tsvector
-  - [ ] Create search API route `/api/search`
-  - [ ] Add search indexing for catalogs, libraries, images, and job_results tables
-  - [ ] Implement relevance scoring algorithm
-  - [ ] Add search result pagination
+### Backend Development - Cohere Embeddings Integration
+- [x] Create search API with full-text search capabilities (basic implementation)
+- [ ] **Implement Cohere V4 Embedding Integration**
+  - [ ] Add embedding columns to database tables (images, catalogs, libraries, job_results)
+  - [ ] Create Cohere V4 embedding service for text and images
+  - [ ] Implement embedding generation for existing content
+  - [ ] Add embedding generation for new content uploads
+  - [ ] Create vector similarity search functionality
+
+- [ ] **Database Schema Updates for Embeddings**
+  - [ ] Add `embedding` column (vector) to images table
+  - [ ] Add `embedding` column (vector) to catalogs table  
+  - [ ] Add `embedding` column (vector) to libraries table
+  - [ ] Add `embedding` column (vector) to job_results table
+  - [ ] Create vector similarity indexes using pgvector extension
+  - [ ] Migration scripts for embedding column additions
+
+- [ ] **Enhanced Search API with Vector Search**
+  - [ ] Update search API to use vector similarity for primary matching
+  - [ ] Implement hybrid search (vector + text) for best results
+  - [ ] Add embedding-based relevance scoring
+  - [ ] Optimize vector search performance with proper indexing
 
 - [ ] Implement advanced search filtering
-  - [ ] Add content type filters (catalogs, libraries, images, results)
-  - [ ] Add date range filtering
-  - [ ] Add metadata-based filtering (file types, sizes, etc.)
+  - [x] Add content type filters (catalogs, libraries, images, results)
+  - [x] Add date range filtering
+  - [x] Add metadata-based filtering (file types, sizes, etc.)
   - [ ] Add tag-based filtering for images
   - [ ] Add user/creator filtering
+  - [ ] Add similarity threshold filtering for embeddings
 
 - [ ] Add search performance optimization
-  - [ ] Create database indexes for search fields
-  - [ ] Implement search result caching
-  - [ ] Add search query optimization
-  - [ ] Performance testing with large datasets
+  - [ ] Create vector indexes for embedding search fields
+  - [ ] Implement embedding caching for frequently accessed content
+  - [ ] Add search query optimization for hybrid search
+  - [ ] Performance testing with large datasets and embeddings
+
+### Cohere Integration Services
+- [ ] **Cohere API Service Setup**
+  - [ ] Configure Cohere V4 API client
+  - [ ] Implement text embedding generation
+  - [ ] Implement image embedding generation (multimodal)
+  - [ ] Add error handling and retry logic for API calls
+  - [ ] Implement batch embedding processing for bulk operations
+
+- [ ] **Content Processing Pipeline**
+  - [ ] Create image preprocessing for Cohere embeddings (base64 conversion)
+  - [ ] Implement text content extraction for embedding generation
+  - [ ] Add background job processing for embedding generation
+  - [ ] Create embedding update triggers for content changes
 
 ### Frontend Development
-- [ ] Build global search interface
-  - [ ] Create search input component with autocomplete
+- [x] Build global search interface
+  - [x] Create search input component with autocomplete
   - [ ] Add global search button in navbar
-  - [ ] Implement search page layout with filters sidebar
-  - [ ] Add keyboard shortcuts (Cmd/Ctrl + K for search)
+  - [x] Implement search page layout with filters sidebar
+  - [x] Add keyboard shortcuts (Cmd/Ctrl + K for search)
 
-- [ ] Implement search result display components
-  - [ ] Create unified search result card component
-  - [ ] Add content type indicators and icons
-  - [ ] Implement search highlighting for matched terms
+- [x] Implement search result display components
+  - [x] Create unified search result card component
+  - [x] Add content type indicators and icons
+  - [x] Implement search highlighting for matched terms
   - [ ] Add result thumbnail previews
-  - [ ] Create "View in context" links for results
+  - [x] Create "View in context" links for results
 
-- [ ] Build advanced filtering interface
-  - [ ] Create filter sidebar with collapsible sections
-  - [ ] Add content type checkboxes
-  - [ ] Add date range picker
-  - [ ] Add metadata filter dropdowns
+- [x] Build advanced filtering interface
+  - [x] Create filter sidebar with collapsible sections
+  - [x] Add content type checkboxes
+  - [x] Add date range picker
+  - [x] Add metadata filter dropdowns
   - [ ] Add tag filter interface
-  - [ ] Add clear all filters button
+  - [x] Add clear all filters button
 
-- [ ] Implement search history and saved searches
-  - [ ] Create search history storage (localStorage initially)
-  - [ ] Add recent searches dropdown
+- [ ] **Enhanced Search Features for Embeddings**
+  - [ ] Add visual similarity search for images
+  - [ ] Implement "find similar" functionality
+  - [ ] Add embedding confidence scores in results
+  - [ ] Create semantic search suggestions
+
+- [x] Implement search history and saved searches
+  - [x] Create search history storage (localStorage initially)
+  - [x] Add recent searches dropdown
   - [ ] Implement saved search functionality
   - [ ] Add search bookmarking interface
   - [ ] Create search history management page
 
 ### Search Experience Enhancement
-- [ ] Add search highlighting and relevance
-  - [ ] Implement text highlighting for search terms
+- [x] Add search highlighting and relevance
+  - [x] Implement text highlighting for search terms
   - [ ] Add relevance score display
-  - [ ] Add "best match" sorting option
-  - [ ] Implement search term suggestions
+  - [x] Add "best match" sorting option
+  - [x] Implement search term suggestions
 
-- [ ] Build search result sorting options
-  - [ ] Add relevance sorting (default)
-  - [ ] Add date created/modified sorting
-  - [ ] Add alphabetical sorting
+- [x] Build search result sorting options
+  - [x] Add relevance sorting (default)
+  - [x] Add date created/modified sorting
+  - [x] Add alphabetical sorting
   - [ ] Add file size sorting (for images)
   - [ ] Add job completion time sorting (for results)
+  - [ ] **Add similarity score sorting for embeddings**
 
-- [ ] Implement search across all content types
-  - [ ] Catalog search (name, description, tags)
-  - [ ] Library search (name, description, path)
-  - [ ] Image search (filename, metadata, tags, EXIF data)
-  - [ ] Job result search (analysis results, prompts, stages)
+- [x] Implement search across all content types
+  - [x] Catalog search (name, description, tags)
+  - [x] Library search (name, description, path)
+  - [x] Image search (filename, metadata, tags, EXIF data)
+  - [x] Job result search (analysis results, prompts, stages)
+  - [ ] **Enhanced multimodal search using Cohere V4 embeddings**
 
 ### User Experience Features
 - [ ] Add empty state and loading states
   - [ ] Create "no results found" empty state
-  - [ ] Add search loading spinner
+  - [x] Add search loading spinner
   - [ ] Add skeleton loading for search results
   - [ ] Create search suggestions for empty queries
 
@@ -101,6 +140,7 @@ Implement comprehensive search functionality across all content types
   - [ ] Integration tests for search components
   - [ ] Performance testing with large datasets
   - [ ] User acceptance testing for search UX
+  - [ ] **Embedding generation and similarity testing**
 
 - [ ] Polish search interface
   - [ ] Add smooth animations for search actions
@@ -110,24 +150,43 @@ Implement comprehensive search functionality across all content types
 
 ## Sprint Review
 
+### Progress Log
+
+#### [Date] - Cohere Integration Planning
+- Updated sprint plan to incorporate Cohere V4 multimodal embeddings
+- Identified need for database schema updates and embedding generation services
+- Basic search API implemented, ready for embedding enhancement
+
 ## Technical Implementation Notes
 
-### Database Schema Considerations
-- Add GIN indexes for full-text search on text fields
-- Consider adding a unified search_index table for cross-content search
-- Implement proper search ranking using ts_rank
+### Database Schema Considerations - Updated for Embeddings
+- Add vector columns for embeddings using pgvector extension
+- Create HNSW indexes for fast vector similarity search
+- Consider embedding dimensionality (Cohere V4 uses 1024 dimensions)
+- Implement proper search ranking using vector similarity + text relevance
 
-### Search Architecture
-- Use PostgreSQL's built-in full-text search capabilities
-- Implement search result caching with Redis (if needed for performance)
-- Consider implementing search analytics for improving relevance
+### Search Architecture - Enhanced with Cohere V4
+- Use hybrid search: Cohere V4 embeddings for semantic similarity + PostgreSQL full-text for exact matches
+- Implement multimodal search: text queries can find similar images and vice versa
+- Add embedding generation pipeline for new content
+- Consider implementing embedding caching for frequently accessed content
 
-### Performance Targets
-- Search response time < 500ms for most queries
-- Support for searching across 10,000+ images
+### Cohere V4 Integration Details
+- Model: `embed-v4.0` (supports both text and images)
+- Input types: `search_query` and `search_document`
+- Image format: Base64 data URLs
+- Embedding dimensions: 1024
+- Batch processing for efficient API usage
+
+### Performance Targets - Updated
+- Search response time < 500ms for most queries (including embedding similarity)
+- Support for searching across 10,000+ images with embeddings
 - Autocomplete suggestions within 200ms
+- Embedding generation < 2s per image
+- Vector similarity search < 100ms
 
-### User Experience Goals
-- Intuitive search interface matching modern web standards
-- Clear visual hierarchy for different content types
+### User Experience Goals - Enhanced
+- Intuitive search interface with semantic similarity
+- Visual similarity search for images
+- Clear visual hierarchy for different content types  
 - Efficient filtering workflow for narrowing results 
