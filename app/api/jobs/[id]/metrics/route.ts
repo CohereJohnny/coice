@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getJobMonitoringService } from '@/lib/services/jobMonitoringService';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function GET(
@@ -12,10 +12,10 @@ export async function GET(
   { params }: RouteParams
 ) {
   try {
-    const { id: jobId } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     
-    if (!jobId) {
+    if (!id) {
       return NextResponse.json(
         { error: 'Job ID is required' },
         { status: 400 }
@@ -32,17 +32,17 @@ export async function GET(
     switch (metricsType) {
       case 'execution':
         // Get comprehensive execution metrics
-        const executionMetrics = await jobMonitoringService.getJobExecutionMetrics(jobId);
+        const executionMetrics = await jobMonitoringService.getJobExecutionMetrics(id);
         return NextResponse.json(executionMetrics);
 
       case 'errors':
         // Get error details
         const errors = await jobMonitoringService.getStageErrors(
-          jobId, 
+          id, 
           stageOrder ? parseInt(stageOrder) : undefined
         );
         return NextResponse.json({
-          job_id: jobId,
+          job_id: id,
           stage_order: stageOrder ? parseInt(stageOrder) : null,
           errors,
           total_errors: errors.length,
@@ -55,12 +55,12 @@ export async function GET(
       case 'history':
         // Get progress history for analytics
         const history = await jobMonitoringService.getProgressHistory(
-          jobId,
+          id,
           stageOrder ? parseInt(stageOrder) : undefined,
           hoursBack
         );
         return NextResponse.json({
-          job_id: jobId,
+          job_id: id,
           stage_order: stageOrder ? parseInt(stageOrder) : null,
           hours_back: hoursBack,
           history,
@@ -71,13 +71,13 @@ export async function GET(
       default:
         // Get basic metrics summary
         const [executionData, progressData, errorData] = await Promise.all([
-          jobMonitoringService.getJobExecutionMetrics(jobId),
-          jobMonitoringService.getJobProgress(jobId),
-          jobMonitoringService.getStageErrors(jobId, undefined, 10) // Last 10 errors
+          jobMonitoringService.getJobExecutionMetrics(id),
+          jobMonitoringService.getJobProgress(id),
+          jobMonitoringService.getStageErrors(id, undefined, 10) // Last 10 errors
         ]);
 
         const summary = {
-          job_id: jobId,
+          job_id: id,
           overview: {
             total_stages: executionData.total_stages,
             completed_stages: executionData.completed_stages,

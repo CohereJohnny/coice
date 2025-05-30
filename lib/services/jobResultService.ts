@@ -541,6 +541,16 @@ export class JobResultService {
       query = query.eq('stage_id', filters.stageId);
     }
 
+    if (filters.stageOrder !== undefined) {
+      // Filter by stage order using a subquery approach that works with or without joins
+      query = query.in('stage_id', 
+        this.supabase
+          .from('pipeline_stages')
+          .select('id')
+          .eq('stage_order', filters.stageOrder)
+      );
+    }
+
     if (filters.success !== undefined) {
       query = query.eq('result->>success', filters.success.toString());
     }

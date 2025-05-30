@@ -63,7 +63,11 @@ interface JobDetails {
   queueStatus: any;
 }
 
-export default function JobMonitoringDashboard() {
+interface JobMonitoringDashboardProps {
+  highlightJobId?: string | null;
+}
+
+export default function JobMonitoringDashboard({ highlightJobId }: JobMonitoringDashboardProps) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
@@ -300,60 +304,74 @@ export default function JobMonitoringDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {jobs.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell>
-                      <Badge className={getStatusColor(job.status)}>
-                        <span className="flex items-center gap-1">
-                          {getStatusIcon(job.status)}
-                          {job.status}
-                        </span>
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{job.pipeline.name}</div>
-                        {job.pipeline.description && (
-                          <div className="text-sm text-muted-foreground">
-                            {job.pipeline.description}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{job.library.name}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span>{job.processed_images} / {job.total_images} images</span>
-                          <span>{job.progress || 0}%</span>
+                {jobs.map((job) => {
+                  const isHighlighted = highlightJobId && job.id === highlightJobId;
+                  
+                  return (
+                    <TableRow 
+                      key={job.id}
+                      className={isHighlighted ? 'bg-blue-50 border-blue-200 shadow-sm' : ''}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge className={getStatusColor(job.status)}>
+                            <span className="flex items-center gap-1">
+                              {getStatusIcon(job.status)}
+                              {job.status}
+                            </span>
+                          </Badge>
+                          {isHighlighted && (
+                            <Badge variant="outline" className="text-blue-700 border-blue-300">
+                              Latest
+                            </Badge>
+                          )}
                         </div>
-                        <Progress value={job.progress || 0} className="h-2" />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {safeFormatDate(job.created_at)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {job.duration ? formatDuration(job.duration) : 
-                       job.status === 'processing' ? (
-                         <span className="text-muted-foreground">Running...</span>
-                       ) : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => router.push(`/analysis/jobs/${job.id}`)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{job.pipeline.name}</div>
+                          {job.pipeline.description && (
+                            <div className="text-sm text-muted-foreground">
+                              {job.pipeline.description}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{job.library.name}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span>{job.processed_images} / {job.total_images} images</span>
+                            <span>{job.progress || 0}%</span>
+                          </div>
+                          <Progress value={job.progress || 0} className="h-2" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {safeFormatDate(job.created_at)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {job.duration ? formatDuration(job.duration) : 
+                         job.status === 'processing' ? (
+                           <span className="text-muted-foreground">Running...</span>
+                         ) : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/analysis/jobs/${job.id}`)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

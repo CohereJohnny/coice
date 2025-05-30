@@ -86,6 +86,16 @@ export class ImageProcessor {
         executionMetrics
       });
 
+      // Final progress update to ensure 100% completion
+      await this.supabase
+        .from('jobs')
+        .update({
+          progress: 100,
+          processed_images: imageIds.length,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+
       console.log(`Job ${jobId} completed successfully with ${allResults.length} results`);
 
     } catch (error) {
@@ -208,6 +218,9 @@ export class ImageProcessor {
             progress_percent: progressPercent
           });
 
+          // Update overall job progress
+          await this.updateOverallJobProgress(jobId);
+
         } catch (error) {
           console.error(`Error processing image ${image.id} at stage ${stage.stage_order}:`, error);
           
@@ -263,6 +276,9 @@ export class ImageProcessor {
         progress_percent: 100,
         execution_time_ms: stageExecutionTime
       });
+
+      // Update overall job progress after stage completion
+      await this.updateOverallJobProgress(jobId);
 
       console.log(`Stage ${stage.stage_order} completed. Filtered from ${currentImageSet.length} to ${filteredImageSet.length} images`);
       
@@ -802,5 +818,79 @@ export class ImageProcessor {
     return normalizedResponse.includes('yes') || 
            normalizedResponse.includes('true') || 
            normalizedResponse === '1';
+  }
+
+  /**
+   * Update overall job progress
+   */
+  private async updateOverallJobProgress(jobId: string): Promise<void> {
+    try {
+      // Get all stage progress for this job
+      const stageProgress = await this.jobMonitoringService.getJobProgress(jobId);
+      
+      if (!stageProgress || stageProgress.length === 0) {
+        return;
+      }
+
+      // Sort stages by order to ensure correct calculation
+      const sortedStages = stageProgress.sort((a, b) => a.stage_order - b.stage_order);
+      const totalStages = sortedStages.length;
+      
+      // Calculate overall progress based on stage completion
+      let overallProgress = 0;
+      let fullyProcessedImages = 0;
+      
+      // Each completed stage contributes (100 / totalStages)% to overall progress
+      const stageWeight = 100 / totalStages;
+      
+      for (let i = 0; i < sortedStages.length; i++) {
+        const stage = sortedStages[i];
+        
+        if (stage.status === 'completed') {
+          // Completed stage contributes full weight
+          overallProgress += stageWeight;
+          
+          // If this is the last stage, these images are fully processed
+          if (i === sortedStages.length - 1) {
+            fullyProcessedImages = stage.images_processed;
+          }
+        } else if (stage.status === 'processing') {
+          // Processing stage contributes partial weight based on its progress
+          const stageContribution = (stage.progress_percent / 100) * stageWeight;
+          overallProgress += stageContribution;
+          break; // Stop at first processing stage (stages are sequential)
+        }
+        // 'pending' or 'failed' stages contribute 0
+      }
+      
+      // For processed_images during active processing:
+      // If we're not at the final stage, show weighted progress of total images
+      if (fullyProcessedImages === 0 && sortedStages.length > 0) {
+        const firstStage = sortedStages[0];
+        const totalImagesInJob = firstStage.images_total || 0;
+        fullyProcessedImages = Math.floor((overallProgress / 100) * totalImagesInJob);
+      }
+      
+      // Round overall progress and ensure it doesn't exceed 100%
+      overallProgress = Math.min(Math.round(overallProgress), 100);
+      
+      // Update the main jobs table with calculated progress
+      const { error } = await this.supabase
+        .from('jobs')
+        .update({
+          progress: overallProgress,
+          processed_images: fullyProcessedImages,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+
+      if (error) {
+        console.error('Error updating overall job progress:', error);
+      } else {
+        console.log(`Job ${jobId} overall progress updated to ${overallProgress}% (${fullyProcessedImages} images processed)`);
+      }
+    } catch (error) {
+      console.error('Error in updateOverallJobProgress:', error);
+    }
   }
 } 

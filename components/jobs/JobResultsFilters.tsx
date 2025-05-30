@@ -152,18 +152,36 @@ export function JobResultsFilters({
         </div>
         
         <div className="space-y-1">
-          {savedFilters.map((savedFilter) => (
-            <button
-              key={savedFilter.id}
-              onClick={() => applySavedFilter(savedFilter)}
-              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors flex items-center justify-between"
-            >
-              <span>{savedFilter.name}</span>
-              {savedFilter.isDefault && (
-                <Star className="h-3 w-3 text-yellow-500" />
-              )}
-            </button>
-          ))}
+          {savedFilters.map((savedFilter) => {
+            // Calculate count for this filter
+            let count = 0;
+            if (savedFilter.filters.success === true) {
+              count = aggregations?.totalSuccessful || 0;
+            } else if (savedFilter.filters.success === false) {
+              count = aggregations?.totalFailed || 0;
+            } else if (savedFilter.filters.confidenceMin === 0.8) {
+              // High confidence filter - estimate from aggregations if available
+              count = aggregations?.totalSuccessful || 0; // Rough estimate
+            }
+            
+            return (
+              <button
+                key={savedFilter.id}
+                onClick={() => applySavedFilter(savedFilter)}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors flex items-center justify-between"
+              >
+                <span className="flex items-center gap-2">
+                  {savedFilter.name}
+                  {count > 0 && (
+                    <span className="text-xs text-gray-500">({count})</span>
+                  )}
+                </span>
+                {savedFilter.isDefault && (
+                  <Star className="h-3 w-3 text-yellow-500" />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

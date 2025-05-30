@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getJobResultService, JobResult, JobResultFilters, JobResultsExportOptions } from '@/lib/services/jobResultService';
-import { getJobResultSearchService } from '@/lib/services/jobResultSearchService';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { JobResult, JobResultFilters, JobResultsExportOptions } from '@/lib/services/jobResultService';
 
 export interface UseJobResultsDataProps {
   jobId?: string;
-  initialFilters?: JobResultFilters;
+  initialFilters?: Partial<JobResultFilters>;
   searchQuery?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
@@ -19,10 +18,6 @@ export function useJobResultsData({
   sortOrder = 'desc',
   pageSize = 50
 }: UseJobResultsDataProps) {
-  // Service instances
-  const jobResultService = useMemo(() => getJobResultService(), []);
-  const searchService = useMemo(() => getJobResultSearchService(), []);
-
   // Data state
   const [results, setResults] = useState<JobResult[]>([]);
   const [pagination, setPagination] = useState({
@@ -49,62 +44,105 @@ export function useJobResultsData({
     ...(jobId && { jobId })
   }), [filters, jobId]);
 
-  // Fetch results
+  // Fetch results using API calls instead of direct service access
   const fetchResults = useCallback(async (page = 1, append = false) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      let response;
+      // Build query parameters
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: pageSize.toString(),
+        sortBy: sortBy,
+        sortOrder: sortOrder,
+        aggregations: 'true', // Always include aggregations for filters
+        ...(searchQuery && { searchTerm: searchQuery })
+      });
 
-      // Use search if query is provided
-      if (searchQuery.trim()) {
-        const searchResults = await searchService.searchJobResults({
-          query: searchQuery,
-          filters: effectiveFilters,
-          limit: pageSize,
-          offset: (page - 1) * pageSize,
-          rankByRelevance: true,
-          highlightMatches: true
-        });
-
-        response = {
-          results: searchResults.results.map(sr => sr.result),
-          pagination: {
-            page,
-            limit: pageSize,
-            total: searchResults.pagination.total,
-            totalPages: Math.ceil(searchResults.pagination.total / pageSize),
-            hasNextPage: searchResults.pagination.offset + pageSize < searchResults.pagination.total,
-            hasPreviousPage: page > 1
-          },
-          aggregations: null // Search doesn't return aggregations
-        };
-      } else {
-        // Regular filtered fetch
-        response = await jobResultService.getJobResults(
-          effectiveFilters,
-          { page, limit: pageSize },
-          true // Include aggregations
-        );
+      // Add all filters to query params
+      if (effectiveFilters.jobId) {
+        queryParams.append('jobId', effectiveFilters.jobId);
       }
+      if (effectiveFilters.imageId) {
+        queryParams.append('imageId', effectiveFilters.imageId);
+      }
+      if (effectiveFilters.stageId) {
+        queryParams.append('stageId', effectiveFilters.stageId);
+      }
+      if (effectiveFilters.stageOrder !== undefined) {
+        queryParams.append('stageOrder', effectiveFilters.stageOrder.toString());
+      }
+      if (effectiveFilters.success !== undefined) {
+        queryParams.append('success', effectiveFilters.success.toString());
+      }
+      if (effectiveFilters.confidenceMin !== undefined) {
+        queryParams.append('confidenceMin', effectiveFilters.confidenceMin.toString());
+      }
+      if (effectiveFilters.confidenceMax !== undefined) {
+        queryParams.append('confidenceMax', effectiveFilters.confidenceMax.toString());
+      }
+      if (effectiveFilters.promptType) {
+        queryParams.append('promptType', effectiveFilters.promptType);
+      }
+      if (effectiveFilters.dateFrom) {
+        queryParams.append('dateFrom', effectiveFilters.dateFrom);
+      }
+      if (effectiveFilters.dateTo) {
+        queryParams.append('dateTo', effectiveFilters.dateTo);
+      }
+      if (effectiveFilters.hasError !== undefined) {
+        queryParams.append('hasError', effectiveFilters.hasError.toString());
+      }
+      if (effectiveFilters.executionTimeMin !== undefined) {
+        queryParams.append('executionTimeMin', effectiveFilters.executionTimeMin.toString());
+      }
+      if (effectiveFilters.executionTimeMax !== undefined) {
+        queryParams.append('executionTimeMax', effectiveFilters.executionTimeMax.toString());
+      }
+
+      const response = await fetch(`/api/job-results?${queryParams.toString()}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch results: ${response.statusText}`);
+      }
+
+      const data = await response.json();
 
       if (append) {
-        setResults(prev => [...prev, ...response.results]);
+        setResults(prev => [...prev, ...data.results]);
       } else {
-        setResults(response.results);
+        setResults(data.results || []);
       }
 
-      setPagination(response.pagination);
-      setAggregations(response.aggregations);
+      setPagination(data.pagination || {
+        page: 1,
+        limit: pageSize,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false
+      });
+      
+      setAggregations(data.aggregations || null);
 
     } catch (err) {
       console.error('Error fetching job results:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch results'));
+      // Set empty state on error
+      setResults([]);
+      setPagination({
+        page: 1,
+        limit: pageSize,
+        total: 0,
+        totalPages: 0,
+        hasNextPage: false,
+        hasPreviousPage: false
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [jobResultService, searchService, effectiveFilters, searchQuery, pageSize]);
+  }, [effectiveFilters, searchQuery, pageSize, sortBy, sortOrder]);
 
   // Load more results (pagination)
   const loadMore = useCallback(async () => {
@@ -128,79 +166,54 @@ export function useJobResultsData({
     setFilters(jobId ? { jobId } : {});
   }, [jobId]);
 
-  // Search results
+  // Search results - simplified for testing
   const searchResults = useCallback(async (query: string) => {
     if (!query.trim()) {
       await fetchResults(1, false);
       return;
     }
+    // For testing phase, use the same fetchResults with search query
+    await fetchResults(1, false);
+  }, [fetchResults]);
 
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const searchResponse = await searchService.searchJobResults({
-        query,
-        filters: effectiveFilters,
-        limit: pageSize,
-        offset: 0,
-        rankByRelevance: true,
-        highlightMatches: true
-      });
-
-      setResults(searchResponse.results.map(sr => sr.result));
-      setPagination({
-        page: 1,
-        limit: pageSize,
-        total: searchResponse.pagination.total,
-        totalPages: Math.ceil(searchResponse.pagination.total / pageSize),
-        hasNextPage: searchResponse.pagination.total > pageSize,
-        hasPreviousPage: false
-      });
-
-    } catch (err) {
-      console.error('Error searching results:', err);
-      setError(err instanceof Error ? err : new Error('Search failed'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [searchService, effectiveFilters, pageSize]);
-
-  // Export results
+  // Export results - simplified for testing  
   const exportResults = useCallback(async (options: JobResultsExportOptions) => {
     try {
-      const exportData = await jobResultService.exportJobResults({
-        ...options,
-        filters: effectiveFilters
-      });
+      // For testing phase, create a simple export
+      const dataToExport = {
+        results: results,
+        filters: effectiveFilters,
+        exportedAt: new Date().toISOString()
+      };
 
-      // Create download
-      const blobData = typeof exportData === 'string' ? exportData : Buffer.from(exportData).toString();
-      const blob = new Blob([blobData], {
-        type: options.format === 'csv' ? 'text/csv' : 'application/json'
+      const blob = new Blob([JSON.stringify(dataToExport, null, 2)], {
+        type: 'application/json'
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `job-results-${new Date().toISOString().split('T')[0]}.${options.format}`;
+      a.download = `job-results-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
-
     } catch (err) {
       console.error('Export failed:', err);
       throw err;
     }
-  }, [jobResultService, effectiveFilters]);
+  }, [results, effectiveFilters]);
 
-  // Get result by ID
+  // Get result by ID - simplified for testing
   const getResultById = useCallback(async (id: string): Promise<JobResult | null> => {
     try {
-      return await jobResultService.getJobResultById(id);
+      const response = await fetch(`/api/job-results/${id}`);
+      if (!response.ok) {
+        return null;
+      }
+      return await response.json();
     } catch (err) {
       console.error('Error fetching result by ID:', err);
       return null;
     }
-  }, [jobResultService]);
+  }, []);
 
   // Stats and metrics
   const stats = useMemo(() => {
@@ -219,7 +232,7 @@ export function useJobResultsData({
     };
   }, [aggregations, pagination.total]);
 
-  // Effect to fetch data when dependencies change
+  // Initial fetch and refetch on filter changes
   useEffect(() => {
     fetchResults(1, false);
   }, [fetchResults]);

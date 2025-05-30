@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { JobResultsControls } from './JobResultsControls';
 import { JobResultsCard } from './JobResultsCard';
 import { JobResultsFilters } from './JobResultsFilters';
@@ -469,19 +470,53 @@ export function JobResultsView({
               </button>
             </div>
             
-            <div className="p-4 overflow-y-auto">
+            <div className="p-4 overflow-y-auto max-h-[calc(90vh-120px)]">
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-medium text-gray-900">Stage Information</h3>
-                  <p className="text-sm text-gray-600">
-                    {selectedResult.stage?.prompt?.name || `Stage ${selectedResult.stage?.stage_order}`}
-                  </p>
+                  <h3 className="font-medium text-gray-900 mb-2">Stage Information</h3>
+                  <div className="bg-blue-50 rounded p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-blue-900">
+                        {selectedResult.stage?.prompt?.name || `Stage ${selectedResult.stage?.stage_order}`}
+                      </span>
+                      <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                        {selectedResult.stage?.prompt?.type || 'unknown'}
+                      </span>
+                    </div>
+                    {selectedResult.stage?.prompt?.prompt && (
+                      <div className="text-sm text-blue-700 bg-blue-100 rounded p-2">
+                        <span className="font-medium">Prompt: </span>
+                        {selectedResult.stage.prompt.prompt}
+                      </div>
+                    )}
+                    <div className="text-xs text-blue-600">
+                      Stage {selectedResult.stage?.stage_order} • Executed at {new Date(selectedResult.executed_at).toLocaleString()}
+                    </div>
+                  </div>
                 </div>
                 
                 <div>
-                  <h3 className="font-medium text-gray-900">Response</h3>
-                  <div className="bg-gray-50 rounded p-3 text-sm">
-                    {selectedResult.result?.response || selectedResult.result?.error || 'No response available'}
+                  <h3 className="font-medium text-gray-900 mb-2">Response</h3>
+                  <div className="bg-gray-50 rounded p-4 text-sm max-h-96 overflow-y-auto border border-gray-200 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+                    {selectedResult.result?.response ? (
+                      selectedResult.stage?.prompt?.type === 'descriptive' ? (
+                        <div className="prose prose-sm prose-gray dark:prose-invert max-w-none">
+                          <ReactMarkdown>{selectedResult.result.response}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="text-gray-900">
+                          {selectedResult.result.response}
+                        </div>
+                      )
+                    ) : selectedResult.result?.error ? (
+                      <div className="text-red-600 bg-red-50 p-3 rounded border border-red-200">
+                        {selectedResult.result.error}
+                      </div>
+                    ) : (
+                      <div className="text-gray-500 italic">
+                        No response available
+                      </div>
+                    )}
                   </div>
                 </div>
                 

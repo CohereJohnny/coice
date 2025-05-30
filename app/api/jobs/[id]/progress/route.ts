@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getJobMonitoringService } from '@/lib/services/jobMonitoringService';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function GET(
@@ -12,10 +12,10 @@ export async function GET(
   { params }: RouteParams
 ) {
   try {
-    const { id: jobId } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     
-    if (!jobId) {
+    if (!id) {
       return NextResponse.json(
         { error: 'Job ID is required' },
         { status: 400 }
@@ -24,38 +24,72 @@ export async function GET(
 
     const jobMonitoringService = getJobMonitoringService();
 
-    // Check if requesting specific stage progress
+    // Check what type of progress data is requested
+    const progressType = searchParams.get('type');
     const stageOrder = searchParams.get('stage');
-    if (stageOrder) {
-      const stageProgress = await jobMonitoringService.getStageProgress(
-        jobId, 
-        parseInt(stageOrder)
-      );
-      
-      if (!stageProgress) {
-        return NextResponse.json(
-          { error: 'Stage progress not found' },
-          { status: 404 }
+    const includeHistory = searchParams.get('history') === 'true';
+
+    switch (progressType) {
+      case 'detailed':
+        // Get detailed progress for all stages
+        const detailedProgress = await jobMonitoringService.getJobProgress(id);
+        return NextResponse.json({
+          job_id: id,
+          stages: detailedProgress,
+          total_stages: detailedProgress.length,
+          active_stages: detailedProgress.filter(s => s.status === 'processing').length,
+          completed_stages: detailedProgress.filter(s => s.status === 'completed').length
+        });
+
+      case 'stage':
+        // Get progress for a specific stage
+        if (!stageOrder) {
+          return NextResponse.json(
+            { error: 'Stage order is required for stage-specific progress' },
+            { status: 400 }
+          );
+        }
+        
+        const stageProgress = await jobMonitoringService.getStageProgress(
+          id, 
+          parseInt(stageOrder)
         );
-      }
-      
-      return NextResponse.json(stageProgress);
+        
+        const stageHistory = includeHistory 
+          ? await jobMonitoringService.getProgressHistory(id, parseInt(stageOrder))
+          : null;
+
+        return NextResponse.json({
+          job_id: id,
+          stage_order: parseInt(stageOrder),
+          progress: stageProgress,
+          history: stageHistory
+        });
+
+      case 'summary':
+      default:
+        // Get basic progress summary
+        const summary = await jobMonitoringService.getJobProgress(id);
+        
+        const progressSummary = {
+          job_id: id,
+          overall_progress: summary.reduce((acc, stage) => {
+            return acc + (stage.progress_percent || 0);
+          }, 0) / Math.max(summary.length, 1),
+          total_stages: summary.length,
+          stages_completed: summary.filter(s => s.status === 'completed').length,
+          stages_processing: summary.filter(s => s.status === 'processing').length,
+          stages_pending: summary.filter(s => s.status === 'pending').length,
+          stages_failed: summary.filter(s => s.status === 'failed').length,
+          total_images: summary.reduce((acc, stage) => acc + (stage.images_total || 0), 0),
+          images_processed: summary.reduce((acc, stage) => acc + (stage.images_processed || 0), 0),
+          total_errors: summary.reduce((acc, stage) => acc + (stage.error_count || 0), 0),
+          estimated_completion: null, // TODO: Calculate based on current progress
+          last_update: new Date().toISOString()
+        };
+
+        return NextResponse.json(progressSummary);
     }
-
-    // Return all job progress
-    const progress = await jobMonitoringService.getJobProgress(jobId);
-
-    return NextResponse.json({
-      job_id: jobId,
-      stages: progress,
-      total_stages: progress.length,
-      completed_stages: progress.filter(p => p.status === 'completed').length,
-      processing_stages: progress.filter(p => p.status === 'processing').length,
-      failed_stages: progress.filter(p => p.status === 'failed').length,
-      overall_progress: progress.length > 0 
-        ? Math.round(progress.reduce((sum, p) => sum + p.progress_percent, 0) / progress.length)
-        : 0
-    });
   } catch (error) {
     console.error('Error fetching job progress:', error);
     return NextResponse.json(
@@ -70,10 +104,10 @@ export async function PUT(
   { params }: RouteParams
 ) {
   try {
-    const { id: jobId } = params;
+    const { id } = await params;
     const body = await request.json();
     
-    if (!jobId) {
+    if (!id) {
       return NextResponse.json(
         { error: 'Job ID is required' },
         { status: 400 }
@@ -102,7 +136,7 @@ export async function PUT(
     const jobMonitoringService = getJobMonitoringService();
 
     const updatedProgress = await jobMonitoringService.updateStageProgress({
-      job_id: jobId,
+      job_id: id,
       stage_order,
       status,
       images_processed,

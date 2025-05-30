@@ -117,7 +117,7 @@ export class JobAnalyticsService {
         }
         return null;
       })
-      .filter((time): time is number => time !== null && typeof time === 'number');
+      .filter((time: any): time is number => time !== null && typeof time === 'number');
 
     const averageExecutionTime = executionTimes && executionTimes.length > 0
       ? executionTimes.reduce((sum: number, time: number) => sum + time, 0) / executionTimes.length

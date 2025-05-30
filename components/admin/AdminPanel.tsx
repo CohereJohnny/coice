@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
+import { FeatureFlagManager } from '@/components/admin/FeatureFlagManager';
 import { 
   Users, 
   UserPlus, 
@@ -42,7 +43,7 @@ export function AdminPanel({ className }: AdminPanelProps) {
     user: User | null;
   }>({ open: false, user: null });
   const [createUserDialog, setCreateUserDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'groups'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'groups' | 'feature-flags'>('users');
 
   useEffect(() => {
     fetchUsers();
@@ -129,6 +130,7 @@ export function AdminPanel({ className }: AdminPanelProps) {
       <div className="flex gap-2 mb-6">
         <Button variant={activeTab === 'users' ? 'default' : 'outline'} onClick={() => setActiveTab('users')}>Users</Button>
         <Button variant={activeTab === 'groups' ? 'default' : 'outline'} onClick={() => setActiveTab('groups')}>Groups</Button>
+        <Button variant={activeTab === 'feature-flags' ? 'default' : 'outline'} onClick={() => setActiveTab('feature-flags')}>Feature Flags</Button>
       </div>
       {activeTab === 'users' ? (
         <>
@@ -330,8 +332,10 @@ export function AdminPanel({ className }: AdminPanelProps) {
             }}
           />
         </>
-      ) : (
+      ) : activeTab === 'groups' ? (
         <GroupsPanel />
+      ) : (
+        <FeatureFlagManager />
       )}
     </div>
   );

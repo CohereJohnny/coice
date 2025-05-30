@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getJobResultService } from '@/lib/services/jobResultService';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export async function GET(
@@ -12,7 +12,7 @@ export async function GET(
   { params }: RouteParams
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     if (!id) {
       return NextResponse.json(
@@ -46,7 +46,7 @@ export async function PUT(
   { params }: RouteParams
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     
     if (!id) {
@@ -74,7 +74,7 @@ export async function DELETE(
   { params }: RouteParams
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     if (!id) {
       return NextResponse.json(
