@@ -327,25 +327,31 @@ export class ImageProcessor {
   }
 
   /**
-   * Store individual stage result
+   * Store individual stage result with versioning and compression
    */
   private async storeStageResult(jobId: string, result: StageResult): Promise<void> {
     try {
+      // Compress large result data if needed
+      const compressedResult = await this.compressResultIfNeeded({
+        response: result.result,
+        success: result.success,
+        confidence: result.confidence,
+        promptId: result.promptId,
+        stageOrder: result.stageOrder,
+        metadata: result.metadata,
+        error: result.error || null,
+        executionTime: result.executionTime,
+        processedAt: result.processedAt
+      });
+
       const resultData = {
         job_id: jobId,
         image_id: result.imageId,
         stage_id: result.stageId,
-        result: {
-          response: result.result,
-          success: result.success,
-          confidence: result.confidence,
-          promptId: result.promptId,
-          stageOrder: result.stageOrder,
-          metadata: result.metadata,
-          error: result.error || null,
-          executionTime: result.executionTime,
-          processedAt: result.processedAt
-        }
+        result: compressedResult,
+        // Add versioning metadata
+        version: await this.getNextResultVersion(jobId, result.imageId, result.stageId),
+        is_compressed: compressedResult.compressed || false
       };
 
       const { error } = await this.supabase
@@ -354,9 +360,300 @@ export class ImageProcessor {
 
       if (error) {
         console.error('Error storing stage result:', error);
+        throw error;
       }
+
+      // Store in result history for versioning
+      await this.storeResultHistory(resultData);
+
     } catch (error) {
       console.error('Error in storeStageResult:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Compress result data if it exceeds size threshold
+   */
+  private async compressResultIfNeeded(resultData: any): Promise<any> {
+    const resultString = JSON.stringify(resultData);
+    const sizeInBytes = new Blob([resultString]).size;
+    
+    // Compress if result is larger than 50KB
+    const COMPRESSION_THRESHOLD = 50 * 1024;
+    
+    if (sizeInBytes > COMPRESSION_THRESHOLD) {
+      try {
+        // Use simple compression by removing unnecessary whitespace and truncating very long responses
+        const compressed = {
+          ...resultData,
+          compressed: true,
+          original_size: sizeInBytes,
+          response: this.truncateResponse(resultData.response),
+          metadata: this.compressMetadata(resultData.metadata)
+        };
+        
+        console.log(`Compressed result from ${sizeInBytes} to ${new Blob([JSON.stringify(compressed)]).size} bytes`);
+        return compressed;
+      } catch (error) {
+        console.warn('Failed to compress result, storing uncompressed:', error);
+        return resultData;
+      }
+    }
+    
+    return resultData;
+  }
+
+  /**
+   * Truncate very long responses while preserving important information
+   */
+  private truncateResponse(response: string): string {
+    if (!response || response.length <= 10000) {
+      return response;
+    }
+    
+    // Keep first 8000 chars and last 1000 chars with truncation indicator
+    const start = response.substring(0, 8000);
+    const end = response.substring(response.length - 1000);
+    return `${start}\n\n[... truncated ${response.length - 9000} characters ...]\n\n${end}`;
+  }
+
+  /**
+   * Compress metadata by removing large nested objects
+   */
+  private compressMetadata(metadata: any): any {
+    if (!metadata || typeof metadata !== 'object') {
+      return metadata;
+    }
+    
+    const compressed: any = {};
+    
+    for (const [key, value] of Object.entries(metadata)) {
+      if (typeof value === 'string' && value.length > 1000) {
+        compressed[key] = value.substring(0, 1000) + '... [truncated]';
+      } else if (Array.isArray(value) && value.length > 100) {
+        compressed[key] = value.slice(0, 100).concat(['... [truncated]']);
+      } else if (typeof value === 'object' && value !== null) {
+        // Recursively compress nested objects
+        compressed[key] = this.compressMetadata(value);
+      } else {
+        compressed[key] = value;
+      }
+    }
+    
+    return compressed;
+  }
+
+  /**
+   * Get the next version number for a result
+   */
+  private async getNextResultVersion(jobId: string, imageId: string, stageId: string): Promise<number> {
+    try {
+      const { data, error } = await this.supabase
+        .from('job_results')
+        .select('version')
+        .eq('job_id', jobId)
+        .eq('image_id', imageId)
+        .eq('stage_id', stageId)
+        .order('version', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.warn('Error getting result version:', error);
+        return 1;
+      }
+
+      const latestVersion = data?.[0]?.version || 0;
+      return latestVersion + 1;
+    } catch (error) {
+      console.warn('Error in getNextResultVersion:', error);
+      return 1;
+    }
+  }
+
+  /**
+   * Store result in history table for versioning
+   */
+  private async storeResultHistory(resultData: any): Promise<void> {
+    try {
+      const historyData = {
+        ...resultData,
+        archived_at: new Date().toISOString(),
+        // Store original result ID if this is an update
+        original_result_id: resultData.id
+      };
+
+      // Try to insert into result_history table (create if doesn't exist)
+      const { error } = await this.supabase
+        .from('job_result_history')
+        .insert(historyData);
+
+      if (error && error.code === '42P01') {
+        // Table doesn't exist, create it
+        await this.createResultHistoryTable();
+        // Retry the insert
+        await this.supabase
+          .from('job_result_history')
+          .insert(historyData);
+      } else if (error) {
+        console.warn('Error storing result history:', error);
+      }
+    } catch (error) {
+      console.warn('Error in storeResultHistory:', error);
+    }
+  }
+
+  /**
+   * Create result history table if it doesn't exist
+   */
+  private async createResultHistoryTable(): Promise<void> {
+    try {
+      const createTableSQL = `
+        CREATE TABLE IF NOT EXISTS job_result_history (
+          id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+          job_id UUID NOT NULL,
+          image_id UUID NOT NULL,
+          stage_id UUID NOT NULL,
+          result JSONB NOT NULL,
+          version INTEGER DEFAULT 1,
+          is_compressed BOOLEAN DEFAULT FALSE,
+          archived_at TIMESTAMPTZ DEFAULT NOW(),
+          original_result_id UUID,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_job_result_history_job_id ON job_result_history(job_id);
+        CREATE INDEX IF NOT EXISTS idx_job_result_history_image_stage ON job_result_history(image_id, stage_id);
+        CREATE INDEX IF NOT EXISTS idx_job_result_history_version ON job_result_history(version);
+      `;
+
+      const { error } = await this.supabase.rpc('exec_sql', { sql: createTableSQL });
+      
+      if (error) {
+        console.warn('Could not create result history table:', error);
+      }
+    } catch (error) {
+      console.warn('Error creating result history table:', error);
+    }
+  }
+
+  /**
+   * Get result history for a specific job/image/stage combination
+   */
+  async getResultHistory(jobId: string, imageId?: string, stageId?: string): Promise<any[]> {
+    try {
+      let query = this.supabase
+        .from('job_result_history')
+        .select('*')
+        .eq('job_id', jobId)
+        .order('version', { ascending: false });
+
+      if (imageId) {
+        query = query.eq('image_id', imageId);
+      }
+
+      if (stageId) {
+        query = query.eq('stage_id', stageId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching result history:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('Error in getResultHistory:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Decompress result data if it was compressed
+   */
+  private decompressResult(result: any): any {
+    if (!result?.compressed) {
+      return result;
+    }
+
+    // For now, we just return the compressed version since we used simple truncation
+    // In a production system, you might use actual compression algorithms like gzip
+    return {
+      ...result,
+      decompressed: true,
+      note: 'This result was compressed to save storage space. Some data may have been truncated.'
+    };
+  }
+
+  /**
+   * Bulk store multiple stage results with optimized batch processing
+   */
+  private async bulkStoreStageResults(jobId: string, results: StageResult[]): Promise<void> {
+    try {
+      // Process results in batches to avoid memory issues
+      const BATCH_SIZE = 100;
+      const batches = [];
+      
+      for (let i = 0; i < results.length; i += BATCH_SIZE) {
+        batches.push(results.slice(i, i + BATCH_SIZE));
+      }
+
+      for (const batch of batches) {
+        const resultDataBatch = await Promise.all(
+          batch.map(async (result) => {
+            const compressedResult = await this.compressResultIfNeeded({
+              response: result.result,
+              success: result.success,
+              confidence: result.confidence,
+              promptId: result.promptId,
+              stageOrder: result.stageOrder,
+              metadata: result.metadata,
+              error: result.error || null,
+              executionTime: result.executionTime,
+              processedAt: result.processedAt
+            });
+
+            return {
+              job_id: jobId,
+              image_id: result.imageId,
+              stage_id: result.stageId,
+              result: compressedResult,
+              version: await this.getNextResultVersion(jobId, result.imageId, result.stageId),
+              is_compressed: compressedResult.compressed || false
+            };
+          })
+        );
+
+        const { error } = await this.supabase
+          .from('job_results')
+          .insert(resultDataBatch);
+
+        if (error) {
+          console.error('Error in bulk store batch:', error);
+          // Fall back to individual inserts for this batch
+          for (const resultData of resultDataBatch) {
+            try {
+              await this.supabase
+                .from('job_results')
+                .insert(resultData);
+            } catch (individualError) {
+              console.error('Error storing individual result:', individualError);
+            }
+          }
+        }
+
+        // Store history for the batch
+        for (const resultData of resultDataBatch) {
+          await this.storeResultHistory(resultData);
+        }
+      }
+
+      console.log(`Bulk stored ${results.length} results in ${batches.length} batches`);
+    } catch (error) {
+      console.error('Error in bulkStoreStageResults:', error);
+      throw error;
     }
   }
 

@@ -87,7 +87,7 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
             return { ...catalog, libraries: [] };
           })
         );
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         setCatalogs(catalogsWithLibraries as any);
       }
     } catch (error) {
@@ -97,7 +97,7 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const buildLibraryTree = (libraries: any[]): Library[] => {
     const libraryMap = new Map<number, Library>();
     const rootLibraries: Library[] = [];
