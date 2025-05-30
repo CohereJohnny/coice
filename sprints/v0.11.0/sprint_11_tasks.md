@@ -46,11 +46,13 @@ Complete job processing pipeline, implement result storage, and build results vi
 
   **Progress**: ✅ **COMPLETED** - Created comprehensive JobResultService with advanced filtering, pagination, aggregation, and statistics. Implemented full CRUD operations, export functionality (CSV/JSON/Excel), full-text search, and RESTful API endpoints (/api/job-results/ and /api/job-results/[id]/). Service supports complex filtering by job, image, stage, success status, confidence levels, dates, search terms, errors, and execution times.
 
-- [ ] **Task 2.2**: Implement result indexing and search
-  - Create search indices for result content
-  - Implement full-text search across results
-  - Add metadata-based filtering capabilities
-  - Build result aggregation and statistics
+- [x] **Task 2.2**: Implement result indexing and search
+  - [x] Create search indices for result content
+  - [x] Implement full-text search across results
+  - [x] Add metadata-based filtering capabilities
+  - [x] Build result aggregation and statistics
+
+  **Progress**: ✅ **COMPLETED** - Created comprehensive JobResultSearchService with advanced search capabilities including full-text search, semantic search, metadata search, and search suggestions. Implemented result indexing with batch processing, search vector creation, and automatic text extraction from responses, metadata, and stage information. Added API endpoint /api/job-results/search with support for multiple search types (advanced, fulltext, semantic, metadata, suggestions). Service includes relevance scoring, search highlighting, fuzzy matching, and search statistics.
 
 - [ ] **Task 2.3**: Add result export functionality
   - Export results to CSV, JSON, and Excel formats
