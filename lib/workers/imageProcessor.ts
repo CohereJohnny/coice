@@ -1,5 +1,6 @@
 import { getCohereService } from '@/lib/services/cohere';
 import { createSupabaseServiceClient } from '@/lib/supabase';
+import { getJobMonitoringService } from '@/lib/services/jobMonitoringService';
 import { JobData } from '@/lib/services/simpleQueue';
 
 export interface StageResult {
@@ -31,6 +32,7 @@ export interface PipelineStage {
 
 export class ImageProcessor {
   private supabase = createSupabaseServiceClient();
+  private jobMonitoringService = getJobMonitoringService();
 
   /**
    * Get the Cohere service instance (lazy-loaded to pick up current env vars)
@@ -62,8 +64,8 @@ export class ImageProcessor {
 
       console.log(`Found ${stages.length} stages for pipeline ${pipelineId}`);
 
-      // Start job progress tracking
-      await this.initializeJobProgress(jobId, stages.length, imageIds.length);
+      // Initialize job progress tracking using the new monitoring service
+      await this.jobMonitoringService.initializeJobProgress(jobId, stages.length, imageIds.length);
 
       // Process images through the complete pipeline with stage dependency resolution
       const allResults = await this.processImagesThroughPipeline(
@@ -133,46 +135,6 @@ export class ImageProcessor {
   }
 
   /**
-   * Initialize job progress tracking for multi-stage processing
-   */
-  private async initializeJobProgress(jobId: string, stageCount: number, imageCount: number): Promise<void> {
-    // Create job_progress entries for each stage
-    const progressEntries = [];
-    for (let i = 1; i <= stageCount; i++) {
-      progressEntries.push({
-        job_id: jobId,
-        stage_order: i,
-        images_total: imageCount,
-        images_processed: 0,
-        status: 'pending',
-        started_at: null,
-        completed_at: null
-      });
-    }
-
-    // Check if job_progress table exists, if not, create the entries in a different way
-    try {
-      const { error } = await this.supabase
-        .from('job_progress')
-        .insert(progressEntries);
-      
-      if (error) {
-        console.warn('Could not initialize job_progress (table may not exist):', error);
-        // Fallback to updating the main jobs table with progress info
-        await this.supabase
-          .from('jobs')
-          .update({ 
-            progress: 0,
-            updated_at: new Date().toISOString() 
-          })
-          .eq('id', jobId);
-      }
-    } catch (err) {
-      console.warn('Job progress initialization failed, continuing without stage tracking');
-    }
-  }
-
-  /**
    * Process images through complete pipeline with stage dependency resolution
    */
   private async processImagesThroughPipeline(
@@ -198,17 +160,21 @@ export class ImageProcessor {
       
       console.log(`Processing Stage ${stage.stage_order}: ${stage.prompts.name} (${currentImageSet.length} images)`);
       
-      // Update stage status to processing
-      await this.updateStageProgress(jobId, stage.stage_order, 'processing', stageStartTime);
+      // Update stage status to processing using monitoring service
+      await this.jobMonitoringService.updateStageProgress({
+        job_id: jobId,
+        stage_order: stage.stage_order,
+        status: 'processing'
+      });
 
       // Process all images in current set through this stage
       const stageResults: StageResult[] = [];
       
       for (let imgIndex = 0; imgIndex < currentImageSet.length; imgIndex++) {
         const image = currentImageSet[imgIndex];
+        const imageProcessingStartTime = Date.now();
         
         try {
-          const imageProcessingStartTime = Date.now();
           const result = await this.processImageWithPrompt(image, stage.prompts);
           const imageProcessingEndTime = Date.now();
           const executionTime = imageProcessingEndTime - imageProcessingStartTime;
@@ -232,19 +198,36 @@ export class ImageProcessor {
           // Store result immediately for recovery
           await this.storeStageResult(jobId, stageResult);
 
-          // Update progress
+          // Update progress using monitoring service
           const progressPercent = Math.round(((imgIndex + 1) / currentImageSet.length) * 100);
-          await this.updateStageProgress(
-            jobId, 
-            stage.stage_order, 
-            'processing', 
-            stageStartTime,
-            imgIndex + 1,
-            progressPercent
-          );
+          await this.jobMonitoringService.updateStageProgress({
+            job_id: jobId,
+            stage_order: stage.stage_order,
+            status: 'processing',
+            images_processed: imgIndex + 1,
+            progress_percent: progressPercent
+          });
 
         } catch (error) {
           console.error(`Error processing image ${image.id} at stage ${stage.stage_order}:`, error);
+          
+          // Report error using monitoring service
+          await this.jobMonitoringService.recordStageError(
+            jobId,
+            stage.stage_order,
+            image.id,
+            error instanceof Error ? error : new Error(String(error)),
+            {
+              promptId: stage.prompt_id,
+              executionTime: Date.now() - imageProcessingStartTime,
+              metadata: {
+                stageIndex,
+                totalStages: stages.length,
+                imageIndex: imgIndex,
+                totalImages: currentImageSet.length
+              }
+            }
+          );
           
           const errorResult: StageResult = {
             imageId: image.id,
@@ -254,6 +237,7 @@ export class ImageProcessor {
             result: null,
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error',
+            executionTime: Date.now() - imageProcessingStartTime,
             processedAt: new Date().toISOString()
           };
           
@@ -270,17 +254,15 @@ export class ImageProcessor {
       const stageEndTime = Date.now();
       const stageExecutionTime = stageEndTime - stageStartTime;
       
-      // Mark stage as completed
-      await this.updateStageProgress(
-        jobId, 
-        stage.stage_order, 
-        'completed', 
-        stageStartTime,
-        currentImageSet.length,
-        100,
-        stageEndTime,
-        stageExecutionTime
-      );
+      // Mark stage as completed using monitoring service
+      await this.jobMonitoringService.updateStageProgress({
+        job_id: jobId,
+        stage_order: stage.stage_order,
+        status: 'completed',
+        images_processed: currentImageSet.length,
+        progress_percent: 100,
+        execution_time_ms: stageExecutionTime
+      });
 
       console.log(`Stage ${stage.stage_order} completed. Filtered from ${currentImageSet.length} to ${filteredImageSet.length} images`);
       
@@ -308,7 +290,7 @@ export class ImageProcessor {
     stage: PipelineStage
   ): any[] {
     // For boolean prompts, filter based on response
-    if (stage.prompts.type === 'boolean') {
+      if (stage.prompts.type === 'boolean') {
       const passingResults = stageResults.filter(result => 
         result.success && this.parseBooleanResponse(result.result)
       );
@@ -658,61 +640,41 @@ export class ImageProcessor {
   }
 
   /**
-   * Update stage progress tracking
+   * Update job status in database
    */
-  private async updateStageProgress(
-    jobId: string,
-    stageOrder: number,
-    status: 'pending' | 'processing' | 'completed' | 'failed',
-    startTime?: number,
-    imagesProcessed?: number,
-    progressPercent?: number,
-    endTime?: number,
-    executionTime?: number
-  ): Promise<void> {
+  private async updateJobStatus(
+    jobId: string, 
+    status: string, 
+    errorMessage?: string | null,
+    resultsData?: any
+  ) {
     try {
       const updateData: any = {
         status,
         updated_at: new Date().toISOString()
       };
 
-      if (startTime && status === 'processing') {
-        updateData.started_at = new Date(startTime).toISOString();
+      if (errorMessage !== undefined) {
+        updateData.error_message = errorMessage;
+      }
+
+      if (resultsData) {
+        updateData.results_summary = resultsData;
+      }
+
+      const { error } = await this.supabase
+        .from('jobs')
+        .update(updateData)
+        .eq('id', jobId);
+
+      if (error) {
+        throw new Error(`Failed to update job status: ${error.message}`);
       }
       
-      if (imagesProcessed !== undefined) {
-        updateData.images_processed = imagesProcessed;
-      }
-
-      if (endTime && status === 'completed') {
-        updateData.completed_at = new Date(endTime).toISOString();
-        updateData.execution_time_ms = executionTime;
-      }
-
-      // Try to update job_progress table first
-      const { error: progressError } = await this.supabase
-        .from('job_progress')
-        .update(updateData)
-        .eq('job_id', jobId)
-        .eq('stage_order', stageOrder);
-
-      if (progressError) {
-        console.warn('Could not update job_progress:', progressError);
-      }
-
-      // Also update main job progress
-      if (progressPercent !== undefined) {
-        await this.supabase
-          .from('jobs')
-          .update({ 
-            progress: progressPercent,
-            updated_at: new Date().toISOString() 
-          })
-          .eq('id', jobId);
-      }
-
+      console.log(`Job ${jobId} status updated to ${status}`);
     } catch (error) {
-      console.warn('Stage progress update failed:', error);
+      console.error('Error in updateJobStatus:', error);
+      throw error;
     }
   }
 
@@ -840,44 +802,5 @@ export class ImageProcessor {
     return normalizedResponse.includes('yes') || 
            normalizedResponse.includes('true') || 
            normalizedResponse === '1';
-  }
-
-  /**
-   * Update job status in database
-   */
-  private async updateJobStatus(
-    jobId: string, 
-    status: string, 
-    errorMessage?: string | null,
-    resultsData?: any
-  ) {
-    try {
-      const updateData: any = {
-        status,
-        updated_at: new Date().toISOString()
-      };
-
-      if (errorMessage !== undefined) {
-        updateData.error_message = errorMessage;
-      }
-
-      if (resultsData) {
-        updateData.results_summary = resultsData;
-      }
-
-      const { error } = await this.supabase
-        .from('jobs')
-        .update(updateData)
-        .eq('id', jobId);
-
-      if (error) {
-        throw new Error(`Failed to update job status: ${error.message}`);
-      }
-      
-      console.log(`Job ${jobId} status updated to ${status}`);
-    } catch (error) {
-      console.error('Error in updateJobStatus:', error);
-      throw error;
-    }
   }
 } 
