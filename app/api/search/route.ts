@@ -308,7 +308,7 @@ async function searchCatalogsVector(supabase: any, query: string, queryEmbedding
   });
 
   // Filter by similarity threshold
-  return results.filter(result => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
+  return results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
 }
 
 async function searchLibrariesVector(supabase: any, query: string, queryEmbedding: number[], filters: SearchFilters, search_type: string) {
@@ -322,8 +322,7 @@ async function searchLibrariesVector(supabase: any, query: string, queryEmbeddin
       parent_id,
       created_at,
       embedding,
-      catalogs!libraries_catalog_id_fkey(name),
-      parent:libraries!libraries_parent_id_fkey(name)
+      catalogs!libraries_catalog_id_fkey(name)
     `)
     .not('embedding', 'is', null);
 
@@ -363,12 +362,12 @@ async function searchLibrariesVector(supabase: any, query: string, queryEmbeddin
       context: {
         catalog_name: library.catalogs?.name,
         library_name: library.name,
-        library_path: library.parent?.name ? `${library.parent.name}/${library.name}` : library.name
+        library_path: library.name
       }
     };
   });
 
-  return results.filter(result => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
+  return results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
 }
 
 async function searchImagesVector(supabase: any, query: string, queryEmbedding: number[], filters: SearchFilters, search_type: string) {
@@ -432,7 +431,7 @@ async function searchImagesVector(supabase: any, query: string, queryEmbedding: 
     };
   });
 
-  return results.filter(result => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
+  return results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
 }
 
 async function searchJobResultsVector(supabase: any, query: string, queryEmbedding: number[], filters: SearchFilters, search_type: string) {
@@ -508,7 +507,7 @@ async function searchJobResultsVector(supabase: any, query: string, queryEmbeddi
     };
   });
 
-  return results.filter(result => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
+  return results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
 }
 
 // Helper function for cosine similarity (matching the one in the service)
