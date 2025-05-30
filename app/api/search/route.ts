@@ -574,7 +574,7 @@ async function searchCatalogs(supabase: any, searchTerm: string, filters: Search
 
   // Add search conditions
   if (searchTerm) {
-    query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+    query = query.or(`name.ilike.*${searchTerm}*,description.ilike.*${searchTerm}*`);
   }
 
   // Add filters
@@ -621,13 +621,12 @@ async function searchLibraries(supabase: any, searchTerm: string, filters: Searc
       catalog_id,
       parent_id,
       created_at,
-      catalogs!libraries_catalog_id_fkey(name),
-      parent:libraries!libraries_parent_id_fkey(name)
+      catalogs!libraries_catalog_id_fkey(name)
     `);
 
   // Add search conditions
   if (searchTerm) {
-    query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+    query = query.or(`name.ilike.*${searchTerm}*,description.ilike.*${searchTerm}*`);
   }
 
   // Add filters
@@ -661,7 +660,7 @@ async function searchLibraries(supabase: any, searchTerm: string, filters: Searc
     context: {
       catalog_name: library.catalogs?.name,
       library_name: library.name,
-      library_path: library.parent?.name ? `${library.parent.name}/${library.name}` : library.name
+      library_path: library.name
     }
   }));
 }
@@ -682,9 +681,9 @@ async function searchImages(supabase: any, searchTerm: string, filters: SearchFi
       )
     `);
 
-  // Add search conditions (search in GCS path and metadata)
+  // Add search conditions (search in GCS path only to avoid casting issues)
   if (searchTerm) {
-    query = query.or(`gcs_path.ilike.%${searchTerm}%,metadata::text.ilike.%${searchTerm}%`);
+    query = query.ilike('gcs_path', `*${searchTerm}*`);
   }
 
   // Add filters
@@ -753,10 +752,8 @@ async function searchJobResults(supabase: any, searchTerm: string, filters: Sear
       )
     `);
 
-  // Use the existing search_vector if available, otherwise fallback to text search
-  if (searchTerm) {
-    query = query.or(`result::text.ilike.%${searchTerm}%`);
-  }
+  // Skip text search in job results for now to avoid casting issues
+  // Will rely on vector search for job results
 
   // Add filters
   if (filters.library_id) {

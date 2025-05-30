@@ -1,9 +1,21 @@
 import { CohereClientV2 } from 'cohere-ai';
 
-// Initialize Cohere client
-const cohere = new CohereClientV2({
-  token: process.env.COHERE_API_KEY,
-});
+// Initialize Cohere client with proper configuration
+function createCohereClient() {
+  const apiKey = process.env.COHERE_API_KEY;
+  const baseUrl = process.env.COHERE_BASE_URL;
+  
+  if (!apiKey) {
+    throw new Error('COHERE_API_KEY environment variable is not configured');
+  }
+
+  return new CohereClientV2({
+    token: apiKey,
+    ...(baseUrl && { environment: baseUrl }),
+  });
+}
+
+const cohere = createCohereClient();
 
 export interface EmbeddingResult {
   embedding: number[];
