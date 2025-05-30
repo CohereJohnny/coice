@@ -5,6 +5,7 @@ export { ProgressBar } from './ProgressBar';
 export { JobTimeline } from './JobTimeline';
 export { JobComparison } from './JobComparison';
 export { JobAnalytics } from './JobAnalytics';
+export { JobAnalyticsDashboard } from './JobAnalyticsDashboard';
 
 // Job Results Components
 export { JobResultsView } from './JobResultsView';
@@ -36,6 +37,10 @@ export type {
   JobAnalyticsProps,
   JobAnalyticsData
 } from './JobAnalytics';
+
+export type {
+  JobAnalyticsDashboardProps
+} from './JobAnalyticsDashboard';
 
 // Job Results Types
 export type {
