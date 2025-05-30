@@ -81,6 +81,11 @@ class NotificationService {
 
   // Load preferences from localStorage
   private loadPreferences(): NotificationPreferences {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return DEFAULT_PREFERENCES;
+    }
+    
     try {
       const stored = localStorage.getItem('notification-preferences');
       if (stored) {
@@ -94,6 +99,11 @@ class NotificationService {
 
   // Save preferences to localStorage
   private savePreferences() {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      return;
+    }
+    
     try {
       localStorage.setItem('notification-preferences', JSON.stringify(this.preferences));
       this.emit('preferences-updated', this.preferences);
