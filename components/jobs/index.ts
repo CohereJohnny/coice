@@ -6,6 +6,7 @@ export { JobTimeline } from './JobTimeline';
 export { JobComparison } from './JobComparison';
 export { JobAnalytics } from './JobAnalytics';
 export { JobAnalyticsDashboard } from './JobAnalyticsDashboard';
+export { JobComparisonTools } from './JobComparisonTools';
 
 // Job Results Components
 export { JobResultsView } from './JobResultsView';
@@ -41,6 +42,12 @@ export type {
 export type {
   JobAnalyticsDashboardProps
 } from './JobAnalyticsDashboard';
+
+export type {
+  JobComparisonToolsProps,
+  JobComparisonData as JobComparisonToolsData,
+  ABTestConfig
+} from './JobComparisonTools';
 
 // Job Results Types
 export type {
