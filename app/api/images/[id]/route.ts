@@ -230,11 +230,43 @@ export async function GET(
         const expires = new Date(Date.now() + 60 * 60 * 1000);
         const signedUrl = await getSignedUrl(fileName, 'read', expires);
         
+        // Generate thumbnail signed URL if thumbnail exists
+        let thumbnailSignedUrl = undefined;
+        if (image.metadata && typeof image.metadata === 'object' && 'thumbnail' in image.metadata) {
+          const thumbnail = (image.metadata as any).thumbnail;
+          if (thumbnail && thumbnail.path && typeof thumbnail.path === 'string') {
+            try {
+              const thumbnailFileName = thumbnail.path.replace(`gs://${process.env.GCS_BUCKET_NAME}/`, '');
+              thumbnailSignedUrl = await getSignedUrl(thumbnailFileName, 'read', expires);
+            } catch (thumbnailError) {
+              console.warn('Failed to generate thumbnail signed URL:', thumbnailError);
+              // Continue without thumbnail URL
+            }
+          }
+        }
+        
+        // Return full image data with signed URL
         return NextResponse.json({
           success: true,
           signedUrl,
+          thumbnailSignedUrl,
           expiresAt: expires.toISOString(),
-          imageId: image.id,
+          image: {
+            id: image.id,
+            filename: image.filename,
+            size: image.size,
+            mime_type: image.mime_type,
+            gcs_path: image.gcs_path,
+            metadata: image.metadata,
+            created_at: image.created_at,
+            updated_at: image.updated_at,
+            library_id: image.library_id,
+            library: {
+              id: image.libraries.id,
+              name: image.libraries.name,
+              catalog_id: image.libraries.catalog_id,
+            },
+          },
         });
       } catch (error) {
         console.error('Failed to generate signed URL:', error);

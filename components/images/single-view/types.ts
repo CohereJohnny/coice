@@ -43,8 +43,8 @@ export interface ImageMetadata {
 }
 
 export interface SingleImageViewProps {
-  /** Library ID containing the image */
-  libraryId: string;
+  /** Library ID containing the image (optional - will be derived from image data if not provided) */
+  libraryId?: string;
   /** Image ID to display */
   imageId: string;
   /** Optional className for styling */
@@ -106,8 +106,8 @@ export interface ImageActionsProps {
 }
 
 export interface UseSingleImageStateProps {
-  /** Library ID */
-  libraryId: string;
+  /** Library ID (optional - will be derived from image data if not provided) */
+  libraryId?: string;
   /** Image ID */
   imageId: string;
   /** Auto-refresh interval in seconds */

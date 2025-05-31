@@ -104,7 +104,7 @@ export function SearchResults({
       case 'library':
         return `/libraries/${result.id}`;
       case 'image':
-        return `/libraries/${result.context?.library_id}/images/${result.id}`;
+        return `/image/${result.id}`;
       case 'job_result':
         return `/analysis/jobs/${result.context?.job_id}`;
       default:

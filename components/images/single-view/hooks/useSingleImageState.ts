@@ -15,7 +15,7 @@ import type {
  * Handles data fetching, actions, and navigation
  */
 export function useSingleImageState({
-  libraryId,
+  libraryId: providedLibraryId,
   imageId,
   refreshInterval
 }: UseSingleImageStateProps): UseSingleImageStateReturn {
@@ -26,6 +26,10 @@ export function useSingleImageState({
   const [image, setImage] = useState<ImageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [derivedLibraryId, setDerivedLibraryId] = useState<string | null>(null);
+  
+  // Get the effective library ID (provided or derived)
+  const effectiveLibraryId = providedLibraryId || derivedLibraryId;
   
   // Action loading states
   const [loadingStates, setLoadingStates] = useState({
@@ -53,14 +57,23 @@ export function useSingleImageState({
     try {
       setError(null);
       
+      console.log('Fetching image with ID:', imageId);
       const response = await fetch(`/api/images/${imageId}?signed=true`);
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('API Error:', errorData);
         throw new Error(errorData.error || 'Failed to fetch image');
       }
       
       const data = await response.json();
+      console.log('API Response:', data);
+      
+      // Check if we have the expected data structure
+      if (!data.image) {
+        console.error('Missing image data in response:', data);
+        throw new Error('Invalid response format: missing image data');
+      }
       
       // Transform API response to match our ImageData interface
       const imageData: ImageData = {
@@ -71,7 +84,7 @@ export function useSingleImageState({
         created_at: data.image.created_at,
         signedUrls: {
           original: data.signedUrl,
-          thumbnail: data.image.metadata?.thumbnail?.path ? data.signedUrl : undefined
+          thumbnail: data.thumbnailSignedUrl || undefined
         },
         library: data.image.library ? {
           id: data.image.library.id,
@@ -80,15 +93,22 @@ export function useSingleImageState({
         } : undefined
       };
       
+      console.log('Processed image data:', imageData);
       setImage(imageData);
+      
+      // Derive library ID if not provided
+      if (!providedLibraryId && imageData.library_id) {
+        setDerivedLibraryId(imageData.library_id.toString());
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load image';
+      console.error('Image fetch error:', err);
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
-  }, [imageId]);
+  }, [imageId, providedLibraryId]);
   
   // Refresh function (public API)
   const refresh = useCallback(async (): Promise<void> => {
@@ -242,12 +262,20 @@ export function useSingleImageState({
   
   // Navigation helpers
   const goToLibrary = useCallback(() => {
-    router.push(`/libraries/${libraryId}`);
-  }, [router, libraryId]);
+    if (effectiveLibraryId) {
+      router.push(`/libraries/${effectiveLibraryId}`);
+    } else {
+      toast.error('Library information not available');
+    }
+  }, [router, effectiveLibraryId]);
   
   const goToCarousel = useCallback(() => {
-    router.push(`/libraries/${libraryId}?image=${imageId}&view=carousel`);
-  }, [router, libraryId, imageId]);
+    if (effectiveLibraryId) {
+      router.push(`/libraries/${effectiveLibraryId}?image=${imageId}&view=carousel`);
+    } else {
+      toast.error('Library information not available');
+    }
+  }, [router, effectiveLibraryId, imageId]);
   
   // Initial data fetch
   useEffect(() => {
