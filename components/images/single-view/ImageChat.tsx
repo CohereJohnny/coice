@@ -12,7 +12,6 @@ import {
   Bot,
   User,
   Sparkles,
-  Eye,
   RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -179,25 +178,9 @@ export function ImageChat({ image, className }: ImageChatProps) {
           <div className="h-64 p-4 overflow-y-auto">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full text-center">
-                <div>
-                  <Eye className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Start a conversation about this image
-                  </p>
-                  <div className="grid grid-cols-1 gap-2">
-                    {quickQuestions.slice(0, 3).map((question, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs text-left h-auto py-2 px-3 whitespace-normal"
-                        onClick={() => handleQuickQuestion(question)}
-                      >
-                        {question}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+                <p className="text-sm text-muted-foreground">
+                  No messages yet. Ask a question about this image below.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -252,9 +235,9 @@ export function ImageChat({ image, className }: ImageChatProps) {
         {/* Quick Questions (when no messages) */}
         {messages.length === 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">More suggestions:</p>
+            <p className="text-xs font-medium text-muted-foreground">Quick questions:</p>
             <div className="flex flex-wrap gap-2">
-              {quickQuestions.slice(3).map((question, index) => (
+              {quickQuestions.map((question, index) => (
                 <Button
                   key={index}
                   variant="outline"
