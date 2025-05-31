@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SearchInput } from '@/components/search/SearchInput';
 import { SearchFilters } from '@/components/search/SearchFilters';
@@ -19,8 +19,26 @@ interface SearchHistoryEntry {
   filters: SearchFiltersType;
 }
 
+// Custom hook for debounced search
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function SearchPage() {
   const [query, setQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(''); // Separate state for actual searches
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -33,6 +51,10 @@ export default function SearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Debounce the search query - only search after user stops typing for 500ms
+  const debouncedSearchQuery = useDebounce(query, 500);
 
   // Initialize from URL params
   useEffect(() => {
@@ -43,6 +65,7 @@ export default function SearchPage() {
     
     if (urlQuery) {
       setQuery(urlQuery);
+      setSearchQuery(urlQuery);
       setHasSearched(true);
     }
     if (urlPage) {
@@ -59,7 +82,7 @@ export default function SearchPage() {
     }
   }, [searchParams]);
 
-  // Perform search
+  // Perform search with abort controller for cancellation
   const performSearch = useCallback(async (searchQuery: string, searchPage: number = 1) => {
     if (!searchQuery.trim()) {
       setResults([]);
@@ -67,6 +90,14 @@ export default function SearchPage() {
       setHasSearched(false);
       return;
     }
+
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
 
     setLoading(true);
     try {
@@ -94,7 +125,10 @@ export default function SearchPage() {
         params.set('catalog_id', filters.catalog_id.toString());
       }
 
-      const response = await fetch(`/api/search?${params}`);
+      const response = await fetch(`/api/search?${params}`, {
+        signal: abortControllerRef.current.signal
+      });
+      
       if (!response.ok) {
         throw new Error('Search failed');
       }
@@ -121,6 +155,10 @@ export default function SearchPage() {
       // Save to search history
       saveToSearchHistory(searchQuery);
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Request was cancelled, don't update state
+        return;
+      }
       console.error('Search error:', error);
       setResults([]);
       setTotalCount(0);
@@ -128,6 +166,20 @@ export default function SearchPage() {
       setLoading(false);
     }
   }, [filters, sortBy]);
+
+  // Effect for debounced search
+  useEffect(() => {
+    if (debouncedSearchQuery.trim() && debouncedSearchQuery !== searchQuery) {
+      setSearchQuery(debouncedSearchQuery);
+      setPage(1);
+      performSearch(debouncedSearchQuery, 1);
+    } else if (!debouncedSearchQuery.trim()) {
+      setResults([]);
+      setTotalCount(0);
+      setHasSearched(false);
+      setSearchQuery('');
+    }
+  }, [debouncedSearchQuery, performSearch, searchQuery]);
 
   // Save search to history
   const saveToSearchHistory = (searchQuery: string) => {
@@ -155,19 +207,25 @@ export default function SearchPage() {
     }
   };
 
-  // Handle search submission
-  const handleSearch = (searchQuery: string) => {
-    setQuery(searchQuery);
+  // Handle explicit search submission (e.g., from suggestions, history, or button click)
+  const handleSearch = (newQuery: string) => {
+    setQuery(newQuery);
+    setSearchQuery(newQuery);
     setPage(1);
-    performSearch(searchQuery, 1);
+    performSearch(newQuery, 1);
+  };
+
+  // Handle input changes (just update display, debouncing handles search)
+  const handleQueryChange = (newQuery: string) => {
+    setQuery(newQuery);
   };
 
   // Handle filter changes
   const handleFiltersChange = (newFilters: SearchFiltersType) => {
     setFilters(newFilters);
     setPage(1);
-    if (query.trim()) {
-      performSearch(query, 1);
+    if (searchQuery.trim()) {
+      performSearch(searchQuery, 1);
     }
   };
 
@@ -175,24 +233,25 @@ export default function SearchPage() {
   const handleSortChange = (newSort: 'relevance' | 'date' | 'alphabetical') => {
     setSortBy(newSort);
     setPage(1);
-    if (query.trim()) {
-      performSearch(query, 1);
+    if (searchQuery.trim()) {
+      performSearch(searchQuery, 1);
     }
   };
 
   // Handle pagination
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
-    performSearch(query, newPage);
+    performSearch(searchQuery, newPage);
   };
 
-  // Effect to perform search when URL params change
+  // Cleanup on unmount
   useEffect(() => {
-    const urlQuery = searchParams.get('q');
-    if (urlQuery && urlQuery !== query) {
-      performSearch(urlQuery, page);
-    }
-  }, [searchParams, performSearch, query, page]);
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   if (!isAuthenticated) {
     return (
@@ -224,7 +283,7 @@ export default function SearchPage() {
       <div className="mb-6">
         <SearchInput
           value={query}
-          onChange={setQuery}
+          onChange={handleQueryChange}
           onSearch={handleSearch}
           loading={loading}
           placeholder="Search for catalogs, libraries, images, or results..."
@@ -343,7 +402,7 @@ export default function SearchPage() {
             <SearchResults
               results={results}
               loading={loading}
-              query={query}
+              query={searchQuery}
               page={page}
               totalCount={totalCount}
               perPage={20}
