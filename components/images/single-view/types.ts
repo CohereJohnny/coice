@@ -105,6 +105,13 @@ export interface ImageActionsProps {
   className?: string;
 }
 
+export interface ImageChatProps {
+  /** Image data for context */
+  image: ImageData;
+  /** Optional className for styling */
+  className?: string;
+}
+
 export interface UseSingleImageStateProps {
   /** Library ID (optional - will be derived from image data if not provided) */
   libraryId?: string;

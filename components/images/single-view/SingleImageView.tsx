@@ -8,6 +8,7 @@ import { useSingleImageState } from './hooks/useSingleImageState';
 import { ImageDisplay } from './ImageDisplay';
 import { ImageMetadata } from './ImageMetadata';
 import { ImageActions } from './ImageActions';
+import { ImageChat } from './ImageChat';
 import type { SingleImageViewProps } from './types';
 
 /**
@@ -123,6 +124,11 @@ export function SingleImageView({
             loading={isLoading}
             error={error}
           />
+          
+          {/* Chat Interface */}
+          {image && (
+            <ImageChat image={image} />
+          )}
           
           {/* Mobile Metadata (shown below image on small screens) */}
           <div className="lg:hidden">

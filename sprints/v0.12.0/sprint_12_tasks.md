@@ -261,6 +261,19 @@ Implement comprehensive search functionality across all content types using Cohe
 - **Status**: Search UI fully functional with proper image display, navigation, and layout handling
 - **User Experience**: Clean, professional search results with working thumbnails and proper navigation
 
+#### [Date] - Critical Fix: SingleImageView API Response Structure Issue
+- **Problem Identified**: "Cannot read properties of undefined (reading 'id')" error when accessing simplified image URLs
+- **Root Cause**: Image API returned different data structures for signed URL requests vs regular requests
+  - Signed URL requests returned minimal structure: `{signedUrl, imageId}` 
+  - Hook expected full structure: `{image: {id, metadata, library}}`
+- **Solution Implemented**:
+  - **API Enhancement**: Updated `/api/images/[id]/route.ts` to return full image data even for signed URL requests
+  - **Thumbnail URL Fix**: Added separate signed URL generation for thumbnails (was incorrectly reusing original URL)
+  - **Data Validation**: Added proper error handling and validation for expected response structure
+  - **Debug Logging**: Added comprehensive logging to troubleshoot future issues
+- **Impact**: Simplified image URLs (`/image/[imageId]`) now work correctly from search results
+- **Status**: SingleImageView component fully functional with simplified URL structure
+
 #### [Date] - Simplified Image URL Structure Implementation Complete
 - **URL Optimization**: Implemented user-requested simplified URL structure for individual image viewing
   - **Before**: `/libraries/[library_id]/images/[image_id]` (nested structure)

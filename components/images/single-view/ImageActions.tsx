@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { 
   Wand2, 
-  MessageSquare, 
   Download, 
   Trash2, 
   BarChart3,
@@ -221,22 +220,6 @@ export function ImageActions({
           </CardContent>
         </Card>
       )}
-
-      {/* Future: Chat Interface */}
-      <Card className="opacity-50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Chat with VLLM
-            <Badge variant="outline" className="ml-2">Coming Soon</Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Interactive chat with vision language models will be available in a future update.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 } 

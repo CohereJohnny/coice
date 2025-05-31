@@ -10,6 +10,7 @@ export { SingleImageView } from './SingleImageView';
 export { ImageDisplay } from './ImageDisplay';
 export { ImageMetadata } from './ImageMetadata';
 export { ImageActions } from './ImageActions';
+export { ImageChat } from './ImageChat';
 
 // Custom hook (for custom implementations)
 export { useSingleImageState } from './hooks/useSingleImageState';
@@ -20,6 +21,7 @@ export type {
   ImageDisplayProps,
   ImageMetadataProps,
   ImageActionsProps,
+  ImageChatProps,
   UseSingleImageStateProps,
   UseSingleImageStateReturn,
   ImageData,
