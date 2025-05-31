@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, Clock, BookmarkIcon } from 'lucide-react';
 import { useAuth } from '@/lib/stores/auth';
+import { useFeatureFlag } from '@/lib/featureFlags';
 import type { SearchFilters as SearchFiltersType, SearchResponse, SearchResult } from '@/app/api/search/route';
 
 interface SearchHistoryEntry {
@@ -52,6 +53,7 @@ function SearchPageContent() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const abortControllerRef = useRef<AbortController | null>(null);
+  const advancedSearchEnabled = useFeatureFlag('advancedSearch');
 
   // Debounce the search query - only search after user stops typing for 500ms
   const debouncedSearchQuery = useDebounce(query, 500);
@@ -74,13 +76,13 @@ function SearchPageContent() {
     if (urlSort && ['relevance', 'date', 'alphabetical'].includes(urlSort)) {
       setSortBy(urlSort as any);
     }
-    if (urlTypes) {
+    if (advancedSearchEnabled && urlTypes) {
       setFilters(prev => ({
         ...prev,
         content_types: urlTypes.split(',')
       }));
     }
-  }, [searchParams]);
+  }, [searchParams, advancedSearchEnabled]);
 
   // Perform search with abort controller for cancellation
   const performSearch = useCallback(async (searchQuery: string, searchPage: number = 1) => {
@@ -109,19 +111,19 @@ function SearchPageContent() {
       });
 
       // Add filters to params
-      if (filters.content_types?.length) {
+      if (advancedSearchEnabled && filters.content_types?.length) {
         params.set('types', filters.content_types.join(','));
       }
-      if (filters.date_from) {
+      if (advancedSearchEnabled && filters.date_from) {
         params.set('date_from', filters.date_from);
       }
-      if (filters.date_to) {
+      if (advancedSearchEnabled && filters.date_to) {
         params.set('date_to', filters.date_to);
       }
-      if (filters.library_id) {
+      if (advancedSearchEnabled && filters.library_id) {
         params.set('library_id', filters.library_id.toString());
       }
-      if (filters.catalog_id) {
+      if (advancedSearchEnabled && filters.catalog_id) {
         params.set('catalog_id', filters.catalog_id.toString());
       }
 
@@ -144,7 +146,7 @@ function SearchPageContent() {
       newUrl.searchParams.set('q', searchQuery);
       newUrl.searchParams.set('page', searchPage.toString());
       newUrl.searchParams.set('sort', sortBy);
-      if (filters.content_types?.length) {
+      if (advancedSearchEnabled && filters.content_types?.length) {
         newUrl.searchParams.set('types', filters.content_types.join(','));
       } else {
         newUrl.searchParams.delete('types');
@@ -224,6 +226,9 @@ function SearchPageContent() {
   };
 
   const handleFiltersChange = (newFilters: SearchFiltersType) => {
+    // Only apply filters if advanced search is enabled
+    if (!advancedSearchEnabled) return;
+    
     setFilters(newFilters);
     if (searchQuery) {
       setPage(1);
@@ -272,10 +277,15 @@ function SearchPageContent() {
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-2">Search</h1>
-          <p className="text-muted-foreground">
+            <p className="text-muted-foreground">
               Search across catalogs, libraries, images, and analysis results
-          </p>
-        </div>
+              {!advancedSearchEnabled && (
+                <span className="block mt-1 text-sm">
+                  Advanced search and filtering can be enabled by administrators
+                </span>
+              )}
+            </p>
+          </div>
 
           {/* Search Input */}
           <div className="mb-6">
@@ -288,26 +298,28 @@ function SearchPageContent() {
             />
           </div>
 
-          <div className="flex gap-6">
+          <div className={advancedSearchEnabled ? "flex gap-6" : ""}>
             {/* Filters Sidebar */}
-            <div className="w-80 shrink-0">
-              <SearchFilters
-                filters={filters}
-                onFiltersChange={handleFiltersChange}
-                className="sticky top-6"
-              />
-              
-              {/* Search History */}
-              <div className="mt-6">
-                <SearchHistory
-                  onSearchSelect={(query: string) => handleHistoryItemClick(query, {})}
-                  maxItems={10}
+            {advancedSearchEnabled && (
+              <div className="w-80 shrink-0">
+                <SearchFilters
+                  filters={filters}
+                  onFiltersChange={handleFiltersChange}
+                  className="sticky top-6"
                 />
+                
+                {/* Search History */}
+                <div className="mt-6">
+                  <SearchHistory
+                    onSearchSelect={(query: string) => handleHistoryItemClick(query, {})}
+                    maxItems={10}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Results Area */}
-            <div className="flex-1 min-w-0">
+            <div className={advancedSearchEnabled ? "flex-1 min-w-0" : "w-full"}>
               {/* Search Stats */}
               {hasSearched && (
                 <div className="mb-4 flex items-center justify-between">
