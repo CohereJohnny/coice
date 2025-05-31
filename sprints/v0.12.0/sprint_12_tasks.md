@@ -177,6 +177,17 @@ Implement comprehensive search functionality across all content types using Cohe
 - **Configuration**: Ensured consistent Cohere client configuration across all services
 - **Status**: Ready for embedding generation testing and content processing
 
+#### [Date] - Root Cause Analysis and Embedding Generation Infrastructure
+- **Issue Identified**: Search returns no results because **zero embeddings exist** for 104 images and 622 other content items
+- **Database Analysis**: Confirmed all content tables (catalogs: 5, libraries: 6, images: 104, job_results: 507) have NULL embeddings
+- **Search UX Fix**: Implemented debounced search (500ms) with request cancellation to prevent page lockups during typing
+- **Batch Infrastructure**: Created comprehensive embedding generation system:
+  - `/api/embeddings/batch` endpoint for web-based batch processing
+  - Standalone script for direct database embedding generation
+  - Support for processing catalogs, libraries, images (multimodal), and job results
+- **Next Step**: Generate embeddings for existing content to enable semantic search functionality
+- **Status**: Infrastructure ready, need to run embedding generation for your existing content
+
 ## Technical Implementation Notes
 
 ### Database Schema Considerations - Updated for Embeddings
