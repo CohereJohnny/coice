@@ -261,6 +261,27 @@ Implement comprehensive search functionality across all content types using Cohe
 - **Status**: Search UI fully functional with proper image display, navigation, and layout handling
 - **User Experience**: Clean, professional search results with working thumbnails and proper navigation
 
+#### [Date] - Advanced Search Filters Hidden Behind Feature Flag
+- **User Request**: Hide all advanced search options behind feature flag until actually needed
+- **Problem**: Too many filters and options overwhelming the search interface by default
+- **Solution Implemented**: 
+  - **Feature Flag Integration**: Used existing `advancedSearch` feature flag to control filter visibility
+  - **Clean Interface**: By default, search shows only the search input and results (full width)
+  - **Conditional Layout**: When `advancedSearch` flag enabled, shows filters sidebar + search history
+  - **Progressive Enhancement**: Maintains all advanced functionality when feature is enabled
+- **Technical Implementation**:
+  - **React Integration**: Used `useFeatureFlag('advancedSearch')` hook for reactive state
+  - **Layout Responsive**: Dynamic layout switching between full width and sidebar+content
+  - **URL Parameters**: Filter parameters only applied/parsed when feature enabled
+  - **Search Logic**: Conditional filter application in search API calls
+  - **Admin Interface**: Feature can be enabled via Admin Panel → Feature Flags → Advanced Search
+- **User Experience**:
+  - **Default**: Clean, focused search interface with just input and results
+  - **Admin Note**: Helpful text indicating advanced search can be enabled by administrators
+  - **Progressive**: No functionality lost, just hidden until needed
+- **Benefits**: Simplified UX for most users, advanced features available when required
+- **Status**: Search interface now clean and focused by default, feature-flagged for future activation
+
 #### [Date] - Chat Interface UI Optimization for Better Screen Real Estate
 - **User Feedback**: Large empty state box with eye icon was taking up too much space in chat area
 - **UI Improvement**: Removed bulky empty state and optimized for screen efficiency
