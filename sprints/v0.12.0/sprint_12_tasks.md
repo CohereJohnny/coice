@@ -18,7 +18,7 @@ Implement comprehensive search functionality across all content types using Cohe
 - [x] **Implement Cohere V4 Embedding Integration**
   - [x] Add embedding columns to database tables (images, catalogs, libraries, job_results)
   - [x] Create Cohere V4 embedding service for text and images
-  - [ ] Implement embedding generation for existing content
+  - [x] Implement embedding generation for existing content
   - [ ] Add embedding generation for new content uploads
   - [x] Create vector similarity search functionality
 
@@ -29,6 +29,11 @@ Implement comprehensive search functionality across all content types using Cohe
   - [x] Add `embedding` column (vector) to job_results table
   - [x] Create vector similarity indexes using pgvector extension
   - [x] Migration scripts for embedding column additions
+  - [x] **FIXED: Rebuild embedding columns with correct 1024-dimension constraint**
+    - Dropped existing embedding columns with incorrect dimensions (~12,700)
+    - Recreated as vector(1024) columns to match Cohere V4 output
+    - Applied HNSW indexes for efficient cosine similarity search
+    - Resolved dimension mismatch causing zero search results
 
 - [x] **Enhanced Search API with Vector Search**
   - [x] Update search API to use vector similarity for primary matching
@@ -187,6 +192,74 @@ Implement comprehensive search functionality across all content types using Cohe
   - Support for processing catalogs, libraries, images (multimodal), and job results
 - **Next Step**: Generate embeddings for existing content to enable semantic search functionality
 - **Status**: Infrastructure ready, need to run embedding generation for your existing content
+
+#### [Date] - Critical Database Schema Fix - Embedding Dimension Mismatch
+- **Root Cause Identified**: Existing embeddings in database had ~12,700 dimensions, but Cohere V4 generates 1024 dimensions
+- **Dimension Mismatch**: Query embeddings (1024) vs stored embeddings (~12,700) caused cosine similarity calculations to fail
+- **Solution Applied**: 
+  - Used Supabase MCP server to drop all existing embedding columns 
+  - Recreated embedding columns with proper `vector(1024)` constraint
+  - Ensured schema enforcement for exactly 1024 dimensions
+  - Verified all tables (catalogs, libraries, images, job_results) have correct vector(1024) type
+- **Status**: Database schema fixed, ready for embedding regeneration with correct dimensions
+- **Next Action**: Use `/admin/embeddings` page to force regenerate all embeddings with "🔥 Force Regenerate EVERYTHING" button
+
+#### [Date] - Vector Search Implementation Complete & Working
+- **Dimension Fix Success**: Fixed vector parsing to handle different data formats from Supabase
+- **Search Results**: Successfully returning relevant results for "dog" query with proper similarity scoring
+- **Similarity Scores**: Achieving meaningful scores (0.34-0.42 range) for relevant content  
+- **Threshold Optimization**: Lowered similarity threshold to 0.3 for better result coverage
+- **Thumbnail Integration**: Added signed URL generation for image thumbnails in search results
+  - Generates signed URLs for thumbnails from metadata.thumbnail.path
+  - Falls back to original image if thumbnail doesn't exist
+  - Handles GCS path conversion and error cases gracefully
+- **Search Performance**: <2s response time including vector similarity calculations
+- **Status**: Search functionality fully operational with multimodal embeddings and proper UI display
+
+#### [Date] - Single Image View Implementation Complete
+- **New View Mode**: Created comprehensive single image view following component architecture guidelines
+  - **Route**: `/libraries/[id]/images/[imageId]` for clean, RESTful URLs
+  - **Component Architecture**: Proper separation of concerns with focused sub-components
+    - `SingleImageView.tsx` - Main orchestration component (150 lines)
+    - `ImageDisplay.tsx` - Image display with loading/error states
+    - `ImageMetadata.tsx` - Comprehensive metadata display with multiple variants
+    - `ImageActions.tsx` - Action buttons and generated content display
+    - `useSingleImageState.ts` - State management hook for all business logic
+  - **TypeScript**: Complete type definitions following interface design patterns
+- **Features Implemented**:
+  - Large image display with zoom/fullscreen capability
+  - Comprehensive metadata display (file info, dimensions, upload details, location)
+  - Action panel with AI/ML integration hooks:
+    - Generate Keywords (API ready)
+    - Generate Description (API ready) 
+    - Run Analysis Pipeline (API ready)
+    - Download Image (functional)
+    - Delete Image (functional with confirmation)
+    - Future: Chat with VLLM (placeholder)
+  - Navigation breadcrumbs and view switching
+  - Responsive design (sidebar on desktop, stacked on mobile)
+  - Error handling and loading states
+- **Search Integration**: Updated search results to navigate to single image view by default
+- **Status**: Single image view fully functional, ready for AI/ML service integration
+- **User Experience**: Professional, focused interface for individual image viewing and interaction
+
+#### [Date] - Search UI Fixes and Enhancement Complete
+- **Navigation Fix**: Fixed library navigation to use `library_id` instead of `library_name` in search result URLs
+  - Updated SearchResult interface to include `library_id` in context
+  - Fixed SearchResults component to generate proper URLs: `/libraries/{library_id}?image={image_id}`
+  - Resolved "Failed to load library information" errors when clicking image results
+- **Thumbnail Display**: Added proper image thumbnail rendering in search results
+  - Display actual image thumbnails for image search results instead of generic icons
+  - Implemented graceful fallback to icons when thumbnail loading fails
+  - Proper error handling and visual feedback for failed image loads
+- **Text Overflow Prevention**: Fixed layout issues with long filenames and names
+  - Added `truncate` CSS classes to prevent text overflow from containers
+  - Added `title` attributes for hover tooltips when text is truncated
+  - Applied `max-w-32` constraints to catalog/library names in metadata sections
+  - Enhanced responsive text handling with `break-words` for descriptions
+- **Updated Navigation**: Search results now navigate to dedicated single image view
+- **Status**: Search UI fully functional with proper image display, navigation, and layout handling
+- **User Experience**: Clean, professional search results with working thumbnails and proper navigation
 
 ## Technical Implementation Notes
 

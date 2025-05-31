@@ -26,7 +26,7 @@ export default function EmbeddingsAdminPage() {
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState('');
 
-  const generateEmbeddings = async (contentTypes: string[]) => {
+  const generateEmbeddings = async (contentTypes: string[], force?: boolean) => {
     setLoading(true);
     setProgress(0);
     setResults(null);
@@ -39,7 +39,8 @@ export default function EmbeddingsAdminPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          content_types: contentTypes
+          content_types: contentTypes,
+          force_regenerate: force
         })
       });
 
@@ -78,12 +79,13 @@ export default function EmbeddingsAdminPage() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          content_types: ['image']
+          content_types: ['image'],
+          batch_size: 20
         })
       });
 
       const data = await response.json();
-      setResults(data.details);
+      setResults(data.results);
       setProgress(100);
       setCurrentStep('Image embeddings completed!');
     } catch (error) {
@@ -214,6 +216,35 @@ export default function EmbeddingsAdminPage() {
                   {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
                   Generate All Embeddings (Full Batch)
                 </Button>
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3 text-amber-700">🔄 Force Regenerate (All Content)</h4>
+                <div className="grid gap-3">
+                  <Button
+                    onClick={() => generateEmbeddings(['image'], true)}
+                    disabled={loading}
+                    variant="secondary"
+                    className="justify-start border-amber-300 bg-amber-50 hover:bg-amber-100"
+                  >
+                    {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+                    🔥 Force Regenerate ALL Image Embeddings (Fix Dimensions)
+                  </Button>
+                  
+                  <Button
+                    onClick={() => generateEmbeddings(['catalog', 'library', 'image', 'job_result'], true)}
+                    disabled={loading}
+                    variant="secondary"
+                    className="justify-start border-red-300 bg-red-50 hover:bg-red-100"
+                  >
+                    {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+                    🔥 Force Regenerate EVERYTHING (Complete Reset)
+                  </Button>
+                </div>
+                <p className="text-sm text-amber-700 mt-2">
+                  ⚠️ These buttons will regenerate embeddings even if they already exist. 
+                  Use this to fix dimension mismatches from previous generations.
+                </p>
               </div>
 
               {loading && (

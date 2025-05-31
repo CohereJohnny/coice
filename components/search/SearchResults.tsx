@@ -104,7 +104,7 @@ export function SearchResults({
       case 'library':
         return `/libraries/${result.id}`;
       case 'image':
-        return `/libraries/${result.context?.library_name}?image=${result.id}`;
+        return `/libraries/${result.context?.library_id}/images/${result.id}`;
       case 'job_result':
         return `/analysis/jobs/${result.context?.job_id}`;
       default:
@@ -181,11 +181,30 @@ export function SearchResults({
             <Card key={result.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
-                  {/* Type Icon */}
+                  {/* Type Icon or Thumbnail */}
                   <div className="flex-shrink-0">
-                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                      <Icon className="h-6 w-6 text-muted-foreground" />
-                    </div>
+                    {result.type === 'image' && result.thumbnail_url ? (
+                      <div className="w-12 h-12 rounded-lg border overflow-hidden bg-muted">
+                        <img
+                          src={result.thumbnail_url}
+                          alt={result.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // Fallback to icon if image fails to load
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            target.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                        <div className="hidden w-full h-full flex items-center justify-center">
+                          <Icon className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                        <Icon className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
                   </div>
                   
                   {/* Content */}
@@ -211,6 +230,8 @@ export function SearchResults({
                             className="hover:text-primary transition-colors"
                           >
                             <span 
+                              className="truncate block max-w-full"
+                              title={result.title}
                               dangerouslySetInnerHTML={{
                                 __html: highlightText(result.title, query)
                               }}
@@ -231,7 +252,7 @@ export function SearchResults({
                     
                     {/* Description */}
                     {result.description && (
-                      <p className="text-muted-foreground mb-3 line-clamp-2">
+                      <p className="text-muted-foreground mb-3 line-clamp-2 break-words">
                         <span 
                           dangerouslySetInnerHTML={{
                             __html: highlightText(result.description, query)
@@ -248,14 +269,14 @@ export function SearchResults({
                       </div>
                       
                       {result.context?.catalog_name && (
-                        <div>
-                          Catalog: {result.context.catalog_name}
+                        <div className="truncate">
+                          Catalog: <span className="font-medium">{result.context.catalog_name}</span>
                         </div>
                       )}
                       
                       {result.context?.library_name && (
-                        <div>
-                          Library: {result.context.library_name}
+                        <div className="truncate">
+                          Library: <span className="font-medium">{result.context.library_name}</span>
                         </div>
                       )}
                       
@@ -277,17 +298,23 @@ export function SearchResults({
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         {result.context.catalog_name && (
                           <>
-                            <span>{result.context.catalog_name}</span>
+                            <span className="truncate max-w-32" title={result.context.catalog_name}>
+                              {result.context.catalog_name}
+                            </span>
                             {result.context.library_name && <span className="mx-1">/</span>}
                           </>
                         )}
                         {result.context.library_name && (
-                          <span>{result.context.library_name}</span>
+                          <span className="truncate max-w-32" title={result.context.library_name}>
+                            {result.context.library_name}
+                          </span>
                         )}
                         {result.context.pipeline_name && (
                           <>
                             <span className="mx-1">•</span>
-                            <span>Pipeline: {result.context.pipeline_name}</span>
+                            <span className="truncate max-w-32" title={result.context.pipeline_name}>
+                              Pipeline: {result.context.pipeline_name}
+                            </span>
                           </>
                         )}
                       </div>

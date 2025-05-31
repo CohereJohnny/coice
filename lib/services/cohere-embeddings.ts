@@ -43,6 +43,7 @@ export async function generateTextEmbedding(text: string): Promise<EmbeddingResu
       texts: [text],
       inputType: 'search_document',
       embeddingTypes: ['float'],
+      outputDimension: 1024,
     });
 
     const embedding = response.embeddings?.float?.[0];
@@ -85,17 +86,30 @@ export async function generateImageEmbedding(imageBase64: string): Promise<Embed
       ]
     };
 
+    console.log('🔍 Cohere Image Embedding: Requesting 1024 dimensions...');
+    
     const response = await cohere.embed({
       model: 'embed-v4.0',
       inputs: [imageInput],
       inputType: 'search_document',
       embeddingTypes: ['float'],
+      outputDimension: 1024, // Force 1024 dimensions to match database schema
     });
 
     const embedding = response.embeddings?.float?.[0];
     
     if (!embedding) {
       return { embedding: [], success: false, error: 'No embedding returned from Cohere' };
+    }
+
+    console.log(`🔍 Cohere Image Embedding: Received ${embedding.length} dimensions (expected 1024)`);
+    console.log(`🔍 First 3 values: [${embedding.slice(0, 3).map(v => v.toFixed(6)).join(', ')}]`);
+    console.log(`🔍 Last 3 values: [${embedding.slice(-3).map(v => v.toFixed(6)).join(', ')}]`);
+    console.log(`🔍 Embedding array length verification: ${Array.isArray(embedding) ? embedding.length : 'NOT_ARRAY'}`);
+    
+    if (embedding.length !== 1024) {
+      console.error(`🚨 DIMENSION MISMATCH: Expected 1024, got ${embedding.length}`);
+      return { embedding: [], success: false, error: `Dimension mismatch: expected 1024, got ${embedding.length}` };
     }
 
     return { embedding, success: true };
@@ -123,6 +137,7 @@ export async function generateSearchEmbedding(query: string): Promise<EmbeddingR
       texts: [query],
       inputType: 'search_query',
       embeddingTypes: ['float'],
+      outputDimension: 1024,
     });
 
     const embedding = response.embeddings?.float?.[0];
@@ -163,6 +178,7 @@ export async function generateBatchTextEmbeddings(texts: string[]): Promise<Batc
       texts: validTexts,
       inputType: 'search_document',
       embeddingTypes: ['float'],
+      outputDimension: 1024,
     });
 
     const embeddings = response.embeddings?.float;

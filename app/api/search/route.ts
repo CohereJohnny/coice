@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase';
 import { generateSearchEmbedding } from '@/lib/services/cohere-embeddings';
+import { getSignedUrl } from '@/lib/gcs';
 import { headers } from 'next/headers';
 
 export interface SearchFilters {
@@ -27,6 +28,7 @@ export interface SearchResult {
   context?: {
     catalog_name?: string;
     library_name?: string;
+    library_id?: number;
     library_path?: string;
     job_id?: string;
     pipeline_name?: string;
@@ -70,7 +72,7 @@ export async function GET(request: NextRequest) {
       user_id: searchParams.get('user_id') || undefined,
       library_id: searchParams.get('library_id') ? parseInt(searchParams.get('library_id')!) : undefined,
       catalog_id: searchParams.get('catalog_id') ? parseInt(searchParams.get('catalog_id')!) : undefined,
-      similarity_threshold: searchParams.get('similarity_threshold') ? parseFloat(searchParams.get('similarity_threshold')!) : 0.7,
+      similarity_threshold: searchParams.get('similarity_threshold') ? parseFloat(searchParams.get('similarity_threshold')!) : 0.3,
     };
 
     if (!query.trim()) {
@@ -101,6 +103,13 @@ export async function GET(request: NextRequest) {
       const embeddingResult = await generateSearchEmbedding(query);
       
       if (embeddingResult.success) {
+        // Debug: log query embedding info for dog searches
+        if (query.toLowerCase().includes('dog')) {
+          console.log(`🔍 Query embedding for "${query}": dimension=${embeddingResult.embedding.length}, first_values=[${embeddingResult.embedding.slice(0, 5).map(v => v.toFixed(3)).join(', ')}]`);
+          console.log(`🔍 Query embedding type check: ${typeof embeddingResult.embedding[0]}, isArray=${Array.isArray(embeddingResult.embedding)}`);
+          console.log(`🔍 Query embedding sum: ${embeddingResult.embedding.reduce((sum, val) => sum + Math.abs(val), 0).toFixed(6)}`);
+        }
+        
         searchResults = await performVectorSearch(supabase, query, embeddingResult.embedding, filters, page, per_page, sort_by, search_type);
       } else {
         console.warn('Failed to generate search embedding, falling back to text search:', embeddingResult.error);
@@ -308,7 +317,20 @@ async function searchCatalogsVector(supabase: any, query: string, queryEmbedding
   });
 
   // Filter by similarity threshold
-  return results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
+  const filteredResults = results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.3));
+  
+  // Debug logging for dog searches
+  if (query.toLowerCase().includes('dog')) {
+    console.log(`🔍 Dog search: Found ${data?.length} images with embeddings, ${results.length} processed, ${filteredResults.length} passed threshold`);
+    console.log(`🔍 Similarity threshold being used: ${filters.similarity_threshold || 0.3}`);
+    console.log(`🔍 Top 5 similarity scores: ${results.slice(0, 5).map((r: SearchResult) => r.similarity_score?.toFixed(3)).join(', ')}`);
+    if (filteredResults.length === 0 && results.length > 0) {
+      console.log(`🔍 Highest similarity score: ${Math.max(...results.map((r: SearchResult) => r.similarity_score || 0)).toFixed(3)}`);
+      console.log(`🔍 Would pass with threshold 0.1: ${results.filter((r: SearchResult) => (r.similarity_score || 0) >= 0.1).length} results`);
+    }
+  }
+  
+  return filteredResults;
 }
 
 async function searchLibrariesVector(supabase: any, query: string, queryEmbedding: number[], filters: SearchFilters, search_type: string) {
@@ -362,12 +384,27 @@ async function searchLibrariesVector(supabase: any, query: string, queryEmbeddin
       context: {
         catalog_name: library.catalogs?.name,
         library_name: library.name,
+        library_id: library.id,
         library_path: library.name
       }
     };
   });
 
-  return results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
+  // Filter by similarity threshold
+  const filteredResults = results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.3));
+  
+  // Debug logging for dog searches
+  if (query.toLowerCase().includes('dog')) {
+    console.log(`🔍 Dog search: Found ${data?.length} images with embeddings, ${results.length} processed, ${filteredResults.length} passed threshold`);
+    console.log(`🔍 Similarity threshold being used: ${filters.similarity_threshold || 0.3}`);
+    console.log(`🔍 Top 5 similarity scores: ${results.slice(0, 5).map((r: SearchResult) => r.similarity_score?.toFixed(3)).join(', ')}`);
+    if (filteredResults.length === 0 && results.length > 0) {
+      console.log(`🔍 Highest similarity score: ${Math.max(...results.map((r: SearchResult) => r.similarity_score || 0)).toFixed(3)}`);
+      console.log(`🔍 Would pass with threshold 0.1: ${results.filter((r: SearchResult) => (r.similarity_score || 0) >= 0.1).length} results`);
+    }
+  }
+  
+  return filteredResults;
 }
 
 async function searchImagesVector(supabase: any, query: string, queryEmbedding: number[], filters: SearchFilters, search_type: string) {
@@ -406,11 +443,38 @@ async function searchImagesVector(supabase: any, query: string, queryEmbedding: 
     return [];
   }
 
+  // Debug the raw embedding data format for first image
+  if (query.toLowerCase().includes('dog') && data && data.length > 0) {
+    const firstImage = data[0];
+    const filename = firstImage.gcs_path.split('/').pop() || '';
+    console.log(`🔍 RAW EMBEDDING DEBUG for ${filename}:`);
+    console.log(`🔍 Embedding type: ${typeof firstImage.embedding}`);
+    console.log(`🔍 Embedding constructor: ${firstImage.embedding?.constructor?.name}`);
+    console.log(`🔍 Is array: ${Array.isArray(firstImage.embedding)}`);
+    console.log(`🔍 Raw embedding length: ${firstImage.embedding?.length}`);
+    if (typeof firstImage.embedding === 'string') {
+      console.log(`🔍 String preview: ${firstImage.embedding.substring(0, 100)}...`);
+      try {
+        const parsed = JSON.parse(firstImage.embedding);
+        console.log(`🔍 Parsed type: ${typeof parsed}, isArray: ${Array.isArray(parsed)}, length: ${parsed?.length}`);
+      } catch (e) {
+        console.log(`🔍 JSON parse failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+      }
+    }
+    console.log(`🔍 Embedding first few values: ${JSON.stringify(firstImage.embedding).substring(0, 200)}`);
+  }
+
   const results = (data || []).map((image: any): SearchResult => {
     const filename = image.gcs_path.split('/').pop() || '';
     const metadata = image.metadata || {};
+    
     const similarity = calculateCosineSimilarity(queryEmbedding, image.embedding);
     const textRelevance = calculateRelevanceScore(query, filename, JSON.stringify(metadata));
+    
+    // Debug logging for dog searches
+    if (query.toLowerCase().includes('dog')) {
+      console.log(`🔍 Image search debug: ${filename}, similarity: ${similarity.toFixed(3)}, threshold: ${filters.similarity_threshold}`);
+    }
     
     return {
       id: image.id,
@@ -424,6 +488,7 @@ async function searchImagesVector(supabase: any, query: string, queryEmbedding: 
       context: {
         catalog_name: image.libraries?.catalogs?.name,
         library_name: image.libraries?.name,
+        library_id: image.library_id,
         library_path: image.libraries?.name
       },
       file_size: metadata.file_size,
@@ -431,7 +496,61 @@ async function searchImagesVector(supabase: any, query: string, queryEmbedding: 
     };
   });
 
-  return results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
+  // Generate thumbnail URLs for the filtered results
+  const filteredResults = results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.3));
+  
+  // Add thumbnail URLs to the filtered results
+  const resultsWithThumbnails = await Promise.all(
+    filteredResults.map(async (result: SearchResult) => {
+      try {
+        const imageData = data?.find((img: any) => img.id === result.id);
+        if (!imageData) return result;
+
+        let thumbnailUrl: string | undefined;
+
+        // Try to get thumbnail URL first
+        if (imageData.metadata?.thumbnail?.path) {
+          try {
+            const thumbnailFileName = imageData.metadata.thumbnail.path.replace(`gs://${process.env.GCS_BUCKET_NAME}/`, '');
+            thumbnailUrl = await getSignedUrl(thumbnailFileName, 'read', new Date(Date.now() + 60 * 60 * 1000));
+          } catch (error) {
+            console.warn(`Failed to generate thumbnail URL for ${result.title}, falling back to original`);
+          }
+        }
+
+        // Fallback to original image if no thumbnail
+        if (!thumbnailUrl && imageData.gcs_path) {
+          try {
+            const originalFileName = imageData.gcs_path.replace(`gs://${process.env.GCS_BUCKET_NAME}/`, '');
+            thumbnailUrl = await getSignedUrl(originalFileName, 'read', new Date(Date.now() + 60 * 60 * 1000));
+          } catch (error) {
+            console.warn(`Failed to generate original image URL for ${result.title}`);
+          }
+        }
+
+        return {
+          ...result,
+          thumbnail_url: thumbnailUrl
+        };
+      } catch (error) {
+        console.error(`Error generating thumbnail URL for image ${result.id}:`, error);
+        return result;
+      }
+    })
+  );
+  
+  // Debug logging for dog searches
+  if (query.toLowerCase().includes('dog')) {
+    console.log(`🔍 Dog search: Found ${data?.length} images with embeddings, ${results.length} processed, ${resultsWithThumbnails.length} passed threshold`);
+    console.log(`🔍 Similarity threshold being used: ${filters.similarity_threshold || 0.3}`);
+    console.log(`🔍 Top 5 similarity scores: ${results.slice(0, 5).map((r: SearchResult) => r.similarity_score?.toFixed(3)).join(', ')}`);
+    if (resultsWithThumbnails.length === 0 && results.length > 0) {
+      console.log(`🔍 Highest similarity score: ${Math.max(...results.map((r: SearchResult) => r.similarity_score || 0)).toFixed(3)}`);
+      console.log(`🔍 Would pass with threshold 0.1: ${results.filter((r: SearchResult) => (r.similarity_score || 0) >= 0.1).length} results`);
+    }
+  }
+  
+  return resultsWithThumbnails;
 }
 
 async function searchJobResultsVector(supabase: any, query: string, queryEmbedding: number[], filters: SearchFilters, search_type: string) {
@@ -507,33 +626,83 @@ async function searchJobResultsVector(supabase: any, query: string, queryEmbeddi
     };
   });
 
-  return results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.7));
+  return results.filter((result: SearchResult) => (result.similarity_score || 0) >= (filters.similarity_threshold || 0.3));
 }
 
 // Helper function for cosine similarity (matching the one in the service)
 function calculateCosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) {
+  // Ensure both vectors are proper arrays
+  const vectorA = parseVectorData(a);
+  const vectorB = parseVectorData(b);
+  
+  if (vectorA.length !== vectorB.length) {
+    console.log(`🔍 Similarity debug: dimension mismatch - a.length=${vectorA.length}, b.length=${vectorB.length}`);
     return 0;
+  }
+
+  // Debug logging for first similarity calculation
+  if (vectorA.length === 1024 && vectorB.length === 1024) {
+    console.log(`🔍 Similarity debug: both vectors are 1024D`);
+    console.log(`🔍 Query vector first 3: [${vectorA.slice(0, 3).map(v => v.toFixed(6)).join(', ')}]`);
+    console.log(`🔍 Image vector first 3: [${vectorB.slice(0, 3).map(v => v.toFixed(6)).join(', ')}]`);
+    console.log(`🔍 Query vector type: ${typeof vectorA[0]}, Image vector type: ${typeof vectorB[0]}`);
   }
 
   let dotProduct = 0;
   let normA = 0;
   let normB = 0;
 
-  for (let i = 0; i < a.length; i++) {
-    dotProduct += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
+  for (let i = 0; i < vectorA.length; i++) {
+    dotProduct += vectorA[i] * vectorB[i];
+    normA += vectorA[i] * vectorA[i];
+    normB += vectorB[i] * vectorB[i];
   }
 
   normA = Math.sqrt(normA);
   normB = Math.sqrt(normB);
 
   if (normA === 0 || normB === 0) {
+    console.log(`🔍 Similarity debug: zero norm - normA=${normA}, normB=${normB}`);
+    console.log(`🔍 dotProduct=${dotProduct}`);
     return 0;
   }
 
-  return dotProduct / (normA * normB);
+  const similarity = dotProduct / (normA * normB);
+  
+  // Debug for first calculation
+  if (vectorA.length === 1024) {
+    console.log(`🔍 Similarity result: ${similarity.toFixed(6)}, dotProduct=${dotProduct.toFixed(6)}, normA=${normA.toFixed(6)}, normB=${normB.toFixed(6)}`);
+  }
+  
+  return similarity;
+}
+
+// Helper function to parse vector data from Supabase
+function parseVectorData(vector: any): number[] {
+  // If it's already an array of numbers, return as is
+  if (Array.isArray(vector) && typeof vector[0] === 'number') {
+    return vector;
+  }
+  
+  // If it's a string representation of an array, parse it
+  if (typeof vector === 'string') {
+    try {
+      const parsed = JSON.parse(vector);
+      if (Array.isArray(parsed)) {
+        return parsed.map(v => Number(v));
+      }
+    } catch (e) {
+      console.error('🔍 Failed to parse vector string:', e instanceof Error ? e.message : 'Unknown error');
+    }
+  }
+  
+  // If it's an array of strings, convert to numbers
+  if (Array.isArray(vector) && typeof vector[0] === 'string') {
+    return vector.map(v => Number(v));
+  }
+  
+  console.error('🔍 Unsupported vector format:', typeof vector, Array.isArray(vector));
+  return [];
 }
 
 function calculateRelevanceScore(searchTerm: string, title: string, content?: string): number {
@@ -659,6 +828,7 @@ async function searchLibraries(supabase: any, searchTerm: string, filters: Searc
     context: {
       catalog_name: library.catalogs?.name,
       library_name: library.name,
+      library_id: library.id,
       library_path: library.name
     }
   }));
@@ -718,6 +888,7 @@ async function searchImages(supabase: any, searchTerm: string, filters: SearchFi
       context: {
         catalog_name: image.libraries?.catalogs?.name,
         library_name: image.libraries?.name,
+        library_id: image.library_id,
         library_path: image.libraries?.name
       },
       file_size: metadata.file_size,
@@ -796,4 +967,4 @@ async function searchJobResults(supabase: any, searchTerm: string, filters: Sear
       }
     };
   });
-} 
+}
