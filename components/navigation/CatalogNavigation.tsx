@@ -74,20 +74,28 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
       const response = await fetch('/api/catalogs');
       if (response.ok) {
         const data: { catalogs: Array<Record<string, unknown>> } = await response.json();
+        console.log('Fetched catalogs:', data.catalogs);
+        
         const catalogsWithLibraries = await Promise.all(
           data.catalogs.map(async (catalog: Record<string, unknown>) => {
             const libResponse = await fetch(`/api/libraries?catalog_id=${catalog.id}`);
+            console.log(`Fetching libraries for catalog ${catalog.id}:`, libResponse.status);
+            
             if (libResponse.ok) {
               const libData = await libResponse.json();
+              console.log(`Libraries for catalog ${catalog.id}:`, libData);
+              // The API returns libraries already in hierarchical structure
+              // We just need to use them directly
               return {
                 ...catalog,
-                libraries: buildLibraryTree(libData.libraries || [])
+                libraries: libData.libraries || []
               };
             }
             return { ...catalog, libraries: [] };
           })
         );
          
+        console.log('Catalogs with libraries:', catalogsWithLibraries);
         setCatalogs(catalogsWithLibraries as any);
       }
     } catch (error) {
