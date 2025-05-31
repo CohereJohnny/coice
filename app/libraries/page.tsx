@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, FolderPlus, Library } from 'lucide-react';
+import { Plus, FolderPlus, Library, MoreHorizontal, Search, Edit, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Catalog {
@@ -278,16 +278,62 @@ export default function LibrariesPage() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {libraries.map((library) => (
-                      <Card key={library.id} className="hover:shadow-lg transition-shadow">
+                      <Card key={library.id} className="hover:shadow-lg transition-shadow relative">
                         <CardHeader className="pb-3">
-                          <CardTitle className="text-lg font-semibold truncate">
-                            {library.name}
-                          </CardTitle>
-                          <div className="text-sm text-muted-foreground">
-                            Catalog: {library.catalog?.name}
-                            {library.parent && (
-                              <div>Parent: {library.parent.name}</div>
-                            )}
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <CardTitle className="text-lg font-semibold truncate">
+                                {library.name}
+                              </CardTitle>
+                              <div className="text-sm text-muted-foreground">
+                                Catalog: {library.catalog?.name}
+                                {library.parent && (
+                                  <div>Parent: {library.parent.name}</div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="relative">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => document.getElementById(`library-menu-${library.id}`)?.classList.toggle('hidden')}
+                                className="h-8 w-8 p-0"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                              <div 
+                                id={`library-menu-${library.id}`}
+                                className="hidden absolute right-0 top-8 z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 min-w-[120px]"
+                              >
+                                <button
+                                  onClick={() => {
+                                    window.location.href = `/libraries/${library.id}`;
+                                  }}
+                                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                  View
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    window.location.href = `/search?similar_to=library_${library.id}&types=library`;
+                                  }}
+                                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  <Search className="h-4 w-4" />
+                                  Find Similar
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setLibraryDialog({ open: true, mode: 'edit', library });
+                                  }}
+                                  className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                  Edit
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent>

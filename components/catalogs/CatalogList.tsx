@@ -11,7 +11,8 @@ import {
   Trash2, 
   FolderOpen, 
   Calendar,
-  User
+  User,
+  Search
 } from 'lucide-react';
 
 interface Catalog {
@@ -160,6 +161,19 @@ export function CatalogList({
                       >
                         <FolderOpen className="h-4 w-4" />
                         View
+                      </button>
+                    )}
+                    {(
+                      <button
+                        onClick={() => {
+                          // Navigate to search with similarity search
+                          window.location.href = `/search?similar_to=catalog_${catalog.id}&types=catalog`;
+                          setExpandedActions(null);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        <Search className="h-4 w-4" />
+                        Find Similar
                       </button>
                     )}
                     {onEdit && canEdit(catalog) && (

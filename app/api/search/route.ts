@@ -995,7 +995,7 @@ async function searchJobResults(supabase: any, searchTerm: string, filters: Sear
 
 async function performSimilaritySearch(
   supabase: any,
-  referenceImageId: string,
+  referenceId: string,
   filters: SearchFilters,
   page: number,
   per_page: number,
@@ -1004,33 +1004,149 @@ async function performSimilaritySearch(
   const offset = (page - 1) * per_page;
   
   try {
-    // First, get the embedding of the reference image
-    const { data: referenceImage, error: referenceError } = await supabase
-      .from('images')
-      .select('embedding, metadata')
-      .eq('id', referenceImageId)
-      .single();
+    // Parse the reference ID to determine content type
+    let contentType: 'catalog' | 'library' | 'image' | 'job_result' = 'image';
+    let actualId: string = referenceId;
     
-    if (referenceError || !referenceImage || !referenceImage.embedding) {
-      throw new Error('Reference image not found or has no embedding');
+    if (referenceId.startsWith('catalog_')) {
+      contentType = 'catalog';
+      actualId = referenceId.replace('catalog_', '');
+    } else if (referenceId.startsWith('library_')) {
+      contentType = 'library';
+      actualId = referenceId.replace('library_', '');
+    } else if (referenceId.startsWith('job_result_')) {
+      contentType = 'job_result';
+      actualId = referenceId.replace('job_result_', '');
     }
     
-    const referenceEmbedding = referenceImage.embedding;
-    console.log(`🔍 Finding images similar to image ${referenceImageId}`);
+    // Get the embedding of the reference item
+    let referenceEmbedding: number[];
+    let referenceTitle = '';
     
-    // Now search for similar images using the reference embedding
-    const imageResults = await searchImagesVector(
-      supabase, 
-      '', // Empty query since we're doing pure similarity search
-      referenceEmbedding, 
-      { ...filters, content_types: ['image'] }, // Force to images only
-      'similarity'
-    );
+    switch (contentType) {
+      case 'catalog':
+        const { data: catalog, error: catalogError } = await supabase
+          .from('catalogs')
+          .select('embedding, name')
+          .eq('id', actualId)
+          .single();
+        
+        if (catalogError || !catalog || !catalog.embedding) {
+          throw new Error('Reference catalog not found or has no embedding');
+        }
+        referenceEmbedding = catalog.embedding;
+        referenceTitle = catalog.name;
+        console.log(`🔍 Finding items similar to catalog "${referenceTitle}"`);
+        break;
+        
+      case 'library':
+        const { data: library, error: libraryError } = await supabase
+          .from('libraries')
+          .select('embedding, name')
+          .eq('id', actualId)
+          .single();
+        
+        if (libraryError || !library || !library.embedding) {
+          throw new Error('Reference library not found or has no embedding');
+        }
+        referenceEmbedding = library.embedding;
+        referenceTitle = library.name;
+        console.log(`🔍 Finding items similar to library "${referenceTitle}"`);
+        break;
+        
+      case 'job_result':
+        const { data: jobResult, error: jobResultError } = await supabase
+          .from('job_results')
+          .select('embedding, result')
+          .eq('id', actualId)
+          .single();
+        
+        if (jobResultError || !jobResult || !jobResult.embedding) {
+          throw new Error('Reference job result not found or has no embedding');
+        }
+        referenceEmbedding = jobResult.embedding;
+        referenceTitle = 'Analysis Result';
+        console.log(`🔍 Finding items similar to job result ${actualId}`);
+        break;
+        
+      case 'image':
+      default:
+        const { data: image, error: imageError } = await supabase
+          .from('images')
+          .select('embedding, metadata')
+          .eq('id', actualId)
+          .single();
+        
+        if (imageError || !image || !image.embedding) {
+          throw new Error('Reference image not found or has no embedding');
+        }
+        referenceEmbedding = image.embedding;
+        referenceTitle = image.metadata?.filename || 'Image';
+        console.log(`🔍 Finding items similar to image ${actualId}`);
+        break;
+    }
     
-    // Filter out the reference image itself from results
-    const filteredResults = imageResults.filter((result: SearchResult) => 
-      result.id.toString() !== referenceImageId
-    );
+    // Now search for similar items across all content types (unless filtered)
+    const results: SearchResult[] = [];
+    
+    // If specific content types are filtered, use those; otherwise search all
+    const searchTypes = filters.content_types || ['catalog', 'library', 'image', 'job_result'];
+    
+    // Search catalogs if included
+    if (searchTypes.includes('catalog')) {
+      const catalogResults = await searchCatalogsVector(
+        supabase,
+        '',
+        referenceEmbedding,
+        filters,
+        'similarity'
+      );
+      results.push(...catalogResults);
+    }
+    
+    // Search libraries if included
+    if (searchTypes.includes('library')) {
+      const libraryResults = await searchLibrariesVector(
+        supabase,
+        '',
+        referenceEmbedding,
+        filters,
+        'similarity'
+      );
+      results.push(...libraryResults);
+    }
+    
+    // Search images if included
+    if (searchTypes.includes('image')) {
+      const imageResults = await searchImagesVector(
+        supabase,
+        '',
+        referenceEmbedding,
+        { ...filters },
+        'similarity'
+      );
+      results.push(...imageResults);
+    }
+    
+    // Search job results if included
+    if (searchTypes.includes('job_result')) {
+      const jobResultResults = await searchJobResultsVector(
+        supabase,
+        '',
+        referenceEmbedding,
+        filters,
+        'similarity'
+      );
+      results.push(...jobResultResults);
+    }
+    
+    // Filter out the reference item itself from results
+    const filteredResults = results.filter((result: SearchResult) => {
+      if (contentType === result.type && result.id.toString() === actualId) {
+        return false;
+      }
+      return true;
+    });
     
     // Sort by similarity score
     filteredResults.sort((a, b) => (b.similarity_score || 0) - (a.similarity_score || 0));

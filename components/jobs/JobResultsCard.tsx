@@ -9,7 +9,8 @@ import {
   Eye, 
   Download,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react';
 import { imageService } from '@/lib/services/imageService';
 
@@ -294,17 +295,31 @@ export function JobResultsCard({
                   <span>ID: {result.id.slice(0, 8)}...</span>
                 </div>
                 
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onResultClick(result.id);
-                  }}
-                  className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-800 transition-colors rounded hover:bg-blue-50"
-                  title="View details"
-                >
-                  <Eye className="h-3 w-3" />
-                  View Details
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.location.href = `/search?similar_to=job_result_${result.id}&types=job_result`;
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-800 transition-colors rounded hover:bg-gray-50"
+                    title="Find similar results"
+                  >
+                    <Search className="h-3 w-3" />
+                    Find Similar
+                  </button>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onResultClick(result.id);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:text-blue-800 transition-colors rounded hover:bg-blue-50"
+                    title="View details"
+                  >
+                    <Eye className="h-3 w-3" />
+                    View Details
+                  </button>
+                </div>
               </div>
             </div>
           </div>

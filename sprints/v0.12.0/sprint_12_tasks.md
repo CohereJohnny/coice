@@ -104,9 +104,11 @@ Implement comprehensive search functionality across all content types using Cohe
     - [x] Add similarity threshold controls for fine-tuning results
     - [x] Display similarity scores and visual comparison interface
 
-  - [ ] **"Find similar" functionality** - RELATED CONTENT DISCOVERY
-    - [ ] Extend similarity search to all content types (not just images)  
-    - [ ] Add "Find Similar" actions to catalog and library interfaces
+  - [x] **"Find similar" functionality** - RELATED CONTENT DISCOVERY
+    - [x] Extend similarity search to all content types (not just images)  
+    - [x] Add "Find Similar" actions to catalog and library interfaces
+    - [x] Add "Find Similar" actions to job results interface
+    - [x] Update search API to handle multi-content-type similarity
     - [ ] Cross-content-type similarity (find images similar to job results, etc.)
     - [ ] Smart similarity recommendations in search results
 
@@ -465,6 +467,32 @@ Implement comprehensive search functionality across all content types using Cohe
   - **Focus**: Emphasis on core functionality rather than excessive explanatory text
 - **Build Verification**: Successful compilation with no errors
 - **Status**: Search interface now follows clean, minimal design principles with much better UX
+
+#### [Date] - Extended "Find Similar" Functionality to All Content Types
+- **Task Completed**: Extend similarity search beyond images to catalogs, libraries, and job results
+- **Implementation Details**:
+  - **UI Integration**: Added "Find Similar" buttons to:
+    - CatalogList component dropdown menu
+    - Libraries page with action menu for each library card
+    - JobResultsCard footer next to "View Details"
+  - **API Enhancement**: Updated performSimilaritySearch function in search API:
+    - Parses reference IDs with content type prefixes (catalog_, library_, job_result_)
+    - Retrieves embeddings from appropriate tables based on content type
+    - Searches across all or filtered content types for similar items
+    - Filters out the reference item from results to avoid self-matches
+  - **URL Patterns**: 
+    - Catalogs: `/search?similar_to=catalog_123&types=catalog`
+    - Libraries: `/search?similar_to=library_456&types=library`
+    - Job Results: `/search?similar_to=job_result_789&types=job_result`
+    - Images: `/search?similar_to=123&types=image` (unchanged)
+  - **Cross-Content Search**: When types parameter is omitted, searches across all content types
+- **Technical Implementation**:
+  - Enhanced performSimilaritySearch to handle multiple content types
+  - Proper TypeScript typing with discriminated unions for content types
+  - Consistent UI/UX patterns across all content types
+  - Maintains similarity score sorting and threshold filtering
+- **Build Verification**: All changes compile successfully with no errors
+- **Status**: Find Similar functionality now works consistently across all content types in the system
 
 ## Technical Implementation Notes
 
