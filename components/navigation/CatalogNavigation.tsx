@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/stores/auth';
 import { toast } from 'sonner';
+import { catalogEvents } from '@/lib/catalogEvents';
 
 interface Library {
   id: number;
@@ -58,6 +59,13 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
 
   useEffect(() => {
     fetchCatalogs();
+    
+    // Listen for catalog updates
+    const unsubscribe = catalogEvents.on(() => {
+      fetchCatalogs();
+    });
+    
+    return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

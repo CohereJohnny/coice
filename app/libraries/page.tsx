@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, FolderPlus, Library, MoreHorizontal, Search, Edit, Eye } from 'lucide-react';
 import { toast } from 'sonner';
+import { catalogEvents } from '@/lib/catalogEvents';
 
 interface Catalog {
   id: number;
@@ -117,6 +118,7 @@ export default function LibrariesPage() {
       toast.success('Catalog created successfully');
       setCatalogDialog({ open: false, mode: 'create' });
       fetchData();
+      catalogEvents.emit();
     } catch (error) {
       console.error('Error creating catalog:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create catalog');
@@ -144,6 +146,7 @@ export default function LibrariesPage() {
       toast.success('Catalog updated successfully');
       setCatalogDialog({ open: false, mode: 'create' });
       fetchData();
+      catalogEvents.emit();
     } catch (error) {
       console.error('Error updating catalog:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update catalog');
@@ -165,6 +168,7 @@ export default function LibrariesPage() {
 
       toast.success('Catalog deleted successfully');
       fetchData();
+      catalogEvents.emit();
     } catch (error) {
       console.error('Error deleting catalog:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to delete catalog');
