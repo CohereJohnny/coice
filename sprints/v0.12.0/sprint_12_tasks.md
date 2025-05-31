@@ -261,6 +261,33 @@ Implement comprehensive search functionality across all content types using Cohe
 - **Status**: Search UI fully functional with proper image display, navigation, and layout handling
 - **User Experience**: Clean, professional search results with working thumbnails and proper navigation
 
+#### [Date] - Fixed Bulk Image Deletion UX Issue with Sonner Confirmations
+- **User Problem**: JavaScript alerts popping up for every single image during bulk deletion
+- **Issue Identified**: Poor UX caused by:
+  - Bulk delete asking for confirmation once with `confirm()`
+  - Then calling individual `handleDeleteImage` for each image
+  - Each individual call showing another `confirm()` dialog
+  - Multiple interruptions for user during bulk operations
+- **Solution Implemented**:
+  - **Sonner Integration**: Replaced all JavaScript `confirm()` calls with Sonner toast confirmations
+  - **Single Confirmation**: Bulk delete now shows one confirmation toast with action buttons
+  - **Action Buttons**: "Delete" and "Cancel" buttons in the toast for user decision
+  - **Progress Feedback**: Shows "Deleting X images..." during bulk operation
+  - **Smart Results**: Detailed final feedback with success/failure counts
+  - **Error Handling**: Graceful handling of partial failures with appropriate messages
+- **Technical Implementation**:
+  - **Modified Functions**: Updated `handleDeleteImage`, `handleBulkDelete`, and created `performDeleteImage`
+  - **Message Suppression**: Bulk operations suppress individual success/error messages
+  - **Single Refresh**: Only refresh images list once at end of bulk operation
+  - **Consistent UX**: Both individual and bulk deletions use Sonner for confirmations
+  - **10 Second Timeout**: User has 10 seconds to decide on deletion confirmation
+- **User Experience Improvements**:
+  - **No Interruptions**: Single confirmation for bulk operations
+  - **Clear Progress**: Visual feedback during multi-image deletion
+  - **Informative Results**: "Deleted 5 images, failed to delete 2 images" type messaging
+  - **Consistent Interface**: All confirmations use the same Sonner toast pattern
+- **Status**: Bulk deletion now provides smooth, uninterrupted UX with proper confirmation flow
+
 #### [Date] - Advanced Search Filters Hidden Behind Feature Flag
 - **User Request**: Hide all advanced search options behind feature flag until actually needed
 - **Problem**: Too many filters and options overwhelming the search interface by default
