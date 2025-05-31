@@ -57,21 +57,17 @@ export function useSingleImageState({
     try {
       setError(null);
       
-      console.log('Fetching image with ID:', imageId);
       const response = await fetch(`/api/images/${imageId}?signed=true`);
       
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('API Error:', errorData);
         throw new Error(errorData.error || 'Failed to fetch image');
       }
       
       const data = await response.json();
-      console.log('API Response:', data);
       
       // Check if we have the expected data structure
       if (!data.image) {
-        console.error('Missing image data in response:', data);
         throw new Error('Invalid response format: missing image data');
       }
       
@@ -93,7 +89,6 @@ export function useSingleImageState({
         } : undefined
       };
       
-      console.log('Processed image data:', imageData);
       setImage(imageData);
       
       // Derive library ID if not provided
@@ -102,7 +97,6 @@ export function useSingleImageState({
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load image';
-      console.error('Image fetch error:', err);
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
