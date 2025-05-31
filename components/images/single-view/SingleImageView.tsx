@@ -33,6 +33,7 @@ export function SingleImageView({
     startAnalysis,
     downloadImage,
     deleteImage,
+    findSimilarImages,
     goToLibrary,
     goToCarousel
   } = useSingleImageState({ libraryId, imageId });
@@ -175,6 +176,7 @@ export function SingleImageView({
               onStartAnalysis={startAnalysis}
               onDownload={downloadImage}
               onDelete={deleteImage}
+              onFindSimilar={findSimilarImages}
               generatedContent={generatedContent}
             />
           )}

@@ -50,87 +50,99 @@ export interface SearchResponse {
 }
 
 export async function GET(request: NextRequest) {
-  const start_time = Date.now();
-  
   try {
-    const supabase = await createSupabaseServerClient();
     const searchParams = request.nextUrl.searchParams;
-    
-    // Get search parameters
     const query = searchParams.get('q') || '';
     const page = parseInt(searchParams.get('page') || '1');
     const per_page = Math.min(parseInt(searchParams.get('per_page') || '20'), 100);
     const sort_by = searchParams.get('sort') || 'relevance';
-    const search_type = searchParams.get('search_type') || 'hybrid'; // text, semantic, hybrid
+    const search_type = searchParams.get('search_type') || 'hybrid';
+    const similarity_threshold = parseFloat(searchParams.get('similarity_threshold') || '0.3');
+    
+    // Visual similarity search parameters
+    const similar_to = searchParams.get('similar_to'); // Image ID for similarity search
     
     // Parse filters
     const filters: SearchFilters = {
-      content_types: searchParams.get('types')?.split(',').filter(Boolean),
+      content_types: searchParams.get('types')?.split(','),
       date_from: searchParams.get('date_from') || undefined,
       date_to: searchParams.get('date_to') || undefined,
-      file_types: searchParams.get('file_types')?.split(',').filter(Boolean),
-      user_id: searchParams.get('user_id') || undefined,
       library_id: searchParams.get('library_id') ? parseInt(searchParams.get('library_id')!) : undefined,
       catalog_id: searchParams.get('catalog_id') ? parseInt(searchParams.get('catalog_id')!) : undefined,
-      similarity_threshold: searchParams.get('similarity_threshold') ? parseFloat(searchParams.get('similarity_threshold')!) : 0.3,
+      file_types: searchParams.get('file_types')?.split(','),
+      similarity_threshold
     };
 
-    if (!query.trim()) {
-      return NextResponse.json({
-        results: [],
-        total_count: 0,
-        page,
-        per_page,
-        query,
-        filters,
-        execution_time_ms: Date.now() - start_time,
-        search_type: 'text'
-      } as SearchResponse);
-    }
-
+    const supabase = await createSupabaseServerClient();
+    
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Perform search based on type
-    let searchResults;
-    let actualSearchType = search_type;
+    const startTime = Date.now();
+    let searchResult;
 
-    if (search_type === 'semantic' || search_type === 'hybrid') {
-      // Generate search embedding
+    // Handle visual similarity search
+    if (similar_to) {
+      searchResult = await performSimilaritySearch(
+        supabase,
+        similar_to,
+        filters,
+        page,
+        per_page,
+        sort_by
+      );
+    } else if (query.trim()) {
+      // Regular text/semantic search
       const embeddingResult = await generateSearchEmbedding(query);
       
       if (embeddingResult.success) {
-        // Debug: log query embedding info for dog searches
-        if (query.toLowerCase().includes('dog')) {
-          console.log(`🔍 Query embedding for "${query}": dimension=${embeddingResult.embedding.length}, first_values=[${embeddingResult.embedding.slice(0, 5).map(v => v.toFixed(3)).join(', ')}]`);
-          console.log(`🔍 Query embedding type check: ${typeof embeddingResult.embedding[0]}, isArray=${Array.isArray(embeddingResult.embedding)}`);
-          console.log(`🔍 Query embedding sum: ${embeddingResult.embedding.reduce((sum, val) => sum + Math.abs(val), 0).toFixed(6)}`);
-        }
-        
-        searchResults = await performVectorSearch(supabase, query, embeddingResult.embedding, filters, page, per_page, sort_by, search_type);
+        console.log('🔍 Using vector search with embedding');
+        searchResult = await performVectorSearch(
+          supabase,
+          query,
+          embeddingResult.embedding,
+          filters,
+          page,
+          per_page,
+          sort_by,
+          search_type
+        );
       } else {
-        console.warn('Failed to generate search embedding, falling back to text search:', embeddingResult.error);
-        searchResults = await performTextSearch(supabase, query, filters, page, per_page, sort_by);
-        actualSearchType = 'text';
+        console.log('🔍 Falling back to text search');
+        searchResult = await performTextSearch(
+          supabase,
+          query,
+          filters,
+          page,
+          per_page,
+          sort_by
+        );
       }
     } else {
-      searchResults = await performTextSearch(supabase, query, filters, page, per_page, sort_by);
+      // No query provided
+      return NextResponse.json({
+        results: [],
+        total_count: 0,
+        page,
+        per_page,
+        total_pages: 0,
+        execution_time_ms: Date.now() - startTime
+      });
     }
-    
-    const response: SearchResponse = {
-      ...searchResults,
-      query,
-      filters,
-      execution_time_ms: Date.now() - start_time,
-      search_type: actualSearchType as any
-    };
 
-    return NextResponse.json(response);
+    const executionTime = Date.now() - startTime;
+    console.log(`🔍 Search completed in ${executionTime}ms`);
+
+    return NextResponse.json({
+      ...searchResult,
+      execution_time_ms: executionTime
+    });
+
   } catch (error) {
-    console.error('Search error:', error);
+    console.error('Search API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -187,6 +199,12 @@ async function performVectorSearch(
     results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   } else if (sort_by === 'alphabetical') {
     results.sort((a, b) => a.title.localeCompare(b.title));
+  } else if (sort_by === 'file_size') {
+    results.sort((a, b) => {
+      const sizeA = a.file_size || 0;
+      const sizeB = b.file_size || 0;
+      return sizeB - sizeA; // Largest files first
+    });
   }
 
   total_count = results.length;
@@ -247,6 +265,12 @@ async function performTextSearch(
     results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   } else if (sort_by === 'alphabetical') {
     results.sort((a, b) => a.title.localeCompare(b.title));
+  } else if (sort_by === 'file_size') {
+    results.sort((a, b) => {
+      const sizeA = a.file_size || 0;
+      const sizeB = b.file_size || 0;
+      return sizeB - sizeA; // Largest files first
+    });
   }
 
   total_count = results.length;
@@ -967,4 +991,66 @@ async function searchJobResults(supabase: any, searchTerm: string, filters: Sear
       }
     };
   });
+}
+
+async function performSimilaritySearch(
+  supabase: any,
+  referenceImageId: string,
+  filters: SearchFilters,
+  page: number,
+  per_page: number,
+  sort_by: string
+) {
+  const offset = (page - 1) * per_page;
+  
+  try {
+    // First, get the embedding of the reference image
+    const { data: referenceImage, error: referenceError } = await supabase
+      .from('images')
+      .select('embedding, metadata')
+      .eq('id', referenceImageId)
+      .single();
+    
+    if (referenceError || !referenceImage || !referenceImage.embedding) {
+      throw new Error('Reference image not found or has no embedding');
+    }
+    
+    const referenceEmbedding = referenceImage.embedding;
+    console.log(`🔍 Finding images similar to image ${referenceImageId}`);
+    
+    // Now search for similar images using the reference embedding
+    const imageResults = await searchImagesVector(
+      supabase, 
+      '', // Empty query since we're doing pure similarity search
+      referenceEmbedding, 
+      { ...filters, content_types: ['image'] }, // Force to images only
+      'similarity'
+    );
+    
+    // Filter out the reference image itself from results
+    const filteredResults = imageResults.filter((result: SearchResult) => 
+      result.id.toString() !== referenceImageId
+    );
+    
+    // Sort by similarity score
+    filteredResults.sort((a, b) => (b.similarity_score || 0) - (a.similarity_score || 0));
+    
+    const total_count = filteredResults.length;
+    const paginatedResults = filteredResults.slice(offset, offset + per_page);
+    
+    return {
+      results: paginatedResults,
+      total_count,
+      page,
+      per_page
+    };
+  } catch (error) {
+    console.error('Similarity search error:', error);
+    return {
+      results: [],
+      total_count: 0,
+      page,
+      per_page
+    };
+  }
 }

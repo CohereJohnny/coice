@@ -37,7 +37,8 @@ export function useSingleImageState({
     description: false,
     analysis: false,
     download: false,
-    delete: false
+    delete: false,
+    findSimilar: false
   });
   
   // Generated content state
@@ -254,6 +255,28 @@ export function useSingleImageState({
     }
   }, [image, imageId, setLoadingState]);
   
+  // Find similar images action
+  const findSimilarImages = useCallback(async (): Promise<void> => {
+    if (!image) return;
+    
+    setLoadingState('findSimilar', true);
+    try {
+      // Navigate to search page with similarity search for this image
+      const searchParams = new URLSearchParams({
+        similar_to: imageId,
+        types: 'image',
+        sort: 'similarity'
+      });
+      
+      router.push(`/search?${searchParams.toString()}`);
+      toast.success('Finding similar images...');
+    } catch (err) {
+      toast.error('Failed to initiate similarity search');
+    } finally {
+      setLoadingState('findSimilar', false);
+    }
+  }, [image, imageId, router, setLoadingState]);
+  
   // Navigation helpers
   const goToLibrary = useCallback(() => {
     if (effectiveLibraryId) {
@@ -319,6 +342,7 @@ export function useSingleImageState({
     startAnalysis,
     downloadImage,
     deleteImage,
+    findSimilarImages,
     
     // Navigation helpers
     goToLibrary,

@@ -13,7 +13,8 @@ import {
   Loader2,
   Tags,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ImageActionsProps } from './types';
@@ -30,6 +31,7 @@ export function ImageActions({
   onStartAnalysis,
   onDownload,
   onDelete,
+  onFindSimilar,
   generatedContent,
   className
 }: ImageActionsProps) {
@@ -88,6 +90,20 @@ export function ImageActions({
                   <FileText className="h-4 w-4 mr-2" />
                 )}
                 Generate Description
+              </Button>
+              
+              <Button
+                variant="outline"
+                onClick={onFindSimilar}
+                disabled={loadingStates.findSimilar}
+                className="w-full justify-start"
+              >
+                {loadingStates.findSimilar ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4 mr-2" />
+                )}
+                Find Similar Images
               </Button>
               
               <Button

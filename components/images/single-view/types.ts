@@ -88,6 +88,7 @@ export interface ImageActionsProps {
     analysis: boolean;
     download: boolean;
     delete: boolean;
+    findSimilar: boolean;
   };
   /** Action handlers */
   onGenerateKeywords: () => Promise<void>;
@@ -95,6 +96,7 @@ export interface ImageActionsProps {
   onStartAnalysis: () => Promise<void>;
   onDownload: () => Promise<void>;
   onDelete: () => Promise<void>;
+  onFindSimilar: () => Promise<void>;
   /** Generated content */
   generatedContent?: {
     keywords: string[];
@@ -134,6 +136,7 @@ export interface UseSingleImageStateReturn {
     analysis: boolean;
     download: boolean;
     delete: boolean;
+    findSimilar: boolean;
   };
   
   // Generated content
@@ -150,6 +153,7 @@ export interface UseSingleImageStateReturn {
   startAnalysis: () => Promise<void>;
   downloadImage: () => Promise<void>;
   deleteImage: () => Promise<void>;
+  findSimilarImages: () => Promise<void>;
   
   // Navigation helpers
   goToLibrary: () => void;

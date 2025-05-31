@@ -121,6 +121,42 @@ export function SearchResults({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  // Format relevance score for display
+  const formatRelevanceScore = (result: SearchResult) => {
+    const similarity = result.similarity_score;
+    const relevance = result.relevance_score;
+    
+    // Prefer similarity score (semantic search) over relevance score (text search)
+    const score = similarity || relevance;
+    if (!score) return null;
+    
+    const percentage = Math.round(score * 100);
+    const label = similarity ? 'Similarity' : 'Relevance';
+    
+    // Determine quality level
+    let quality: 'high' | 'medium' | 'low';
+    let badgeVariant: 'default' | 'secondary' | 'outline';
+    
+    if (score >= 0.7) {
+      quality = 'high';
+      badgeVariant = 'default';
+    } else if (score >= 0.4) {
+      quality = 'medium';
+      badgeVariant = 'secondary';
+    } else {
+      quality = 'low';
+      badgeVariant = 'outline';
+    }
+    
+    return {
+      score,
+      percentage,
+      label,
+      quality,
+      badgeVariant
+    };
+  };
+
   if (loading) {
     return (
       <div className={cn("space-y-4", className)}>
@@ -147,20 +183,49 @@ export function SearchResults({
       <div className={cn("", className)}>
         <Card>
           <CardContent className="flex items-center justify-center py-16">
-            <div className="text-center">
-              <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No results found</h3>
-              <p className="text-muted-foreground mb-4">
-                Try adjusting your search terms or filters
+            <div className="text-center max-w-md">
+              {/* Simple visual */}
+              <div className="relative mb-4">
+                <Search className="h-12 w-12 text-muted-foreground/40 mx-auto" />
+              </div>
+              
+              <h3 className="text-lg font-semibold mb-2">No results</h3>
+              <p className="text-muted-foreground mb-6">
+                Nothing found for <span className="font-medium">&quot;{query}&quot;</span>
               </p>
-              <div className="text-sm text-muted-foreground">
-                <p>Search tips:</p>
-                <ul className="list-disc list-inside mt-2 space-y-1">
-                  <li>Use more general keywords</li>
-                  <li>Check your spelling</li>
-                  <li>Try different content type filters</li>
-                  <li>Expand your date range</li>
-                </ul>
+
+              {/* Quick suggestions */}
+              <div className="flex flex-wrap gap-2 justify-center mb-6">
+                <Badge variant="outline" className="cursor-pointer hover:bg-muted transition-colors">
+                  images
+                </Badge>
+                <Badge variant="outline" className="cursor-pointer hover:bg-muted transition-colors">
+                  analysis
+                </Badge>
+                <Badge variant="outline" className="cursor-pointer hover:bg-muted transition-colors">
+                  catalogs
+                </Badge>
+                <Badge variant="outline" className="cursor-pointer hover:bg-muted transition-colors">
+                  libraries
+                </Badge>
+              </div>
+
+              {/* Simple actions */}
+              <div className="flex gap-2 justify-center">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.location.href = '/search'}
+                >
+                  Try again
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.location.href = '/libraries'}
+                >
+                  Browse
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -222,6 +287,26 @@ export function SearchResults({
                               High Match
                             </Badge>
                           )}
+                          {/* Relevance Score Badge */}
+                          {(() => {
+                            const scoreInfo = formatRelevanceScore(result);
+                            if (!scoreInfo) return null;
+                            
+                            return (
+                              <Badge 
+                                variant={scoreInfo.badgeVariant as any} 
+                                className="text-xs flex items-center gap-1"
+                                title={`${scoreInfo.label}: ${scoreInfo.score.toFixed(3)}`}
+                              >
+                                <div className={`w-1.5 h-1.5 rounded-full ${
+                                  scoreInfo.quality === 'high' ? 'bg-green-500' : 
+                                  scoreInfo.quality === 'medium' ? 'bg-yellow-500' : 
+                                  'bg-gray-400'
+                                }`} />
+                                {scoreInfo.percentage}%
+                              </Badge>
+                            );
+                          })()}
                         </div>
                         
                         <h3 className="font-semibold text-lg leading-tight">
