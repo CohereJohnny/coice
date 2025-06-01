@@ -281,6 +281,12 @@ export function SearchResults({
                           <Badge variant="secondary" className="text-xs">
                             {getTypeLabel(result.type)}
                           </Badge>
+                          {/* Cross-content match indicator */}
+                          {result.description && result.description.includes(' similar to ') && (
+                            <Badge variant="default" className="text-xs bg-purple-600 hover:bg-purple-700">
+                              Cross-content match
+                            </Badge>
+                          )}
                           {result.relevance_score && result.relevance_score > 0.8 && (
                             <Badge variant="default" className="text-xs">
                               <Star className="h-3 w-3 mr-1" />
@@ -332,6 +338,19 @@ export function SearchResults({
                             View
                           </Button>
                         </Link>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            // Navigate to similarity search
+                            const referenceId = result.type === 'image' ? result.id : `${result.type}_${result.id}`;
+                            window.location.href = `/search?similar_to=${referenceId}`;
+                          }}
+                          title="Find similar items"
+                        >
+                          <Search className="h-4 w-4 mr-1" />
+                          Similar
+                        </Button>
                       </div>
                     </div>
                     

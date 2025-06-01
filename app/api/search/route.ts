@@ -259,8 +259,12 @@ async function performTextSearch(
   }
 
   // Sort results
-  if (sort_by === 'relevance') {
-    results.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
+  if (sort_by === 'relevance' || sort_by === 'similarity') {
+    results.sort((a, b) => {
+      const scoreA = a.similarity_score || a.relevance_score || 0;
+      const scoreB = b.similarity_score || b.relevance_score || 0;
+      return scoreB - scoreA;
+    });
   } else if (sort_by === 'date') {
     results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   } else if (sort_by === 'alphabetical') {
@@ -1092,6 +1096,13 @@ async function performSimilaritySearch(
     // If specific content types are filtered, use those; otherwise search all
     const searchTypes = filters.content_types || ['catalog', 'library', 'image', 'job_result'];
     
+    // Check if cross-content search is enabled (when no types filter or explicitly enabled)
+    const crossContentSearch = !filters.content_types || filters.content_types.length === 0 || 
+                             filters.content_types.length > 1;
+    
+    console.log(`🔍 Cross-content search: ${crossContentSearch ? 'enabled' : 'disabled'}`);
+    console.log(`🔍 Searching in types: ${searchTypes.join(', ')}`);
+    
     // Search catalogs if included
     if (searchTypes.includes('catalog')) {
       const catalogResults = await searchCatalogsVector(
@@ -1142,6 +1153,7 @@ async function performSimilaritySearch(
     
     // Filter out the reference item itself from results
     const filteredResults = results.filter((result: SearchResult) => {
+      // Always filter out the exact same item
       if (contentType === result.type && result.id.toString() === actualId) {
         return false;
       }
@@ -1151,6 +1163,15 @@ async function performSimilaritySearch(
     // Sort by similarity score
     filteredResults.sort((a, b) => (b.similarity_score || 0) - (a.similarity_score || 0));
     
+    // Add a note about cross-content matches
+    if (crossContentSearch) {
+      filteredResults.forEach(result => {
+        if (result.type !== contentType) {
+          result.description = `${result.description || ''} [${result.type.replace('_', ' ')} similar to ${contentType.replace('_', ' ')}]`.trim();
+        }
+      });
+    }
+    
     const total_count = filteredResults.length;
     const paginatedResults = filteredResults.slice(offset, offset + per_page);
     
@@ -1158,7 +1179,10 @@ async function performSimilaritySearch(
       results: paginatedResults,
       total_count,
       page,
-      per_page
+      per_page,
+      reference_type: contentType,
+      reference_title: referenceTitle,
+      cross_content_enabled: crossContentSearch
     };
   } catch (error) {
     console.error('Similarity search error:', error);

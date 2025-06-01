@@ -46,9 +46,11 @@ function SearchPageContent() {
   const [page, setPage] = useState(1);
   const [executionTime, setExecutionTime] = useState(0);
   const [filters, setFilters] = useState<SearchFiltersType>({});
-  const [sortBy, setSortBy] = useState<'relevance' | 'date' | 'alphabetical' | 'file_size'>('relevance');
+  const [sortBy, setSortBy] = useState<'relevance' | 'date' | 'alphabetical' | 'file_size' | 'similarity'>('relevance');
   const [hasSearched, setHasSearched] = useState(false);
   const [similarTo, setSimilarTo] = useState<string | null>(null);
+  const [referenceInfo, setReferenceInfo] = useState<{ type: string; title: string } | null>(null);
+  const [crossContentEnabled, setCrossContentEnabled] = useState(true);
   
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -58,6 +60,32 @@ function SearchPageContent() {
 
   // Debounce the search query - only search after user stops typing for 500ms
   const debouncedSearchQuery = useDebounce(query, 500);
+
+  // Save search to history
+  const saveToSearchHistory = useCallback((searchQuery: string) => {
+    const history = getSearchHistory();
+    const newEntry: SearchHistoryEntry = {
+      query: searchQuery,
+      timestamp: new Date().toISOString(),
+      filters: { ...filters }
+    };
+    
+    // Remove duplicates and add to front
+    const filtered = history.filter((item: SearchHistoryEntry) => item.query !== searchQuery);
+    const updated = [newEntry, ...filtered].slice(0, 10); // Keep last 10 searches
+    
+    localStorage.setItem('coice_search_history', JSON.stringify(updated));
+  }, [filters]);
+
+  // Get search history
+  const getSearchHistory = (): SearchHistoryEntry[] => {
+    try {
+      const history = localStorage.getItem('coice_search_history');
+      return history ? JSON.parse(history) : [];
+    } catch {
+      return [];
+    }
+  };
 
   // Initialize from URL params
   useEffect(() => {
@@ -75,7 +103,7 @@ function SearchPageContent() {
     if (urlPage) {
       setPage(parseInt(urlPage));
     }
-    if (urlSort && ['relevance', 'date', 'alphabetical', 'file_size'].includes(urlSort)) {
+    if (urlSort && ['relevance', 'date', 'alphabetical', 'file_size', 'similarity'].includes(urlSort)) {
       setSortBy(urlSort as any);
     }
     if (urlSimilarTo) {
@@ -110,9 +138,16 @@ function SearchPageContent() {
           similar_to: similarTo,
           page: searchPage.toString(),
           per_page: '20',
-          sort: 'similarity',
-          types: 'image'
+          sort: 'similarity'
         });
+
+        // Add content types based on cross-content search setting
+        if (!crossContentEnabled) {
+          // Only search within the same content type
+          const contentType = similarTo.includes('_') ? similarTo.split('_')[0] : 'image';
+          params.set('types', contentType);
+        }
+        // If crossContentEnabled is true, don't set types filter to search all
 
         const response = await fetch(`/api/search?${params}`, {
           signal: abortControllerRef.current.signal
@@ -122,11 +157,19 @@ function SearchPageContent() {
           throw new Error('Similarity search failed');
         }
 
-        const data: SearchResponse = await response.json();
+        const data: any = await response.json();
         setResults(data.results);
         setTotalCount(data.total_count);
         setExecutionTime(data.execution_time_ms);
         setHasSearched(true);
+        
+        // Set reference info if available
+        if (data.reference_type && data.reference_title) {
+          setReferenceInfo({
+            type: data.reference_type,
+            title: data.reference_title
+          });
+        }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           return;
@@ -222,7 +265,7 @@ function SearchPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [filters, sortBy, similarTo]);
+  }, [filters, sortBy, similarTo, advancedSearchEnabled, crossContentEnabled, saveToSearchHistory]);
 
   // Effect for debounced search (skip for similarity search)
   useEffect(() => {
@@ -242,32 +285,6 @@ function SearchPageContent() {
       setSearchQuery('');
     }
   }, [debouncedSearchQuery, performSearch, searchQuery, similarTo]);
-
-  // Save search to history
-  const saveToSearchHistory = useCallback((searchQuery: string) => {
-    const history = getSearchHistory();
-    const newEntry: SearchHistoryEntry = {
-      query: searchQuery,
-      timestamp: new Date().toISOString(),
-      filters: { ...filters }
-    };
-    
-    // Remove duplicates and add to front
-    const filtered = history.filter((item: SearchHistoryEntry) => item.query !== searchQuery);
-    const updated = [newEntry, ...filtered].slice(0, 10); // Keep last 10 searches
-    
-    localStorage.setItem('coice_search_history', JSON.stringify(updated));
-  }, [filters]);
-
-  // Get search history
-  const getSearchHistory = (): SearchHistoryEntry[] => {
-    try {
-      const history = localStorage.getItem('coice_search_history');
-      return history ? JSON.parse(history) : [];
-    } catch {
-      return [];
-    }
-  };
 
   // Handle new search
   const handleSearch = (newQuery: string) => {
@@ -291,7 +308,7 @@ function SearchPageContent() {
     }
   };
 
-  const handleSortChange = (newSort: 'relevance' | 'date' | 'alphabetical' | 'file_size') => {
+  const handleSortChange = (newSort: 'relevance' | 'date' | 'alphabetical' | 'file_size' | 'similarity') => {
     setSortBy(newSort);
     if (searchQuery) {
       setPage(1);
@@ -335,15 +352,44 @@ function SearchPageContent() {
               <div className="max-w-2xl mx-auto">
                 {similarTo ? (
                   <div className="text-center space-y-4">
-                    <h1 className="text-2xl font-bold">Similar Images</h1>
+                    <h1 className="text-2xl font-bold">
+                      {crossContentEnabled ? 'Cross-Content' : ''} Similar Items
+                    </h1>
                     <p className="text-muted-foreground">
-                      Showing images visually similar to image #{similarTo}
+                      Finding items similar to {referenceInfo ? (
+                        <span className="font-medium">
+                          {referenceInfo.type.replace('_', ' ')} &quot;{referenceInfo.title}&quot;
+                        </span>
+                      ) : (
+                        <span>item #{similarTo}</span>
+                      )}
                     </p>
+                    
+                    <div className="flex items-center justify-center gap-4">
+                      <Badge variant={crossContentEnabled ? "default" : "outline"}>
+                        {crossContentEnabled ? 'Searching all content types' : 'Same content type only'}
+                      </Badge>
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setCrossContentEnabled(!crossContentEnabled);
+                          if (similarTo) {
+                            performSearch('', 1);
+                          }
+                        }}
+                      >
+                        {crossContentEnabled ? 'Disable' : 'Enable'} cross-content search
+                      </Button>
+                    </div>
+                    
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
                         setSimilarTo(null);
+                        setReferenceInfo(null);
                         setQuery('');
                         setSearchQuery('');
                         setHasSearched(false);
@@ -439,6 +485,7 @@ function SearchPageContent() {
                       className="text-sm border rounded px-2 py-1"
                     >
                       <option value="relevance">Best match</option>
+                      <option value="similarity">Similarity score</option>
                       <option value="date">Most recent</option>
                       <option value="alphabetical">A-Z</option>
                       <option value="file_size">Largest files</option>
