@@ -495,6 +495,68 @@ function SearchPageContent() {
               )}
 
               {/* Results */}
+              {!hasSearched && !loading && !query && !similarTo && (
+                <Card>
+                  <CardContent className="py-12">
+                    <div className="text-center max-w-2xl mx-auto">
+                      <h3 className="text-lg font-semibold mb-4">Get started with search</h3>
+                      
+                      {/* Popular searches */}
+                      <div className="mb-8">
+                        <p className="text-sm text-muted-foreground mb-3">Try searching for:</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {[
+                            'dog', 
+                            'analysis results', 
+                            'recent uploads',
+                            'landscape',
+                            'portrait',
+                            'architecture'
+                          ].map((suggestion) => (
+                            <Badge
+                              key={suggestion}
+                              variant="outline"
+                              className="cursor-pointer hover:bg-muted transition-colors"
+                              onClick={() => {
+                                setQuery(suggestion);
+                                setSearchQuery(suggestion);
+                                handleSearch(suggestion);
+                              }}
+                            >
+                              {suggestion}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Recent searches */}
+                      {getSearchHistory().length > 0 && (
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-3">Your recent searches:</p>
+                          <div className="flex flex-wrap gap-2 justify-center">
+                            {getSearchHistory().slice(0, 5).map((item, index) => (
+                              <Badge
+                                key={index}
+                                variant="secondary"
+                                className="cursor-pointer hover:bg-secondary/80 transition-colors"
+                                onClick={() => handleHistoryItemClick(item.query, item.filters)}
+                              >
+                                {item.query}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Search tips */}
+                      <div className="mt-8 text-xs text-muted-foreground">
+                        <p>💡 Tip: Use our semantic search to find images by describing what you&apos;re looking for</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
               <SearchResults
                 results={results}
                 loading={loading}

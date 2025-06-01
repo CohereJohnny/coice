@@ -109,8 +109,8 @@ Implement comprehensive search functionality across all content types using Cohe
     - [x] Add "Find Similar" actions to catalog and library interfaces
     - [x] Add "Find Similar" actions to job results interface
     - [x] Update search API to handle multi-content-type similarity
-    - [ ] Cross-content-type similarity (find images similar to job results, etc.)
-    - [ ] Smart similarity recommendations in search results
+    - [x] Cross-content-type similarity (find images similar to job results, etc.)
+    - [x] Smart similarity recommendations in search results
 
 - [x] Implement search history and saved searches
   - [x] Create search history storage (localStorage initially)
@@ -132,7 +132,7 @@ Implement comprehensive search functionality across all content types using Cohe
   - [x] Add alphabetical sorting
   - [x] **Add file size sorting (for images)** - Completed with API and UI support
   - [ ] Add job completion time sorting (for results)
-  - [ ] **Add similarity score sorting for embeddings**
+  - [x] **Add similarity score sorting for embeddings**
 
 - [x] Implement search across all content types
   - [x] Catalog search (name, description, tags)
@@ -553,6 +553,38 @@ Implement comprehensive search functionality across all content types using Cohe
   - TypeScript type safety maintained
 - **User Experience**: Admin/Manager users can now create catalogs directly from sidebar
 - **Status**: Feature fully functional, build verified with no errors
+
+#### [Date] - Cross-Content Similarity Search & Smart Recommendations
+- **Cross-Content Similarity Search**: ✅ COMPLETE - Major Feature Enhancement
+  - **Enhanced performSimilaritySearch API**: 
+    - Added detection for cross-content search based on content type filters
+    - Searches across all content types when no filter specified
+    - Adds descriptive notes for cross-content matches in results
+    - Returns reference type and title for better context display
+  - **Search UI Enhancements**:
+    - Added toggle for enabling/disabling cross-content search
+    - Shows reference item type and title (e.g., 'Finding items similar to catalog "My Catalog"')
+    - Visual badge indicating search scope (all types vs same type only)
+    - Special purple badge for cross-content matches in results
+    - Real-time toggle updates search results without page reload
+- **Smart Similarity Recommendations**: ✅ COMPLETE - Inline Search Actions
+  - **Find Similar Button**: Added to every search result card
+    - Quick action to find similar items from any search result
+    - Properly handles content type prefixes for non-image types
+    - Seamless navigation to similarity search with proper context
+  - **User Flow**: Search → View Result → Find Similar → See Related Items
+- **Similarity Score Sorting**: ✅ COMPLETE - Enhanced Sorting Options
+  - Added "Similarity score" option to sort dropdown
+  - Works for both vector search and text search results
+  - Prioritizes similarity scores over relevance scores when available
+  - Consistent sorting implementation across both search types
+- **Technical Implementation**:
+  - Clean TypeScript types and interfaces maintained
+  - No performance impact - reuses existing vector search infrastructure
+  - Proper error handling and loading states
+  - Cross-content matches clearly indicated with visual cues
+- **User Impact**: Powerful discovery features for finding related content across different types
+- **Status**: All cross-content search features fully functional and integrated
 
 ## Technical Implementation Notes
 
