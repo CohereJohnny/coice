@@ -439,7 +439,7 @@ function SearchPageContent() {
             <div className={advancedSearchEnabled ? "flex-1 min-w-0" : "w-full"}>
               {/* Simple stats and controls */}
               {hasSearched && (
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="text-sm text-muted-foreground">
                     {loading ? (
                       <div className="flex items-center gap-2">
@@ -496,7 +496,7 @@ function SearchPageContent() {
 
               {/* Results */}
               {!hasSearched && !loading && !query && !similarTo && (
-                <Card>
+                <Card className="animate-in fade-in slide-in-from-bottom-3 duration-300">
                   <CardContent className="py-12">
                     <div className="text-center max-w-2xl mx-auto">
                       <h3 className="text-lg font-semibold mb-4">Get started with search</h3>
@@ -512,11 +512,12 @@ function SearchPageContent() {
                             'landscape',
                             'portrait',
                             'architecture'
-                          ].map((suggestion) => (
+                          ].map((suggestion, index) => (
                             <Badge
                               key={suggestion}
                               variant="outline"
-                              className="cursor-pointer hover:bg-muted transition-colors"
+                              className="cursor-pointer hover:bg-muted hover:scale-105 transition-all duration-200 animate-in fade-in"
+                              style={{ animationDelay: `${index * 50}ms` }}
                               onClick={() => {
                                 setQuery(suggestion);
                                 setSearchQuery(suggestion);

@@ -219,12 +219,12 @@ export function SearchResults({
   if (results.length === 0) {
     return (
       <div className={cn("", className)}>
-        <Card>
+        <Card className="animate-in fade-in slide-in-from-bottom-3 duration-300">
           <CardContent className="flex items-center justify-center py-16">
             <div className="text-center max-w-md">
               {/* Simple visual */}
               <div className="relative mb-4">
-                <Search className="h-12 w-12 text-muted-foreground/40 mx-auto" />
+                <Search className="h-12 w-12 text-muted-foreground/40 mx-auto animate-pulse" />
               </div>
               
               <h3 className="text-lg font-semibold mb-2">No results</h3>
@@ -234,16 +234,16 @@ export function SearchResults({
 
               {/* Quick suggestions */}
               <div className="flex flex-wrap gap-2 justify-center mb-6">
-                <Badge variant="outline" className="cursor-pointer hover:bg-muted transition-colors">
+                <Badge variant="outline" className="cursor-pointer hover:bg-muted hover:scale-105 transition-all duration-200">
                   images
                 </Badge>
-                <Badge variant="outline" className="cursor-pointer hover:bg-muted transition-colors">
+                <Badge variant="outline" className="cursor-pointer hover:bg-muted hover:scale-105 transition-all duration-200">
                   analysis
                 </Badge>
-                <Badge variant="outline" className="cursor-pointer hover:bg-muted transition-colors">
+                <Badge variant="outline" className="cursor-pointer hover:bg-muted hover:scale-105 transition-all duration-200">
                   catalogs
                 </Badge>
-                <Badge variant="outline" className="cursor-pointer hover:bg-muted transition-colors">
+                <Badge variant="outline" className="cursor-pointer hover:bg-muted hover:scale-105 transition-all duration-200">
                   libraries
                 </Badge>
               </div>
@@ -253,6 +253,7 @@ export function SearchResults({
                 <Button 
                   variant="outline" 
                   size="sm"
+                  className="hover:scale-105 transition-all duration-200"
                   onClick={() => window.location.href = '/search'}
                 >
                   Try again
@@ -260,6 +261,7 @@ export function SearchResults({
                 <Button 
                   variant="outline" 
                   size="sm"
+                  className="hover:scale-105 transition-all duration-200"
                   onClick={() => window.location.href = '/libraries'}
                 >
                   Browse
@@ -281,13 +283,17 @@ export function SearchResults({
           const resultUrl = getResultUrl(result);
           
           return (
-            <Card key={result.id} className="hover:shadow-md transition-shadow">
+            <Card 
+              key={result.id} 
+              className="hover:shadow-md transition-all duration-200 hover:scale-[1.01] hover:border-primary/20 group animate-in fade-in slide-in-from-bottom-2"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
                   {/* Type Icon or Thumbnail */}
                   <div className="flex-shrink-0">
                     {result.type === 'image' && result.thumbnail_url ? (
-                      <div className="w-12 h-12 rounded-lg border overflow-hidden bg-muted">
+                      <div className="w-12 h-12 rounded-lg border overflow-hidden bg-muted transition-transform duration-200 hover:scale-110">
                         <img
                           src={result.thumbnail_url}
                           alt={result.title}
@@ -304,8 +310,8 @@ export function SearchResults({
                         </div>
                       </div>
                     ) : (
-                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                        <Icon className="h-6 w-6 text-muted-foreground" />
+                      <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center transition-colors duration-200 group-hover:bg-primary/10">
+                        <Icon className="h-6 w-6 text-muted-foreground transition-colors duration-200 group-hover:text-primary" />
                       </div>
                     )}
                   </div>
@@ -369,9 +375,9 @@ export function SearchResults({
                         </h3>
                       </div>
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <Link href={resultUrl}>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="hover:bg-primary/10 transition-colors">
                             <Eye className="h-4 w-4 mr-1" />
                             View
                           </Button>
@@ -379,6 +385,7 @@ export function SearchResults({
                         <Button 
                           variant="ghost" 
                           size="sm"
+                          className="hover:bg-primary/10 transition-colors"
                           onClick={() => {
                             // Navigate to similarity search
                             const referenceId = result.type === 'image' ? result.id : `${result.type}_${result.id}`;
