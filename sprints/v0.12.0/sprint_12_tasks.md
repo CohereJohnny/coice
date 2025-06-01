@@ -145,8 +145,8 @@ Implement comprehensive search functionality across all content types using Cohe
 - [x] Add empty state and loading states
   - [x] **Create "no results found" empty state**
   - [x] Add search loading spinner
-  - [ ] Add skeleton loading for search results
-  - [ ] Create search suggestions for empty queries
+  - [x] **Add skeleton loading for search results**
+  - [x] **Create search suggestions for empty queries**
 
 - [ ] Implement responsive search interface
   - [ ] Mobile-optimized search input
@@ -585,6 +585,32 @@ Implement comprehensive search functionality across all content types using Cohe
   - Cross-content matches clearly indicated with visual cues
 - **User Impact**: Powerful discovery features for finding related content across different types
 - **Status**: All cross-content search features fully functional and integrated
+
+#### [Date] - Enhanced Search UX with Skeleton Loading & Search Suggestions
+- **Skeleton Loading**: ✅ COMPLETE - Improved Perceived Performance
+  - **Enhanced Loading States**: Replaced basic skeleton with realistic search result structure
+    - Shows placeholder for icon/thumbnail, title, badges, action buttons
+    - Includes metadata rows and context path skeleton elements
+    - Matches exact layout of actual search results for smooth transition
+  - **Loading Message**: Added contextual loading message showing search scope
+  - **Visual Consistency**: Skeleton elements use proper spacing and sizing
+- **Search Suggestions for Empty Queries**: ✅ COMPLETE - User Guidance
+  - **Popular Searches**: Pre-defined suggestions for common search terms
+    - Includes: 'dog', 'analysis results', 'recent uploads', 'landscape', 'portrait', 'architecture'
+    - Clickable badges that instantly trigger search
+  - **Recent Search History**: Shows last 5 searches from user's history
+    - Pulls from localStorage search history
+    - Different visual style (secondary variant) to distinguish from suggestions
+    - Preserves original filters when clicking recent searches
+  - **Smart Display**: Only shows when query is empty and no search performed
+  - **Search Tips**: Helpful tip about semantic search capabilities
+- **User Experience Improvements**:
+  - Reduced cognitive load during loading with proper skeleton structure
+  - Easier search initiation with one-click suggestions
+  - Better discoverability of search capabilities
+  - Smooth transition from loading to results
+- **Technical Implementation**: Clean React patterns, proper TypeScript typing
+- **Status**: Both features fully functional and integrated
 
 ## Technical Implementation Notes
 
