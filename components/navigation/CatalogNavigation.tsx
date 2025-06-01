@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { LibraryForm } from '@/components/libraries/LibraryForm';
+import { CatalogForm } from '@/components/catalogs/CatalogForm';
 import { 
   ChevronRight, 
   ChevronDown,
@@ -52,6 +53,11 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
     open: boolean;
     catalogId?: number;
   }>({ open: false });
+  const [catalogDialog, setCatalogDialog] = useState<{
+    open: boolean;
+    mode: 'create' | 'edit';
+    catalog?: Catalog;
+  }>({ open: false, mode: 'create' });
   const [submitting, setSubmitting] = useState(false);
   
   const { profile } = useAuth();
@@ -204,6 +210,32 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
     }
   };
 
+  const handleCreateCatalog = async (data: { name: string; description?: string }) => {
+    try {
+      setSubmitting(true);
+      const response = await fetch('/api/catalogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create catalog');
+      }
+
+      toast.success('Catalog created successfully');
+      setCatalogDialog({ open: false, mode: 'create' });
+      fetchCatalogs(); // Refresh the catalog data
+      catalogEvents.emit(); // Notify other components
+    } catch (error) {
+      console.error('Error creating catalog:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create catalog');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const renderLibrary = (library: Library, level: number = 0) => {
     const isExpanded = expandedLibraries.has(library.id);
     const hasChildren = library.children && library.children.length > 0;
@@ -345,8 +377,7 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
             size="sm"
             className="w-full justify-start h-8 px-2 text-muted-foreground hover:text-foreground"
             onClick={() => {
-              // TODO: Open create catalog dialog
-              console.log('Create catalog');
+              setCatalogDialog({ open: true, mode: 'create' });
             }}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -404,6 +435,21 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
               name: '', 
               catalog_id: libraryDialog.catalogId 
             } : undefined}
+          />
+        </DialogContent>
+      </Dialog>
+      
+      {/* Catalog Dialog */}
+      <Dialog open={catalogDialog.open} onOpenChange={(open: boolean) => setCatalogDialog({ ...catalogDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Catalog</DialogTitle>
+          </DialogHeader>
+          <CatalogForm
+            mode="create"
+            onSubmit={handleCreateCatalog}
+            onCancel={() => setCatalogDialog({ open: false, mode: 'create' })}
+            isLoading={submitting}
           />
         </DialogContent>
       </Dialog>
