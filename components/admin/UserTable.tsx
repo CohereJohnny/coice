@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -43,9 +44,16 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ArrowUpDown,
+  Eye,
+  UserCheck,
+  UserX,
+  Users,
 } from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog';
+import { EditUserDialog } from './EditUserDialog';
+import { UserDetailsDialog } from './UserDetailsDialog';
 import { auditService } from '@/lib/services/auditService';
+import { notificationService } from '@/lib/services/notificationService';
 
 export interface User {
   id: string;
@@ -75,12 +83,21 @@ export function UserTable({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = useState({});
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [globalFilter, setGlobalFilter] = useState('');
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     user: User | null;
   }>({ open: false, user: null });
+  const [editDialog, setEditDialog] = useState<{
+    open: boolean;
+    user: User | null;
+  }>({ open: false, user: null });
+  const [detailsDialog, setDetailsDialog] = useState<{
+    open: boolean;
+    userId: string | null;
+  }>({ open: false, userId: null });
+  const [bulkProcessing, setBulkProcessing] = useState(false);
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
@@ -102,7 +119,69 @@ export function UserTable({
     });
   };
 
+  const selectedUsers = useMemo(() => {
+    const selectedIndexes = Object.keys(rowSelection).filter(key => rowSelection[key]);
+    return selectedIndexes.map(index => users[parseInt(index)]).filter(Boolean);
+  }, [rowSelection, users]);
+
+  const handleBulkAction = async (action: 'enable' | 'disable' | 'role', roleValue?: string) => {
+    if (selectedUsers.length === 0) return;
+
+    setBulkProcessing(true);
+    try {
+      for (const user of selectedUsers) {
+        if (action === 'enable' || action === 'disable') {
+          await onUserUpdate(user.id, { is_active: action === 'enable' });
+          if (action === 'enable') {
+            await auditService.logUserEnabled(user.id, user.email);
+          } else {
+            await auditService.logUserDisabled(user.id, user.email);
+          }
+        } else if (action === 'role' && roleValue) {
+          await onRoleChange(user.id, roleValue);
+        }
+      }
+
+      notificationService.show({
+        type: 'success',
+        title: 'Bulk Action Completed',
+        description: `Successfully updated ${selectedUsers.length} users`,
+      });
+
+      setRowSelection({});
+    } catch (error) {
+      notificationService.show({
+        type: 'error',
+        title: 'Bulk Action Failed',
+        description: 'Some users could not be updated',
+      });
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
   const columns: ColumnDef<User>[] = useMemo(() => [
+    {
+      id: 'select',
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+          className="translate-y-[2px]"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+          className="translate-y-[2px]"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
     {
       accessorKey: 'display_name',
       header: ({ column }) => {
@@ -245,8 +324,15 @@ export function UserTable({
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuItem
                 onClick={() => {
-                  // TODO: Implement edit user
-                  console.log('Edit user:', user.id);
+                  setDetailsDialog({ open: true, userId: user.id });
+                }}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                View Details
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setEditDialog({ open: true, user });
                 }}
               >
                 <Edit className="mr-2 h-4 w-4" />
@@ -321,8 +407,8 @@ export function UserTable({
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
-      <div className="flex items-center py-4">
+      {/* Search Bar and Bulk Actions */}
+      <div className="flex items-center justify-between py-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
@@ -332,6 +418,69 @@ export function UserTable({
             className="pl-10"
           />
         </div>
+        
+        {/* Bulk Actions Toolbar */}
+        {selectedUsers.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {selectedUsers.length} selected
+            </span>
+            
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleBulkAction('enable')}
+              disabled={bulkProcessing}
+            >
+              <UserCheck className="h-4 w-4 mr-1" />
+              Enable
+            </Button>
+            
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleBulkAction('disable')}
+              disabled={bulkProcessing}
+            >
+              <UserX className="h-4 w-4 mr-1" />
+              Disable
+            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" disabled={bulkProcessing}>
+                  <Shield className="h-4 w-4 mr-1" />
+                  Change Role
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuLabel>Set Role for Selected Users</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleBulkAction('role', 'end_user')}>
+                  <Users className="h-4 w-4 mr-2" />
+                  End User
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkAction('role', 'manager')}>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Manager
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleBulkAction('role', 'admin')}>
+                  <Shield className="h-4 w-4 mr-2 text-red-500" />
+                  Admin
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setRowSelection({})}
+              disabled={bulkProcessing}
+            >
+              Clear
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -356,10 +505,10 @@ export function UserTable({
             ))}
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isLoading || bulkProcessing ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  Loading...
+                  {bulkProcessing ? 'Processing bulk action...' : 'Loading...'}
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
@@ -443,6 +592,22 @@ export function UserTable({
         title="Delete User"
         itemName={deleteDialog.user?.display_name || deleteDialog.user?.email || 'Unknown User'}
         warningMessage="This action cannot be undone. The user will lose access to all catalogs and libraries."
+      />
+      
+      <EditUserDialog
+        user={editDialog.user}
+        open={editDialog.open}
+        onOpenChange={(open) => setEditDialog({ open, user: null })}
+        onUserUpdated={(updatedUser) => {
+          onUserUpdate(updatedUser.id, updatedUser);
+          setEditDialog({ open: false, user: null });
+        }}
+      />
+      
+      <UserDetailsDialog
+        userId={detailsDialog.userId}
+        open={detailsDialog.open}
+        onOpenChange={(open) => setDetailsDialog({ open, userId: null })}
       />
     </div>
   );
