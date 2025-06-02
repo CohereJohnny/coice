@@ -5,6 +5,8 @@ import { useAuth, useAuthActions } from '@/lib/stores/auth'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { NotificationCenter } from '@/components/ui/NotificationCenter'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { GlobalSearchModal } from '@/components/search'
 import { useState } from 'react'
 import { createSupabaseClient } from '@/lib/supabase'
 
@@ -13,6 +15,7 @@ export function Navbar() {
   const { reset } = useAuthActions()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showSearchModal, setShowSearchModal] = useState(false)
 
   const handleSignOut = async () => {
     try {
@@ -118,6 +121,22 @@ export function Navbar() {
 
         {/* Right Side Controls */}
         <div className="flex items-center space-x-3 ml-auto">
+          {/* Global Search Button - only show when authenticated */}
+          {isAuthenticated && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSearchModal(true)}
+              className="hidden md:flex items-center gap-2"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <span className="hidden lg:inline">Quick Search</span>
+              <Badge variant="secondary" className="text-xs ml-1">⌘K</Badge>
+            </Button>
+          )}
+
           {/* Theme Toggle */}
           <ThemeToggle />
 
@@ -194,6 +213,12 @@ export function Navbar() {
           )}
         </div>
       </div>
+
+      {/* Global Search Modal */}
+      <GlobalSearchModal
+        open={showSearchModal}
+        onOpenChange={setShowSearchModal}
+      />
     </nav>
   )
 } 

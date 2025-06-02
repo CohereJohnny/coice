@@ -261,29 +261,62 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
     fetchImages(); // Refresh the images list
   };
 
-  const handleDeleteImage = async (imageId: number) => {
-    if (!confirm('Are you sure you want to delete this image?')) return;
+  const handleDeleteImage = async (imageId: number, skipConfirmation = false) => {
+    if (!skipConfirmation) {
+      // Use Sonner for individual image delete confirmation
+      toast.error('Delete this image?', {
+        description: 'This action cannot be undone.',
+        action: {
+          label: 'Delete',
+          onClick: async () => {
+            await performDeleteImage(imageId);
+          },
+        },
+        cancel: {
+          label: 'Cancel',
+          onClick: () => {
+            // Do nothing, just dismiss
+          },
+        },
+        duration: 10000,
+      });
+      return;
+    }
 
+    await performDeleteImage(imageId);
+  };
+
+  const performDeleteImage = async (imageId: number, suppressMessages = false) => {
     try {
       const response = await fetch(`/api/images/${imageId}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
-        toast.success('Image deleted successfully');
-        fetchImages(); // Refresh the images list
-        setSelectedImages(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(imageId);
-          return newSet;
-        });
+        if (!suppressMessages) {
+          toast.success('Image deleted successfully');
+          fetchImages(); // Only refresh for individual deletions
+          setSelectedImages(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(imageId);
+            return newSet;
+          });
+        }
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Failed to delete image');
+        const errorMessage = error.error || 'Failed to delete image';
+        if (!suppressMessages) {
+          toast.error(errorMessage);
+        }
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Error deleting image:', error);
-      toast.error('Failed to delete image');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete image';
+      if (!suppressMessages) {
+        toast.error(errorMessage);
+      }
+      throw error;
     }
   };
 
@@ -352,18 +385,51 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
       return;
     }
 
-    if (!confirm(`Are you sure you want to delete ${selectedImageList.length} images?`)) {
-      return;
-    }
-
-    toast.info(`Deleting ${selectedImageList.length} images...`);
-    
-    for (const image of selectedImageList) {
-      await handleDeleteImage(image.id);
-    }
-    
-    setSelectedImages(new Set());
-    toast.success(`Deleted ${selectedImageList.length} images`);
+    // Use Sonner for confirmation instead of browser alert
+    toast.error(
+      `Delete ${selectedImageList.length} image${selectedImageList.length === 1 ? '' : 's'}?`,
+      {
+        description: 'This action cannot be undone.',
+        action: {
+          label: 'Delete',
+          onClick: async () => {
+            toast.info(`Deleting ${selectedImageList.length} images...`);
+            
+            let deletedCount = 0;
+            let failedCount = 0;
+            
+            for (const image of selectedImageList) {
+              try {
+                await performDeleteImage(image.id, true); // Suppress individual messages
+                deletedCount++;
+              } catch (error) {
+                console.error('Error deleting image:', error);
+                failedCount++;
+              }
+            }
+            
+            // Update UI and show final result
+            setSelectedImages(new Set());
+            fetchImages(); // Refresh the images list once at the end
+            
+            if (failedCount === 0) {
+              toast.success(`Successfully deleted ${deletedCount} image${deletedCount === 1 ? '' : 's'}`);
+            } else if (deletedCount === 0) {
+              toast.error(`Failed to delete all ${selectedImageList.length} images`);
+            } else {
+              toast.warning(`Deleted ${deletedCount} images, failed to delete ${failedCount} images`);
+            }
+          },
+        },
+        cancel: {
+          label: 'Cancel',
+          onClick: () => {
+            // Do nothing, just dismiss
+          },
+        },
+        duration: 10000, // Give user 10 seconds to decide
+      }
+    );
   };
 
   const handleImageClick = useCallback((image: Image) => {

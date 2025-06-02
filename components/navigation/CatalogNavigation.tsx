@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { LibraryForm } from '@/components/libraries/LibraryForm';
+import { CatalogForm } from '@/components/catalogs/CatalogForm';
 import { 
   ChevronRight, 
   ChevronDown,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/stores/auth';
 import { toast } from 'sonner';
+import { catalogEvents } from '@/lib/catalogEvents';
 
 interface Library {
   id: number;
@@ -51,6 +53,11 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
     open: boolean;
     catalogId?: number;
   }>({ open: false });
+  const [catalogDialog, setCatalogDialog] = useState<{
+    open: boolean;
+    mode: 'create' | 'edit';
+    catalog?: Catalog;
+  }>({ open: false, mode: 'create' });
   const [submitting, setSubmitting] = useState(false);
   
   const { profile } = useAuth();
@@ -58,6 +65,13 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
 
   useEffect(() => {
     fetchCatalogs();
+    
+    // Listen for catalog updates
+    const unsubscribe = catalogEvents.on(() => {
+      fetchCatalogs();
+    });
+    
+    return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -74,20 +88,28 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
       const response = await fetch('/api/catalogs');
       if (response.ok) {
         const data: { catalogs: Array<Record<string, unknown>> } = await response.json();
+        console.log('Fetched catalogs:', data.catalogs);
+        
         const catalogsWithLibraries = await Promise.all(
           data.catalogs.map(async (catalog: Record<string, unknown>) => {
             const libResponse = await fetch(`/api/libraries?catalog_id=${catalog.id}`);
+            console.log(`Fetching libraries for catalog ${catalog.id}:`, libResponse.status);
+            
             if (libResponse.ok) {
               const libData = await libResponse.json();
+              console.log(`Libraries for catalog ${catalog.id}:`, libData);
+              // The API returns libraries already in hierarchical structure
+              // We just need to use them directly
               return {
                 ...catalog,
-                libraries: buildLibraryTree(libData.libraries || [])
+                libraries: libData.libraries || []
               };
             }
             return { ...catalog, libraries: [] };
           })
         );
          
+        console.log('Catalogs with libraries:', catalogsWithLibraries);
         setCatalogs(catalogsWithLibraries as any);
       }
     } catch (error) {
@@ -183,6 +205,32 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
     } catch (error) {
       console.error('Error creating library:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create library');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateCatalog = async (data: { name: string; description?: string }) => {
+    try {
+      setSubmitting(true);
+      const response = await fetch('/api/catalogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create catalog');
+      }
+
+      toast.success('Catalog created successfully');
+      setCatalogDialog({ open: false, mode: 'create' });
+      fetchCatalogs(); // Refresh the catalog data
+      catalogEvents.emit(); // Notify other components
+    } catch (error) {
+      console.error('Error creating catalog:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create catalog');
     } finally {
       setSubmitting(false);
     }
@@ -329,8 +377,7 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
             size="sm"
             className="w-full justify-start h-8 px-2 text-muted-foreground hover:text-foreground"
             onClick={() => {
-              // TODO: Open create catalog dialog
-              console.log('Create catalog');
+              setCatalogDialog({ open: true, mode: 'create' });
             }}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -388,6 +435,21 @@ export function CatalogNavigation({ isCollapsed = false }: CatalogNavigationProp
               name: '', 
               catalog_id: libraryDialog.catalogId 
             } : undefined}
+          />
+        </DialogContent>
+      </Dialog>
+      
+      {/* Catalog Dialog */}
+      <Dialog open={catalogDialog.open} onOpenChange={(open: boolean) => setCatalogDialog({ ...catalogDialog, open })}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Catalog</DialogTitle>
+          </DialogHeader>
+          <CatalogForm
+            mode="create"
+            onSubmit={handleCreateCatalog}
+            onCancel={() => setCatalogDialog({ open: false, mode: 'create' })}
+            isLoading={submitting}
           />
         </DialogContent>
       </Dialog>

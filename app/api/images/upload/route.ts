@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase';
 import { uploadFile, generateStoragePath } from '@/lib/gcs';
 import { generateUniqueFileName } from '@/lib/image-utils';
 import { generateAndUploadThumbnail, getImageMetadata } from '@/lib/thumbnail';
+import { generateImageEmbedding, imageToBase64DataUrl } from '@/lib/services/cohere-embeddings';
 
 export async function POST(request: NextRequest) {
   try {
@@ -154,12 +155,32 @@ export async function POST(request: NextRequest) {
       thumbnailResult = null;
     }
 
+    // Generate embedding for the uploaded image
+    let embeddingVector = null;
+    try {
+      console.log('🔗 Generating embedding for uploaded image...');
+      const base64DataUrl = imageToBase64DataUrl(buffer, file.type);
+      const embeddingResult = await generateImageEmbedding(base64DataUrl);
+      
+      if (embeddingResult.success) {
+        embeddingVector = embeddingResult.embedding;
+        console.log(`✅ Embedding generated successfully: ${embeddingVector.length} dimensions`);
+      } else {
+        console.error('❌ Embedding generation failed:', embeddingResult.error);
+        // Continue with upload even if embedding fails - we can generate it later
+      }
+    } catch (error) {
+      console.error('Error during embedding generation:', error);
+      // Continue with upload even if embedding fails
+    }
+
     // Store image record in database using service role
     const { data: imageRecord, error: dbError } = await adminSupabase
       .from('images')
       .insert({
         gcs_path: uploadResult.gcsPath,
         library_id: parseInt(libraryId),
+        embedding: embeddingVector, // Include the generated embedding
         metadata: {
           filename: uniqueFileName,
           original_filename: file.name,
@@ -192,12 +213,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log(`📸 Image uploaded successfully with${embeddingVector ? '' : 'out'} embedding: ${imageRecord.id}`);
+
     return NextResponse.json({
       success: true,
       image: imageRecord,
       uploadResult,
       thumbnail: thumbnailResult,
       metadata: imageMetadata,
+      embedding: {
+        generated: !!embeddingVector,
+        dimensions: embeddingVector?.length || 0
+      }
     });
 
   } catch (error) {
