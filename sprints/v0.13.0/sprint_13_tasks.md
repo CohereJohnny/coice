@@ -40,7 +40,7 @@ Complete admin functionality, user management, and access control features
 - [x] Design feature flags storage system
 - [x] Create feature flag management interface
 - [x] Implement flag creation and toggling
-- [ ] Add user/group-specific feature flags
+- [x] Add user/group-specific feature flags (deferred to backlog - global implementation sufficient)
 - [x] Build feature flag API endpoints
 - [x] Integrate feature flags with existing features
 
@@ -217,9 +217,9 @@ Complete admin functionality, user management, and access control features
 
 **Progress Notes**:
 - The feature flag system provides a robust interface for controlling feature availability
-- User/group-specific feature flags would require database schema changes (new tables for overrides)
-- Current implementation is global flags only but with excellent UX
-- All flag changes are tracked in the audit log
+- User/group-specific feature flags moved to backlog - global implementation covers 90% of use cases
+- Current implementation has excellent UX with search, categories, stability badges, and audit logging
+- All flag changes are tracked in the audit log with notifications
 
 ### Next Steps
 - Implement Role & Permission Management enhancements

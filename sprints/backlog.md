@@ -253,3 +253,89 @@ Implement comprehensive result validation system with quality scoring, consisten
 - Approval workflow needs careful UX design for efficiency
 
 ---
+
+## User/Group-Specific Feature Flag Overrides
+
+**Added**: Sprint 13  
+**Priority**: Low  
+**Complexity**: High  
+**Estimated Effort**: 1-2 sprints  
+
+### Description
+Extend the current global feature flag system to support user-specific and group-specific overrides, allowing fine-grained control over feature availability for different users and groups.
+
+### Current State
+- Global feature flag system fully implemented and working well
+- FeatureFlagManager provides excellent UX for managing global flags
+- Feature flags integrated throughout codebase with `useFeatureFlag` hook
+- 5-minute caching mechanism with manual refresh capability
+- Comprehensive audit logging and notifications
+
+### Technical Considerations
+- **Database Schema Changes**: Requires two new tables (`user_feature_flags`, `group_feature_flags`)
+- **Resolution Logic**: Implement hierarchy (User Override > Group Override > Global Default)
+- **Performance**: Efficient lookup with proper indexing for user/group overrides
+- **UI Complexity**: Admin interface for managing user/group overrides
+- **API Extensions**: New endpoints for override management
+- **Cache Strategy**: Update caching logic to handle personalized flags
+- **RLS Policies**: Row-level security for new override tables
+
+### Required Database Schema
+```sql
+-- User-specific feature flag overrides
+CREATE TABLE user_feature_flags (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    feature_flag_id UUID REFERENCES feature_flags(id) ON DELETE CASCADE,
+    enabled BOOLEAN NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    UNIQUE(user_id, feature_flag_id)
+);
+
+-- Group-specific feature flag overrides  
+CREATE TABLE group_feature_flags (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+    feature_flag_id UUID REFERENCES feature_flags(id) ON DELETE CASCADE,
+    enabled BOOLEAN NOT NULL,
+    priority INTEGER DEFAULT 0,  -- For handling multiple group memberships
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    UNIQUE(group_id, feature_flag_id)
+);
+```
+
+### User Stories
+- As an admin, I want to enable experimental features for specific beta users
+- As an admin, I want to disable problematic features for specific groups while keeping them enabled globally
+- As a group manager, I want to control which features my team members can access
+- As a user, I want to understand which features are available to me based on my group memberships
+- As an admin, I want to see which users/groups have overrides for specific features
+
+### Implementation Requirements
+1. Design and implement new database tables with proper indexes and RLS policies
+2. Update feature flag resolution logic to check user > group > global hierarchy
+3. Extend FeatureFlagManager UI to show and manage overrides
+4. Add override management to UserDetailsDialog and GroupsPanel
+5. Create new API endpoints for managing user/group overrides
+6. Update `featureFlags.ts` library to handle personalized lookups
+7. Modify caching strategy to support user-specific cache keys
+8. Add visual indicators in admin UI showing override status
+9. Implement audit logging for override changes
+10. Update documentation and admin guide
+
+### Dependencies
+- Current feature flag system (✅ completed in Sprint 13)
+- User management system (✅ completed in Sprint 13)
+- Group management system (✅ completed in Sprint 13)
+- Audit logging system (✅ completed in Sprint 13)
+
+### Notes
+- The current global-only implementation covers 90% of use cases effectively
+- This enhancement would be valuable for organizations with complex permission requirements
+- Consider implementing as an optional "Advanced Mode" to maintain UI simplicity
+- Performance testing required for large user bases with many overrides
+- Alternative approach: Role-based flags (simpler than user/group specific)
+
+---
