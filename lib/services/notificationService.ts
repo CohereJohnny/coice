@@ -1,6 +1,8 @@
 import { toast } from 'sonner';
+import { createSupabaseClient } from '@/lib/supabase';
+import { RealtimePostgresInsertPayload } from '@supabase/supabase-js';
 
-export type NotificationType = 'success' | 'error' | 'warning' | 'info' | 'loading';
+export type NotificationType = 'success' | 'error' | 'warning' | 'info' | 'loading' | 'admin_action' | 'user_activity' | 'system';
 
 export interface NotificationData {
   id?: string;
@@ -21,6 +23,8 @@ export interface NotificationPreferences {
   enableJobCompletion: boolean;
   enableJobFailure: boolean;
   enableSystemNotifications: boolean;
+  enableAdminNotifications: boolean;
+  enableActivityNotifications: boolean;
   autoHideDelay: number; // milliseconds
   groupSimilarNotifications: boolean;
 }
@@ -40,6 +44,8 @@ const DEFAULT_PREFERENCES: NotificationPreferences = {
   enableJobCompletion: true,
   enableJobFailure: true,
   enableSystemNotifications: true,
+  enableAdminNotifications: true,
+  enableActivityNotifications: true,
   autoHideDelay: 5000,
   groupSimilarNotifications: true,
 };
@@ -48,9 +54,65 @@ class NotificationService {
   private preferences: NotificationPreferences;
   private activeNotifications: Map<string, NotificationData> = new Map();
   private eventListeners: Map<NotificationEventType, Set<(data: any) => void>> = new Map();
+  private supabase = createSupabaseClient();
+  private realtimeChannel: any = null;
   
   constructor() {
     this.preferences = this.loadPreferences();
+    this.initializeRealtimeSubscription();
+  }
+
+  // Initialize real-time subscription for notifications
+  private async initializeRealtimeSubscription() {
+    try {
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) return;
+
+      // Subscribe to new notifications for the current user
+      this.realtimeChannel = this.supabase
+        .channel('notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload: RealtimePostgresInsertPayload<any>) => {
+            this.handleRealtimeNotification(payload.new);
+          }
+        )
+        .subscribe();
+    } catch (error) {
+      console.error('Failed to initialize notification subscription:', error);
+    }
+  }
+
+  // Handle real-time notification from database
+  private handleRealtimeNotification(notification: any) {
+    // Check preferences
+    if (notification.type === 'admin_action' && !this.preferences.enableAdminNotifications) return;
+    if (notification.type === 'user_activity' && !this.preferences.enableActivityNotifications) return;
+
+    // Show the notification
+    this.show({
+      type: notification.type as NotificationType,
+      title: notification.title,
+      description: notification.description,
+      data: notification.data,
+      action: notification.action_label && notification.action_url ? {
+        label: notification.action_label,
+        onClick: () => window.location.href = notification.action_url
+      } : undefined
+    });
+  }
+
+  // Cleanup method
+  cleanup() {
+    if (this.realtimeChannel) {
+      this.supabase.removeChannel(this.realtimeChannel);
+    }
   }
 
   // Event management
@@ -188,6 +250,27 @@ class NotificationService {
           duration: Infinity, // Loading toasts don't auto-dismiss
         }) as string;
         break;
+      case 'admin_action':
+        toastId = toast.warning(title, {
+          ...options,
+          description,
+          icon: '👤',
+        }) as string;
+        break;
+      case 'user_activity':
+        toastId = toast.info(title, {
+          ...options,
+          description,
+          icon: '📊',
+        }) as string;
+        break;
+      case 'system':
+        toastId = toast.info(title, {
+          ...options,
+          description,
+          icon: '⚙️',
+        }) as string;
+        break;
       default:
         toastId = toast(title, {
           ...options,
@@ -207,7 +290,32 @@ class NotificationService {
       this.playNotificationSound(type);
     }
 
+    // Sync to database if it's a user-generated notification
+    if (['success', 'error', 'warning', 'info'].includes(type)) {
+      this.syncToDatabase(notification);
+    }
+
     return toastId;
+  }
+
+  // Sync notification to database
+  private async syncToDatabase(notification: NotificationData) {
+    try {
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) return;
+
+      await this.supabase.from('notifications').insert({
+        user_id: user.id,
+        type: notification.type,
+        title: notification.title,
+        description: notification.description,
+        data: notification.data || {},
+        action_label: notification.action?.label,
+        action_url: notification.data?.actionUrl,
+      });
+    } catch (error) {
+      console.error('Failed to sync notification to database:', error);
+    }
   }
 
   // Dismiss notification
@@ -377,6 +485,9 @@ class NotificationService {
         warning: 600,
         info: 700,
         loading: 0, // No sound for loading
+        admin_action: 500,
+        user_activity: 650,
+        system: 550,
       };
 
       if (frequencies[type] === 0) return;

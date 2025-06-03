@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, RefreshCw, Settings, CheckCircle, XCircle, Clock, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Loader2, RefreshCw, Settings, CheckCircle, XCircle, Clock, ToggleLeft, ToggleRight, Search, Beaker, ShieldCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { auditService } from '@/lib/services/auditService';
+import { notificationService } from '@/lib/services/notificationService';
 
 interface FeatureFlag {
   id: string;
@@ -21,6 +24,7 @@ export function FeatureFlagManager() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [updating, setUpdating] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Load feature flags
   const loadFeatureFlags = async () => {
@@ -50,7 +54,7 @@ export function FeatureFlagManager() {
   };
 
   // Update a feature flag
-  const updateFeatureFlag = async (name: string, enabled: boolean) => {
+  const updateFeatureFlag = async (flagId: string, name: string, enabled: boolean) => {
     try {
       setUpdating(prev => new Set(prev).add(name));
       setError('');
@@ -78,6 +82,16 @@ export function FeatureFlagManager() {
               : flag
           )
         );
+        
+        // Log the change
+        await auditService.logFeatureFlagToggled(flagId, name, enabled);
+        
+        // Show success notification
+        notificationService.show({
+          type: 'success',
+          title: 'Feature Flag Updated',
+          description: `${getDisplayName(name)} has been ${enabled ? 'enabled' : 'disabled'}`,
+        });
       } else {
         throw new Error(data.error || 'Failed to update feature flag');
       }
@@ -95,8 +109,8 @@ export function FeatureFlagManager() {
   };
 
   // Toggle a feature flag
-  const toggleFeatureFlag = (name: string, currentlyEnabled: boolean) => {
-    updateFeatureFlag(name, !currentlyEnabled);
+  const toggleFeatureFlag = (flagId: string, name: string, currentlyEnabled: boolean) => {
+    updateFeatureFlag(flagId, name, !currentlyEnabled);
   };
 
   // Refresh cache
@@ -116,6 +130,11 @@ export function FeatureFlagManager() {
       
       if (data.success) {
         await loadFeatureFlags(); // Reload flags after cache refresh
+        notificationService.show({
+          type: 'success',
+          title: 'Cache Refreshed',
+          description: 'Feature flag cache has been refreshed across the system',
+        });
       } else {
         throw new Error(data.error || 'Failed to refresh cache');
       }
@@ -157,6 +176,58 @@ export function FeatureFlagManager() {
   // Get status icon
   const getStatusIcon = (enabled: boolean) => {
     return enabled ? CheckCircle : XCircle;
+  };
+
+  // Get category for a feature flag
+  const getCategory = (name: string): string => {
+    const categories: Record<string, string> = {
+      'job_analytics_dashboard': 'Job Management',
+      'job_comparison_tools': 'Job Management',
+      'result_validation': 'Job Management',
+      'advanced_pipeline_editor': 'Pipeline Features',
+      'prompt_versioning': 'Pipeline Features',
+      'real_time_collaboration': 'System Features',
+      'real_time_notifications': 'System Features',
+      'google_oauth': 'Authentication',
+      'advanced_search': 'Search & Discovery',
+      'bulk_operations': 'Data Management',
+    };
+    
+    return categories[name] || 'Other';
+  };
+
+  // Filter flags based on search term
+  const filteredFlags = useMemo(() => {
+    if (!searchTerm) return featureFlags;
+    
+    const term = searchTerm.toLowerCase();
+    return featureFlags.filter(flag => 
+      flag.name.toLowerCase().includes(term) ||
+      flag.description.toLowerCase().includes(term) ||
+      getDisplayName(flag.name).toLowerCase().includes(term) ||
+      getCategory(flag.name).toLowerCase().includes(term)
+    );
+  }, [featureFlags, searchTerm]);
+
+  // Group feature flags by category
+  const groupedFlags = useMemo(() => {
+    const groups: Record<string, FeatureFlag[]> = {};
+    
+    filteredFlags.forEach(flag => {
+      const category = getCategory(flag.name);
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+      groups[category].push(flag);
+    });
+    
+    return groups;
+  }, [filteredFlags]);
+
+  // Get stability status for feature
+  const getStabilityStatus = (name: string): 'stable' | 'experimental' => {
+    const stableFeatures = ['real_time_notifications', 'google_oauth'];
+    return stableFeatures.includes(name) ? 'stable' : 'experimental';
   };
 
   if (loading) {
@@ -214,75 +285,104 @@ export function FeatureFlagManager() {
           </Alert>
         )}
 
+        {/* Search Bar */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search feature flags..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
         <div className="space-y-4">
-          {featureFlags.map((flag) => {
-            const StatusIcon = getStatusIcon(flag.enabled);
-            const isUpdating = updating.has(flag.name);
-            const ToggleIcon = flag.enabled ? ToggleRight : ToggleLeft;
-            
-            return (
-              <div
-                key={flag.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <StatusIcon 
-                      className={`h-5 w-5 ${flag.enabled ? 'text-green-600' : 'text-gray-400'}`} 
-                    />
-                    <h3 className="font-medium text-gray-900">
-                      {getDisplayName(flag.name)}
-                    </h3>
-                    <Badge 
-                      variant="secondary" 
-                      className={getStatusColor(flag.enabled)}
-                    >
-                      {flag.enabled ? 'Enabled' : 'Disabled'}
-                    </Badge>
-                  </div>
-                  
-                  <p className="text-sm text-gray-600 mb-2">
-                    {flag.description}
-                  </p>
-                  
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      Created {formatDistanceToNow(new Date(flag.created_at))} ago
-                    </span>
-                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                      {flag.name}
-                    </span>
-                  </div>
-                </div>
+          {Object.entries(groupedFlags).map(([category, flags]) => (
+            <div key={category} className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">
+                {category}
+              </h3>
+              {flags.map((flag) => {
+                const StatusIcon = getStatusIcon(flag.enabled);
+                const isUpdating = updating.has(flag.name);
+                const ToggleIcon = flag.enabled ? ToggleRight : ToggleLeft;
+                const stability = getStabilityStatus(flag.name);
+                const StabilityIcon = stability === 'stable' ? ShieldCheck : Beaker;
                 
-                <div className="flex items-center gap-3 ml-4">
-                  {isUpdating && (
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                  )}
-                  
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleFeatureFlag(flag.name, flag.enabled)}
-                    disabled={isUpdating}
-                    className={`flex items-center gap-2 px-3 py-2 ${
-                      flag.enabled 
-                        ? 'text-green-700 hover:text-green-800 hover:bg-green-50' 
-                        : 'text-gray-500 hover:text-gray-600 hover:bg-gray-50'
-                    }`}
+                return (
+                  <div
+                    key={flag.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    <ToggleIcon 
-                      className={`h-5 w-5 ${flag.enabled ? 'text-green-600' : 'text-gray-400'}`} 
-                    />
-                    <span className="text-sm font-medium">
-                      {flag.enabled ? 'Disable' : 'Enable'}
-                    </span>
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <StatusIcon 
+                          className={`h-5 w-5 ${flag.enabled ? 'text-green-600' : 'text-gray-400'}`} 
+                        />
+                        <h3 className="font-medium text-gray-900">
+                          {getDisplayName(flag.name)}
+                        </h3>
+                        <Badge 
+                          variant="secondary" 
+                          className={getStatusColor(flag.enabled)}
+                        >
+                          {flag.enabled ? 'Enabled' : 'Disabled'}
+                        </Badge>
+                        <Badge 
+                          variant="outline" 
+                          className={stability === 'stable' ? 'border-green-500 text-green-700' : 'border-orange-500 text-orange-700'}
+                        >
+                          <StabilityIcon className="h-3 w-3 mr-1" />
+                          {stability === 'stable' ? 'Stable' : 'Experimental'}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-sm text-gray-600 mb-2">
+                        {flag.description}
+                      </p>
+                      
+                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Created {formatDistanceToNow(new Date(flag.created_at))} ago
+                        </span>
+                        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                          {flag.name}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 ml-4">
+                      {isUpdating && (
+                        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                      )}
+                      
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleFeatureFlag(flag.id, flag.name, flag.enabled)}
+                        disabled={isUpdating}
+                        className={`flex items-center gap-2 px-3 py-2 ${
+                          flag.enabled 
+                            ? 'text-green-700 hover:text-green-800 hover:bg-green-50' 
+                            : 'text-gray-500 hover:text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        <ToggleIcon 
+                          className={`h-5 w-5 ${flag.enabled ? 'text-green-600' : 'text-gray-400'}`} 
+                        />
+                        <span className="text-sm font-medium">
+                          {flag.enabled ? 'Disable' : 'Enable'}
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
 
         {featureFlags.length === 0 && !loading && (
@@ -290,6 +390,14 @@ export function FeatureFlagManager() {
             <Settings className="h-12 w-12 mx-auto mb-4 text-gray-300" />
             <h3 className="text-lg font-medium mb-2">No Feature Flags Found</h3>
             <p>No feature flags are currently configured in the system.</p>
+          </div>
+        )}
+
+        {featureFlags.length > 0 && Object.keys(groupedFlags).length === 0 && searchTerm && (
+          <div className="text-center py-8 text-gray-500">
+            <Search className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-lg font-medium mb-2">No matches found</h3>
+            <p>Try adjusting your search terms.</p>
           </div>
         )}
 

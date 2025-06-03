@@ -24,6 +24,7 @@ export interface FeatureFlags {
   googleOauth: boolean;
   advancedSearch: boolean;
   bulkOperations: boolean;
+  systemMonitoring: boolean;
 }
 
 /**
@@ -46,6 +47,7 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
   googleOauth: false,
   advancedSearch: false,
   bulkOperations: false,
+  systemMonitoring: false, // Experimental system resource monitoring
 };
 
 /**
@@ -62,6 +64,7 @@ const FEATURE_FLAG_MAPPING: Record<string, keyof FeatureFlags> = {
   'google_oauth': 'googleOauth',
   'advanced_search': 'advancedSearch',
   'bulk_operations': 'bulkOperations',
+  'system_monitoring': 'systemMonitoring',
 };
 
 /**

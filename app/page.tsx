@@ -136,7 +136,7 @@ export default function Home() {
           {/* Sprint Status */}
           <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Sprint 11: Advanced Job Processing & Results</h3>
+              <h3 className="text-lg font-semibold">Sprint 13: Admin Panel & User Management</h3>
               <div className="text-muted-foreground">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -153,11 +153,11 @@ export default function Home() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Complete job processing pipeline, implement result storage, and build results viewing interface
+              Complete admin functionality, user management, and access control features
             </p>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm">Sprint 10 Complete</span>
+                <span className="text-sm">Sprint 11 Complete</span>
                 <div className="flex items-center space-x-2">
                   <div className="w-24 bg-green-200 rounded-full h-2">
                     <div className="bg-green-600 h-2 rounded-full w-full"></div>
@@ -166,18 +166,27 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm">Sprint 11 Planning</span>
+                <span className="text-sm">Sprint 12 Complete</span>
+                <div className="flex items-center space-x-2">
+                  <div className="w-24 bg-green-200 rounded-full h-2">
+                    <div className="bg-green-600 h-2 rounded-full w-full"></div>
+                  </div>
+                  <span className="text-xs text-green-600 font-medium">100%</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Sprint 13 In Progress</span>
                 <div className="flex items-center space-x-2">
                   <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div className="bg-blue-600 h-2 rounded-full w-1/4"></div>
+                    <div className="bg-blue-600 h-2 rounded-full w-[98%]"></div>
                   </div>
-                  <span className="text-xs text-blue-600 font-medium">25%</span>
+                  <span className="text-xs text-blue-600 font-medium">98%</span>
                 </div>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t">
               <div className="text-xs text-muted-foreground">
-                <strong>Sprint 10 Achievements:</strong> Real-time job monitoring, toast notifications, live dashboards, job comparison tools, notification management, bug fixes
+                <strong>Sprint 13 Achievements:</strong> Complete admin dashboard with real-time metrics, advanced user management with TanStack Table, comprehensive audit logging with export, group management, feature flag system, notification integration, and system monitoring feature flag
               </div>
             </div>
           </div>

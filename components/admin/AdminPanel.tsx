@@ -3,23 +3,20 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { DeleteConfirmationDialog } from '@/components/ui/delete-confirmation-dialog';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { FeatureFlagManager } from '@/components/admin/FeatureFlagManager';
+import { UserTable } from '@/components/admin/UserTable';
+import { AdminDashboard } from '@/components/admin/AdminDashboard';
+import { AuditLogViewer } from '@/components/admin/AuditLogViewer';
 import { 
   Users, 
   UserPlus, 
-  Search, 
-  MoreHorizontal,
-  Edit,
-  Trash2,
   Shield,
-  Mail,
-  Calendar
+  BarChart3,
+  FileText,
 } from 'lucide-react';
 import { GroupsPanel } from './GroupsPanel';
+import { auditService } from '@/lib/services/auditService';
 
 interface User {
   id: string;
@@ -27,6 +24,8 @@ interface User {
   role: 'admin' | 'manager' | 'end_user';
   display_name?: string;
   created_at: string;
+  is_active?: boolean;
+  last_login_at?: string;
 }
 
 interface AdminPanelProps {
@@ -36,14 +35,8 @@ interface AdminPanelProps {
 export function AdminPanel({ className }: AdminPanelProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [expandedActions, setExpandedActions] = useState<string | null>(null);
-  const [deleteDialog, setDeleteDialog] = useState<{
-    open: boolean;
-    user: User | null;
-  }>({ open: false, user: null });
   const [createUserDialog, setCreateUserDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'groups' | 'feature-flags'>('users');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'groups' | 'feature-flags' | 'audit-logs'>('dashboard');
 
   useEffect(() => {
     fetchUsers();
@@ -82,6 +75,9 @@ export function AdminPanel({ className }: AdminPanelProps) {
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: 'PUT',
         headers: {
@@ -96,55 +92,90 @@ export function AdminPanel({ className }: AdminPanelProps) {
             ? { ...user, role: newRole as 'admin' | 'manager' | 'end_user' }
             : user
         ));
+        
+        // Log the role change
+        auditService.logUserRoleChanged(userId, user.role, newRole);
       }
     } catch (error) {
       console.error('Error updating user role:', error);
     }
   };
 
-  const filteredUsers = users.filter(user =>
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user.display_name?.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
-  const getRoleBadgeVariant = (role: string) => {
-    switch (role) {
-      case 'admin': return 'destructive';
-      case 'manager': return 'default';
-      case 'end_user': return 'secondary';
-      default: return 'outline';
+  const handleUserUpdate = async (userId: string, updates: Partial<User>) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+      
+      if (response.ok) {
+        setUsers(users.map(user => 
+          user.id === userId 
+            ? { ...user, ...updates }
+            : user
+        ));
+      }
+    } catch (error) {
+      console.error('Error updating user:', error);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
   };
 
   return (
     <div className={className}>
-      {/* Tabs for Users/Groups */}
-      <div className="flex gap-2 mb-6">
-        <Button variant={activeTab === 'users' ? 'default' : 'outline'} onClick={() => setActiveTab('users')}>Users</Button>
-        <Button variant={activeTab === 'groups' ? 'default' : 'outline'} onClick={() => setActiveTab('groups')}>Groups</Button>
-        <Button variant={activeTab === 'feature-flags' ? 'default' : 'outline'} onClick={() => setActiveTab('feature-flags')}>Feature Flags</Button>
+      {/* Enhanced Tabs */}
+      <div className="flex gap-2 mb-6 flex-wrap">
+        <Button 
+          variant={activeTab === 'dashboard' ? 'default' : 'outline'} 
+          onClick={() => setActiveTab('dashboard')}
+          className="flex items-center gap-2"
+        >
+          <BarChart3 className="h-4 w-4" />
+          Dashboard
+        </Button>
+        <Button 
+          variant={activeTab === 'users' ? 'default' : 'outline'} 
+          onClick={() => setActiveTab('users')}
+          className="flex items-center gap-2"
+        >
+          <Users className="h-4 w-4" />
+          Users
+        </Button>
+        <Button 
+          variant={activeTab === 'groups' ? 'default' : 'outline'} 
+          onClick={() => setActiveTab('groups')}
+          className="flex items-center gap-2"
+        >
+          <Shield className="h-4 w-4" />
+          Groups
+        </Button>
+        <Button 
+          variant={activeTab === 'feature-flags' ? 'default' : 'outline'} 
+          onClick={() => setActiveTab('feature-flags')}
+          className="flex items-center gap-2"
+        >
+          <FileText className="h-4 w-4" />
+          Feature Flags
+        </Button>
+        <Button 
+          variant={activeTab === 'audit-logs' ? 'default' : 'outline'} 
+          onClick={() => setActiveTab('audit-logs')}
+          className="flex items-center gap-2"
+        >
+          <FileText className="h-4 w-4" />
+          Audit Logs
+        </Button>
       </div>
-      {activeTab === 'users' ? (
+
+      {/* Tab Content */}
+      {activeTab === 'dashboard' ? (
+        <AdminDashboard users={users} />
+      ) : activeTab === 'users' ? (
         <>
-          {/* Header with Search and Add User */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search users by email or name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          {/* Header with Add User */}
+          <div className="flex justify-end mb-6">
             <Button onClick={() => setCreateUserDialog(true)}>
               <UserPlus className="h-4 w-4 mr-2" />
               Add User
@@ -188,141 +219,21 @@ export function AdminPanel({ className }: AdminPanelProps) {
             </Card>
           </div>
 
-          {/* Users List */}
+          {/* Users Table */}
           <Card>
             <CardHeader>
               <CardTitle>Users</CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex items-center space-x-4 animate-pulse">
-                      <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/6"></div>
-                      </div>
-                      <div className="h-6 w-16 bg-gray-200 rounded"></div>
-                    </div>
-                  ))}
-                </div>
-              ) : filteredUsers.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-                    No users found
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {searchTerm ? 'Try adjusting your search terms.' : 'Get started by adding your first user.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredUsers.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <div className="flex items-center space-x-4">
-                        <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                            {(user.display_name || user.email).charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {user.display_name || user.email}
-                            </p>
-                            <Badge variant={getRoleBadgeVariant(user.role)}>
-                              {user.role}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              {user.email}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              Joined {formatDate(user.created_at)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="relative">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setExpandedActions(expandedActions === user.id ? null : user.id)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                        {expandedActions === user.id && (
-                          <div className="absolute right-0 top-8 z-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg py-1 min-w-[140px]">
-                            <button
-                              onClick={() => {
-                                // TODO: Implement edit user
-                                setExpandedActions(null);
-                              }}
-                              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700"
-                            >
-                              <Edit className="h-4 w-4" />
-                              Edit User
-                            </button>
-                            <div className="px-3 py-1">
-                              <p className="text-xs text-gray-500 mb-1">Change Role:</p>
-                              <div className="space-y-1">
-                                {['admin', 'manager', 'end_user'].map((role) => (
-                                  <button
-                                    key={role}
-                                    onClick={() => {
-                                      handleRoleChange(user.id, role);
-                                      setExpandedActions(null);
-                                    }}
-                                    className={`block w-full text-left px-2 py-1 text-xs rounded ${
-                                      user.role === role 
-                                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200' 
-                                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                                  >
-                                    {role}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => {
-                                setDeleteDialog({ open: true, user });
-                                setExpandedActions(null);
-                              }}
-                              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-left hover:bg-gray-100 dark:hover:bg-gray-700 text-red-600 dark:text-red-400"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              Delete User
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <UserTable
+                users={users}
+                isLoading={isLoading}
+                onUserUpdate={handleUserUpdate}
+                onUserDelete={handleDeleteUser}
+                onRoleChange={handleRoleChange}
+              />
             </CardContent>
           </Card>
-
-          <DeleteConfirmationDialog
-            open={deleteDialog.open}
-            onOpenChange={(open) => setDeleteDialog({ open, user: null })}
-            onConfirm={() => {
-              if (deleteDialog.user) {
-                handleDeleteUser(deleteDialog.user);
-              }
-            }}
-            title="Delete User"
-            itemName={deleteDialog.user?.display_name || deleteDialog.user?.email || 'Unknown User'}
-            warningMessage="This action cannot be undone. The user will lose access to all catalogs and libraries."
-          />
 
           <CreateUserDialog
             open={createUserDialog}
@@ -334,9 +245,11 @@ export function AdminPanel({ className }: AdminPanelProps) {
         </>
       ) : activeTab === 'groups' ? (
         <GroupsPanel />
-      ) : (
+      ) : activeTab === 'feature-flags' ? (
         <FeatureFlagManager />
-      )}
+      ) : activeTab === 'audit-logs' ? (
+        <AuditLogViewer />
+      ) : null}
     </div>
   );
 } 

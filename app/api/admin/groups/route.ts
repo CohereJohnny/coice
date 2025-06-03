@@ -150,7 +150,7 @@ export async function GET() {
       // Fetch group memberships
       const { data: memberships, error: membershipsError } = await adminSupabase
         .from('user_groups')
-        .select('group_id, user_id, profiles(id, email, role)');
+        .select('group_id, user_id, profiles(id, email, role, display_name)');
       if (membershipsError) {
         return NextResponse.json({ error: 'Failed to fetch group memberships', details: membershipsError.message }, { status: 500 });
       }
@@ -238,6 +238,59 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ message: 'Group deleted' });
   } catch (error) {
     console.error('Error in group delete API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check admin role
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    if (profileError || profile?.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const { group_id, name } = await request.json();
+    if (!group_id || !name) {
+      return NextResponse.json({ error: 'group_id and name are required' }, { status: 400 });
+    }
+
+    // Use service role for bypassing RLS
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json({ error: 'Service role key not configured' }, { status: 500 });
+    }
+    const adminSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    // Update the group name
+    const { data: updatedGroup, error: updateError } = await adminSupabase
+      .from('groups')
+      .update({ name })
+      .eq('id', group_id)
+      .select()
+      .single();
+
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to update group', details: updateError.message }, { status: 500 });
+    }
+
+    return NextResponse.json(updatedGroup);
+  } catch (error) {
+    console.error('Error in group update API:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

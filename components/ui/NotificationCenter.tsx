@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Bell, X, Search, Filter, Settings, Archive, Trash2, Check, Clock, AlertCircle } from 'lucide-react';
+import { Bell, X, Search, Filter, Settings, Archive, Trash2, Check, Clock, AlertCircle, Shield, Activity } from 'lucide-react';
 import { Button } from './button';
 import { Input } from './input';
 import { Badge } from './badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './dialog';
 import { notificationService, NotificationData, NotificationPreferences } from '@/lib/services/notificationService';
+import { createSupabaseClient } from '@/lib/supabase';
 
 export interface NotificationHistoryItem extends NotificationData {
   id: string;
@@ -31,75 +32,134 @@ export function NotificationCenter({
   // State management
   const [notifications, setNotifications] = useState<NotificationHistoryItem[]>([]);
   const [filter, setFilter] = useState<'all' | 'unread' | 'archived'>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'success' | 'error' | 'warning' | 'info'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'success' | 'error' | 'warning' | 'info' | 'admin_action' | 'user_activity' | 'system'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [preferences, setPreferences] = useState<NotificationPreferences>(notificationService.getPreferences());
   const [showPreferences, setShowPreferences] = useState(false);
+  const [isLoadingFromDb, setIsLoadingFromDb] = useState(false);
+  const supabase = createSupabaseClient();
 
-  // Load notification history from localStorage
+  // Load notifications from database when opened
   useEffect(() => {
-    const loadNotificationHistory = () => {
-      try {
-        const stored = localStorage.getItem('notification-history');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          const history = parsed.map((item: any) => ({
-            ...item,
-            timestamp: new Date(item.timestamp),
-          }));
-          setNotifications(history);
-        }
-      } catch (error) {
-        console.warn('Failed to load notification history:', error);
-      }
-    };
+    if (open) {
+      loadNotificationsFromDatabase();
+    }
+  }, [open]);
 
-    loadNotificationHistory();
-
-    // Listen for new notifications from the service
-    const unsubscribeNotificationCreated = notificationService.addEventListener(
-      'notification-created',
-      (notification: NotificationData) => {
-        const historyItem: NotificationHistoryItem = {
-          ...notification,
-          id: notification.id || `notification-${Date.now()}`,
-          timestamp: new Date(),
-          read: false,
-          archived: false,
-          dismissed: false,
-        };
-
-        setNotifications(prev => {
-          const updated = [historyItem, ...prev].slice(0, 100); // Keep only last 100
-          saveNotificationHistory(updated);
-          return updated;
-        });
-      }
-    );
-
-    // Listen for preference updates
-    const unsubscribePreferences = notificationService.addEventListener(
-      'preferences-updated',
-      (newPreferences: NotificationPreferences) => {
-        setPreferences(newPreferences);
-      }
-    );
-
-    // Cleanup event listeners
-    return () => {
-      unsubscribeNotificationCreated();
-      unsubscribePreferences();
-    };
-  }, []);
-
-  // Save notification history to localStorage
-  const saveNotificationHistory = (history: NotificationHistoryItem[]) => {
+  // Load notifications from database
+  const loadNotificationsFromDatabase = async () => {
+    setIsLoadingFromDb(true);
     try {
-      localStorage.setItem('notification-history', JSON.stringify(history));
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: dbNotifications, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.error('Failed to load notifications:', error);
+        return;
+      }
+
+      if (dbNotifications) {
+        const formattedNotifications: NotificationHistoryItem[] = dbNotifications.map((n: any) => ({
+          id: n.id,
+          type: n.type as NotificationData['type'],
+          title: n.title,
+          description: n.description,
+          data: n.data,
+          timestamp: new Date(n.created_at),
+          read: n.read,
+          archived: n.archived,
+          dismissed: false,
+          action: n.action_label && n.action_url ? {
+            label: n.action_label,
+            onClick: () => window.location.href = n.action_url,
+          } : undefined,
+        }));
+
+        setNotifications(formattedNotifications);
+      }
     } catch (error) {
-      console.warn('Failed to save notification history:', error);
+      console.error('Failed to load notifications:', error);
+    } finally {
+      setIsLoadingFromDb(false);
     }
   };
+
+  // Subscribe to realtime notifications
+  useEffect(() => {
+    let channel: any;
+
+    const setupRealtimeSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !open) return;
+
+      channel = supabase
+        .channel('notification-center')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload: any) => {
+            const newNotification = payload.new as any;
+            const historyItem: NotificationHistoryItem = {
+              id: newNotification.id,
+              type: newNotification.type,
+              title: newNotification.title,
+              description: newNotification.description,
+              data: newNotification.data,
+              timestamp: new Date(newNotification.created_at),
+              read: newNotification.read,
+              archived: newNotification.archived,
+              dismissed: false,
+              action: newNotification.action_label && newNotification.action_url ? {
+                label: newNotification.action_label,
+                onClick: () => window.location.href = newNotification.action_url,
+              } : undefined,
+            };
+            setNotifications(prev => [historyItem, ...prev]);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload: any) => {
+            const updated = payload.new as any;
+            setNotifications(prev => 
+              prev.map(n => n.id === updated.id 
+                ? { ...n, read: updated.read, archived: updated.archived }
+                : n
+              )
+            );
+          }
+        )
+        .subscribe();
+    };
+
+    if (open) {
+      setupRealtimeSubscription();
+    }
+
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [open, supabase]);
 
   // Filter notifications
   const filteredNotifications = useMemo(() => {
@@ -127,42 +187,75 @@ export function NotificationCenter({
   const unreadCount = notifications.filter(n => !n.read && !n.archived).length;
   const totalCount = notifications.length;
 
-  // Actions
-  const markAsRead = (id: string) => {
+  // Actions (updated to sync with database)
+  const markAsRead = async (id: string) => {
     setNotifications(prev => {
       const updated = prev.map(n => n.id === id ? { ...n, read: true } : n);
-      saveNotificationHistory(updated);
       return updated;
     });
+
+    // Update in database
+    await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', id);
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+    
     setNotifications(prev => {
       const updated = prev.map(n => ({ ...n, read: true }));
-      saveNotificationHistory(updated);
       return updated;
     });
+
+    // Update in database
+    if (unreadIds.length > 0) {
+      await supabase
+        .from('notifications')
+        .update({ read: true })
+        .in('id', unreadIds);
+    }
   };
 
-  const archiveNotification = (id: string) => {
+  const archiveNotification = async (id: string) => {
     setNotifications(prev => {
       const updated = prev.map(n => n.id === id ? { ...n, archived: true, read: true } : n);
-      saveNotificationHistory(updated);
       return updated;
     });
+
+    // Update in database
+    await supabase
+      .from('notifications')
+      .update({ archived: true, read: true })
+      .eq('id', id);
   };
 
-  const deleteNotification = (id: string) => {
+  const deleteNotification = async (id: string) => {
     setNotifications(prev => {
       const updated = prev.filter(n => n.id !== id);
-      saveNotificationHistory(updated);
       return updated;
     });
+
+    // Delete from database
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', id);
   };
 
-  const clearAll = () => {
+  const clearAll = async () => {
+    const notificationIds = notifications.map(n => n.id);
+    
     setNotifications([]);
-    localStorage.removeItem('notification-history');
+    
+    // Delete from database
+    if (notificationIds.length > 0) {
+      await supabase
+        .from('notifications')
+        .delete()
+        .in('id', notificationIds);
+    }
   };
 
   // Preference handlers
@@ -172,7 +265,7 @@ export function NotificationCenter({
     notificationService.updatePreferences(updates);
   };
 
-  // Get notification icon
+  // Get notification icon (updated with new types)
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'success':
@@ -183,6 +276,12 @@ export function NotificationCenter({
         return <AlertCircle className="h-4 w-4 text-yellow-500" />;
       case 'info':
         return <Bell className="h-4 w-4 text-blue-500" />;
+      case 'admin_action':
+        return <Shield className="h-4 w-4 text-purple-500" />;
+      case 'user_activity':
+        return <Activity className="h-4 w-4 text-indigo-500" />;
+      case 'system':
+        return <Settings className="h-4 w-4 text-gray-500" />;
       default:
         return <Bell className="h-4 w-4 text-gray-500" />;
     }
@@ -346,6 +445,9 @@ export function NotificationCenter({
                   <option value="error">Error</option>
                   <option value="warning">Warning</option>
                   <option value="info">Info</option>
+                  <option value="admin_action">Admin</option>
+                  <option value="user_activity">Activity</option>
+                  <option value="system">System</option>
                 </select>
               </div>
 
