@@ -6,10 +6,14 @@ import { Button } from '@/components/ui/button';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { FeatureFlagManager } from '@/components/admin/FeatureFlagManager';
 import { UserTable } from '@/components/admin/UserTable';
+import { AdminDashboard } from '@/components/admin/AdminDashboard';
+import { AuditLogViewer } from '@/components/admin/AuditLogViewer';
 import { 
   Users, 
   UserPlus, 
   Shield,
+  BarChart3,
+  FileText,
 } from 'lucide-react';
 import { GroupsPanel } from './GroupsPanel';
 import { auditService } from '@/lib/services/auditService';
@@ -32,7 +36,7 @@ export function AdminPanel({ className }: AdminPanelProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [createUserDialog, setCreateUserDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState<'users' | 'groups' | 'feature-flags'>('users');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'groups' | 'feature-flags' | 'audit-logs'>('dashboard');
 
   useEffect(() => {
     fetchUsers();
@@ -121,13 +125,54 @@ export function AdminPanel({ className }: AdminPanelProps) {
 
   return (
     <div className={className}>
-      {/* Tabs for Users/Groups */}
-      <div className="flex gap-2 mb-6">
-        <Button variant={activeTab === 'users' ? 'default' : 'outline'} onClick={() => setActiveTab('users')}>Users</Button>
-        <Button variant={activeTab === 'groups' ? 'default' : 'outline'} onClick={() => setActiveTab('groups')}>Groups</Button>
-        <Button variant={activeTab === 'feature-flags' ? 'default' : 'outline'} onClick={() => setActiveTab('feature-flags')}>Feature Flags</Button>
+      {/* Enhanced Tabs */}
+      <div className="flex gap-2 mb-6 flex-wrap">
+        <Button 
+          variant={activeTab === 'dashboard' ? 'default' : 'outline'} 
+          onClick={() => setActiveTab('dashboard')}
+          className="flex items-center gap-2"
+        >
+          <BarChart3 className="h-4 w-4" />
+          Dashboard
+        </Button>
+        <Button 
+          variant={activeTab === 'users' ? 'default' : 'outline'} 
+          onClick={() => setActiveTab('users')}
+          className="flex items-center gap-2"
+        >
+          <Users className="h-4 w-4" />
+          Users
+        </Button>
+        <Button 
+          variant={activeTab === 'groups' ? 'default' : 'outline'} 
+          onClick={() => setActiveTab('groups')}
+          className="flex items-center gap-2"
+        >
+          <Shield className="h-4 w-4" />
+          Groups
+        </Button>
+        <Button 
+          variant={activeTab === 'feature-flags' ? 'default' : 'outline'} 
+          onClick={() => setActiveTab('feature-flags')}
+          className="flex items-center gap-2"
+        >
+          <FileText className="h-4 w-4" />
+          Feature Flags
+        </Button>
+        <Button 
+          variant={activeTab === 'audit-logs' ? 'default' : 'outline'} 
+          onClick={() => setActiveTab('audit-logs')}
+          className="flex items-center gap-2"
+        >
+          <FileText className="h-4 w-4" />
+          Audit Logs
+        </Button>
       </div>
-      {activeTab === 'users' ? (
+
+      {/* Tab Content */}
+      {activeTab === 'dashboard' ? (
+        <AdminDashboard users={users} />
+      ) : activeTab === 'users' ? (
         <>
           {/* Header with Add User */}
           <div className="flex justify-end mb-6">
@@ -200,9 +245,11 @@ export function AdminPanel({ className }: AdminPanelProps) {
         </>
       ) : activeTab === 'groups' ? (
         <GroupsPanel />
-      ) : (
+      ) : activeTab === 'feature-flags' ? (
         <FeatureFlagManager />
-      )}
+      ) : activeTab === 'audit-logs' ? (
+        <AuditLogViewer />
+      ) : null}
     </div>
   );
 } 
