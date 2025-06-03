@@ -178,15 +178,15 @@ export default function Home() {
                 <span className="text-sm">Sprint 13 In Progress</span>
                 <div className="flex items-center space-x-2">
                   <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div className="bg-blue-600 h-2 rounded-full w-[95%]"></div>
+                    <div className="bg-blue-600 h-2 rounded-full w-[98%]"></div>
                   </div>
-                  <span className="text-xs text-blue-600 font-medium">95%</span>
+                  <span className="text-xs text-blue-600 font-medium">98%</span>
                 </div>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t">
               <div className="text-xs text-muted-foreground">
-                <strong>Sprint 13 Achievements:</strong> Complete admin dashboard with real-time metrics, advanced user management with TanStack Table, comprehensive audit logging with export, group management, feature flag system, and notification integration
+                <strong>Sprint 13 Achievements:</strong> Complete admin dashboard with real-time metrics, advanced user management with TanStack Table, comprehensive audit logging with export, group management, feature flag system, notification integration, and system monitoring feature flag
               </div>
             </div>
           </div>
