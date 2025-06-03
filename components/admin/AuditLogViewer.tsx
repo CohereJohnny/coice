@@ -74,7 +74,7 @@ export function AuditLogViewer() {
         page: currentPage.toString(),
         limit: itemsPerPage.toString(),
         ...Object.entries(filters).reduce((acc, [key, value]) => {
-          if (value) acc[key] = value;
+          if (value && value !== 'all') acc[key] = value;
           return acc;
         }, {} as Record<string, string>)
       });
@@ -99,10 +99,10 @@ export function AuditLogViewer() {
 
   const clearFilters = () => {
     setFilters({
-      action: '',
-      entityType: '',
+      action: 'all',
+      entityType: 'all',
       userId: '',
-      dateRange: '',
+      dateRange: 'all',
       search: ''
     });
     setCurrentPage(1);
@@ -113,7 +113,7 @@ export function AuditLogViewer() {
       const params = new URLSearchParams({
         export: 'true',
         ...Object.entries(filters).reduce((acc, [key, value]) => {
-          if (value) acc[key] = value;
+          if (value && value !== 'all') acc[key] = value;
           return acc;
         }, {} as Record<string, string>)
       });
@@ -215,12 +215,12 @@ export function AuditLogViewer() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Action</label>
-              <Select value={filters.action} onValueChange={(value) => handleFilterChange('action', value)}>
+              <Select value={filters.action || 'all'} onValueChange={(value) => handleFilterChange('action', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All actions" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All actions</SelectItem>
+                  <SelectItem value="all">All actions</SelectItem>
                   <SelectItem value="user_created">User Created</SelectItem>
                   <SelectItem value="user_updated">User Updated</SelectItem>
                   <SelectItem value="user_deleted">User Deleted</SelectItem>
@@ -234,12 +234,12 @@ export function AuditLogViewer() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Entity Type</label>
-              <Select value={filters.entityType} onValueChange={(value) => handleFilterChange('entityType', value)}>
+              <Select value={filters.entityType || 'all'} onValueChange={(value) => handleFilterChange('entityType', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All entities" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All entities</SelectItem>
+                  <SelectItem value="all">All entities</SelectItem>
                   <SelectItem value="user">User</SelectItem>
                   <SelectItem value="group">Group</SelectItem>
                   <SelectItem value="feature_flag">Feature Flag</SelectItem>
@@ -251,12 +251,12 @@ export function AuditLogViewer() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Date Range</label>
-              <Select value={filters.dateRange} onValueChange={(value) => handleFilterChange('dateRange', value)}>
+              <Select value={filters.dateRange || 'all'} onValueChange={(value) => handleFilterChange('dateRange', value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All time" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All time</SelectItem>
+                  <SelectItem value="all">All time</SelectItem>
                   <SelectItem value="today">Today</SelectItem>
                   <SelectItem value="week">This week</SelectItem>
                   <SelectItem value="month">This month</SelectItem>

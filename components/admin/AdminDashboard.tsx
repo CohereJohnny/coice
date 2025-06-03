@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useFeatureFlag } from '@/lib/featureFlags';
 import { 
   Users, 
   Database, 
@@ -49,6 +50,7 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ users }: AdminDashboardProps) {
+  const systemMonitoringEnabled = useFeatureFlag('systemMonitoring');
   const [metrics, setMetrics] = useState<SystemMetrics>({
     totalUsers: 0,
     activeUsers: 0,
@@ -119,7 +121,7 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
         <div>
           <h2 className="text-2xl font-bold tracking-tight">System Dashboard</h2>
           <p className="text-muted-foreground">
-            Monitor system health, usage, and performance metrics
+            Monitor application metrics and system performance
           </p>
         </div>
         <div className="flex items-center space-x-4">
@@ -138,72 +140,77 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
         </div>
       </div>
 
-      {/* System Health Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {getHealthIcon(metrics.systemHealth)}
-            System Health
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Overall Status</p>
-              <p className={`text-lg font-bold capitalize ${getHealthColor(metrics.systemHealth)}`}>
-                {metrics.systemHealth}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">CPU Usage</p>
-              <div className="flex items-center space-x-2">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full ${
-                      metrics.cpuUsage > 80 ? 'bg-red-600' : 
-                      metrics.cpuUsage > 60 ? 'bg-yellow-600' : 'bg-green-600'
-                    }`}
-                    style={{ width: `${metrics.cpuUsage}%` }}
-                  />
+      {/* System Health Overview - Only show if system monitoring enabled */}
+      {systemMonitoringEnabled && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {getHealthIcon(metrics.systemHealth)}
+              System Health
+              <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full ml-2">
+                Experimental
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Overall Status</p>
+                <p className={`text-lg font-bold capitalize ${getHealthColor(metrics.systemHealth)}`}>
+                  {metrics.systemHealth}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">CPU Usage</p>
+                <div className="flex items-center space-x-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full ${
+                        metrics.cpuUsage > 80 ? 'bg-red-600' : 
+                        metrics.cpuUsage > 60 ? 'bg-yellow-600' : 'bg-green-600'
+                      }`}
+                      style={{ width: `${metrics.cpuUsage}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium">{metrics.cpuUsage}%</span>
                 </div>
-                <span className="text-sm font-medium">{metrics.cpuUsage}%</span>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Memory Usage</p>
+                <div className="flex items-center space-x-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full ${
+                        metrics.memoryUsage > 80 ? 'bg-red-600' : 
+                        metrics.memoryUsage > 60 ? 'bg-yellow-600' : 'bg-green-600'
+                      }`}
+                      style={{ width: `${metrics.memoryUsage}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium">{metrics.memoryUsage}%</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Disk Usage</p>
+                <div className="flex items-center space-x-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full ${
+                        metrics.diskUsage > 80 ? 'bg-red-600' : 
+                        metrics.diskUsage > 60 ? 'bg-yellow-600' : 'bg-green-600'
+                      }`}
+                      style={{ width: `${metrics.diskUsage}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium">{metrics.diskUsage}%</span>
+                </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Memory Usage</p>
-              <div className="flex items-center space-x-2">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full ${
-                      metrics.memoryUsage > 80 ? 'bg-red-600' : 
-                      metrics.memoryUsage > 60 ? 'bg-yellow-600' : 'bg-green-600'
-                    }`}
-                    style={{ width: `${metrics.memoryUsage}%` }}
-                  />
-                </div>
-                <span className="text-sm font-medium">{metrics.memoryUsage}%</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Disk Usage</p>
-              <div className="flex items-center space-x-2">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full ${
-                      metrics.diskUsage > 80 ? 'bg-red-600' : 
-                      metrics.diskUsage > 60 ? 'bg-yellow-600' : 'bg-green-600'
-                    }`}
-                    style={{ width: `${metrics.diskUsage}%` }}
-                  />
-                </div>
-                <span className="text-sm font-medium">{metrics.diskUsage}%</span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* User Statistics */}
+      {/* Application Statistics - Always visible */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -258,7 +265,7 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
         </Card>
       </div>
 
-      {/* Job Statistics */}
+      {/* Job Statistics - Always visible */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -300,67 +307,75 @@ export function AdminDashboard({ users }: AdminDashboardProps) {
         </Card>
       </div>
 
-      {/* System Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Server className="h-5 w-5" />
-              System Resources
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Cpu className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">CPU</span>
+      {/* System Information - Only show if system monitoring enabled */}
+      {systemMonitoringEnabled && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Server className="h-5 w-5" />
+                System Resources
+                <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full ml-2">
+                  Experimental
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Cpu className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">CPU</span>
+                </div>
+                <span className="text-sm font-medium">{metrics.cpuUsage}%</span>
               </div>
-              <span className="text-sm font-medium">{metrics.cpuUsage}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MemoryStick className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Memory</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MemoryStick className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">Memory</span>
+                </div>
+                <span className="text-sm font-medium">{metrics.memoryUsage}%</span>
               </div>
-              <span className="text-sm font-medium">{metrics.memoryUsage}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <HardDrive className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Disk</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">Disk</span>
+                </div>
+                <span className="text-sm font-medium">{metrics.diskUsage}%</span>
               </div>
-              <span className="text-sm font-medium">{metrics.diskUsage}%</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              System Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">System Status</span>
-              <span className={`text-sm font-medium capitalize ${getHealthColor(metrics.systemHealth)}`}>
-                {metrics.systemHealth}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Last Backup</span>
-              <span className="text-sm font-medium">
-                {metrics.lastBackup || 'Never'}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Uptime</span>
-              <span className="text-sm font-medium">99.9%</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                System Information
+                <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full ml-2">
+                  Experimental
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">System Status</span>
+                <span className={`text-sm font-medium capitalize ${getHealthColor(metrics.systemHealth)}`}>
+                  {metrics.systemHealth}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Last Backup</span>
+                <span className="text-sm font-medium">
+                  {metrics.lastBackup || 'Never'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Uptime</span>
+                <span className="text-sm font-medium">99.9%</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 } 
