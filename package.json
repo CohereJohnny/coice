@@ -48,6 +48,7 @@
     "sonner": "^2.0.3",
     "swr": "^2.3.3",
     "tailwind-merge": "^3.3.0",
+    "tailwindcss-animate": "^1.0.7",
     "zod": "^3.25.34",
     "zustand": "^5.0.5"
   },
