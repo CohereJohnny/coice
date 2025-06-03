@@ -178,9 +178,9 @@ export default function Home() {
                 <span className="text-sm">Sprint 13 In Progress</span>
                 <div className="flex items-center space-x-2">
                   <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div className="bg-blue-600 h-2 rounded-full w-[65%]"></div>
+                    <div className="bg-blue-600 h-2 rounded-full w-[75%]"></div>
                   </div>
-                  <span className="text-xs text-blue-600 font-medium">65%</span>
+                  <span className="text-xs text-blue-600 font-medium">75%</span>
                 </div>
               </div>
             </div>
