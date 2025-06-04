@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -286,13 +287,16 @@ export default function CardView({
                         {isLoading && (
                           <div className="absolute inset-0 bg-muted animate-pulse rounded-lg" />
                         )}
-                        <img
+                        <Image
                           src={imageUrl}
                           alt={image.metadata.original_filename || 'Image'}
                           className="w-full h-full object-cover transition-transform duration-200 hover:scale-105"
+                          width={image.metadata.width || 400}
+                          height={image.metadata.height || 400}
                           onLoad={() => handleImageLoad(image.id)}
                           onError={() => handleImageError(image.id)}
-                          loading="lazy"
+                          sizes="(max-width: 768px) 33vw, (max-width: 1200px) 25vw, 20vw"
+                          priority={index < 8} // Prioritize first 8 images
                         />
                       </>
                     ) : (

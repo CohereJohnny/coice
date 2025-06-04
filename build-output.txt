@@ -1,0 +1,116 @@
+
+> coice@0.1.0 build /Users/jkb/Demos/coice
+> next build
+
+   ▲ Next.js 15.3.2
+   - Environments: .env.local
+   - Experiments (use with caution):
+     ✓ scrollRestoration
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 17.0s
+   Linting and checking validity of types ...
+
+./app/analysis/jobs/[id]/page.tsx
+237:6  Warning: React Hook useCallback has a missing dependency: 'loadAnalyticsData'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+360:7  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./app/catalogs/[id]/page.tsx
+87:6  Warning: React Hook useEffect has a missing dependency: 'fetchCatalogData'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./app/components/Navbar.tsx
+61:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+69:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./app/debug/carousel-test/page.tsx
+302:19  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./app/debug/performance-test/page.tsx
+429:19  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./app/libraries/[id]/LibraryDetailClient.tsx
+158:6  Warning: React Hook useEffect has a missing dependency: 'fetchLibraryInfo'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+165:6  Warning: React Hook useEffect has a missing dependency: 'fetchImages'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+639:17  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/admin/AuditLogViewer.tsx
+68:6  Warning: React Hook useEffect has a missing dependency: 'fetchAuditLogs'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./components/admin/UserDetailsDialog.tsx
+80:6  Warning: React Hook useEffect has a missing dependency: 'fetchUserDetails'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./components/images/CardView.tsx
+254:15  Warning: The attribute aria-selected is not supported by the role button.  jsx-a11y/role-supports-aria-props
+289:25  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/images/ImageUpload.tsx
+59:6  Warning: React Hook useCallback has a missing dependency: 'handleFiles'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+66:6  Warning: React Hook useCallback has a missing dependency: 'handleFiles'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+204:6  Warning: React Hook useCallback has a missing dependency: 'uploadSingleFile'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./components/images/ListView.tsx
+174:17  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/images/ProgressiveImage.tsx
+94:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+104:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+119:7  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/images/VirtualizedCardView.tsx
+127:13  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/images/carousel/Carousel.tsx
+95:6  Warning: React Hook useEffect has a missing dependency: 'carouselState'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./components/images/carousel/CarouselImage.tsx
+181:7  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/images/carousel/CarouselNavigation.tsx
+156:19  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/images/single-view/ImageDisplay.tsx
+112:19  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/images/single-view/hooks/useSingleImageState.ts
+256:6  Warning: React Hook useCallback has a missing dependency: 'goToLibrary'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./components/jobs/JobResultsCard.tsx
+85:5  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/jobs/JobSubmissionForm.tsx
+386:29  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/navigation/CatalogNavigation.tsx
+75:5  Warning: Unused eslint-disable directive (no problems were reported from 'react-hooks/exhaustive-deps').
+
+./components/prompts/PipelineTemplates.tsx
+161:6  Warning: React Hook useEffect has a missing dependency: 'mockTemplates'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./components/prompts/PromptList.tsx
+122:6  Warning: React Hook useEffect has a missing dependency: 'fetchPrompts'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./components/search/GlobalSearchModal.tsx
+245:39  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/search/SearchResults.tsx
+297:25  Warning: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+./components/ui/NotificationCenter.tsx
+47:6  Warning: React Hook useEffect has a missing dependency: 'loadNotificationsFromDatabase'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+   Collecting page data ...
+unhandledRejection Error: Cannot find module '../chunks/ssr/[turbopack]_runtime.js'
+Require stack:
+- /Users/jkb/Demos/coice/.next/server/pages/_document.js
+- /Users/jkb/Demos/coice/node_modules/.pnpm/next@15.3.2_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/server/require.js
+- /Users/jkb/Demos/coice/node_modules/.pnpm/next@15.3.2_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/server/load-components.js
+- /Users/jkb/Demos/coice/node_modules/.pnpm/next@15.3.2_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/build/utils.js
+- /Users/jkb/Demos/coice/node_modules/.pnpm/next@15.3.2_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/build/worker.js
+- /Users/jkb/Demos/coice/node_modules/.pnpm/next@15.3.2_react-dom@19.1.0_react@19.1.0__react@19.1.0/node_modules/next/dist/compiled/jest-worker/processChild.js
+    at Object.<anonymous> (.next/server/pages/_document.js:2:17) {
+  type: 'Error',
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [Array]
+}
+ ELIFECYCLE  Command failed with exit code 1.

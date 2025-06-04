@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -178,7 +179,7 @@ export function CarouselImage({
       )}
 
       {/* Main image - properly centered with flex and visual offset */}
-      <img
+      <Image
         ref={imageRef}
         src={imageUrl}
         alt={image.metadata?.original_filename || `Image ${index + 1}`}
@@ -191,9 +192,14 @@ export function CarouselImage({
           transform: `translateY(48px) scale(${zoomLevel}) translate(${panOffset.x}px, ${panOffset.y}px)`,
           transformOrigin: 'center center'
         }}
+        width={image.metadata?.width || 1200}
+        height={image.metadata?.height || 800}
         onLoad={handleImageLoad}
         onError={handleImageError}
         draggable={false}
+        priority={isActive}
+        sizes="100vw"
+        quality={90}
       />
 
       {/* Image info overlay (when zoomed) */}
