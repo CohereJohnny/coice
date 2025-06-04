@@ -84,12 +84,93 @@ export default {
           "100%": {
             transform: "translateX(100%)"
           }
+        },
+        shake: {
+          "0%": { transform: "translateX(0)" },
+          "10%": { transform: "translateX(-2px)" },
+          "30%": { transform: "translateX(2px)" },
+          "50%": { transform: "translateX(0)" },
+          "70%": { transform: "translateX(-2px)" },
+          "90%": { transform: "translateX(2px)" }
+        },
+        glow: {
+          "0%": { opacity: "1" },
+          "50%": { opacity: "0.5" }
+        },
+        float: {
+          "0%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-4px)" },
+          "100%": { transform: "translateY(0px)" }
+        },
+        slideInUp: {
+          "0%": {
+            transform: "translateY(100%)",
+            opacity: "0"
+          },
+          "100%": {
+            transform: "translateY(0)",
+            opacity: "1"
+          }
+        },
+        slideInDown: {
+          "0%": {
+            transform: "translateY(-100%)",
+            opacity: "0"
+          },
+          "100%": {
+            transform: "translateY(0)",
+            opacity: "1"
+          }
+        },
+        scaleIn: {
+          "0%": {
+            transform: "scale(0.9)",
+            opacity: "0"
+          },
+          "100%": {
+            transform: "scale(1)",
+            opacity: "1"
+          }
+        },
+        pulseGlow: {
+          "0%": {
+            boxShadow: "0 0 0 0 rgba(59, 130, 246, 0.4)"
+          },
+          "50%": {
+            boxShadow: "0 0 0 8px rgba(59, 130, 246, 0)"
+          }
         }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        shimmer: "shimmer 2s infinite"
+        shimmer: "shimmer 2s infinite",
+        shake: "shake 0.5s ease-in-out",
+        glow: "glow 2s ease-in-out infinite",
+        float: "float 3s ease-in-out infinite",
+        slideInUp: "slideInUp 0.3s ease-out",
+        slideInDown: "slideInDown 0.3s ease-out",
+        scaleIn: "scaleIn 0.2s ease-out",
+        pulseGlow: "pulseGlow 2s infinite"
+      },
+      transitionDuration: {
+        "50": "50ms",
+        "150": "150ms",
+        "250": "250ms",
+        "350": "350ms",
+        "400": "400ms",
+        "450": "450ms",
+        "550": "550ms",
+        "650": "650ms",
+        "750": "750ms",
+        "850": "850ms",
+        "950": "950ms"
+      },
+      transitionTimingFunction: {
+        "bounce-in": "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+        "ease-in-expo": "cubic-bezier(0.95, 0.05, 0.795, 0.035)",
+        "ease-out-expo": "cubic-bezier(0.19, 1, 0.22, 1)",
+        "smooth": "cubic-bezier(0.4, 0, 0.2, 1)"
       }
     },
   },

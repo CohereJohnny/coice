@@ -14,6 +14,7 @@ import MetadataDisplay from '@/components/images/MetadataDisplay';
 import Carousel from '@/components/images/Carousel';
 import { Grid, List, Download, Trash2, Eye, Calendar, FileImage, HardDrive, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import Image from 'next/image';
 
 interface Library {
   id: number;
@@ -636,10 +637,13 @@ export default function LibraryDetailClient({ libraryId }: LibraryDetailClientPr
           {selectedImageForMetadata && (
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <img
+                <Image
                   src={selectedImageForMetadata.signedUrls?.original || selectedImageForMetadata.signedUrls?.thumbnail || '/placeholder-image.jpg'}
-                  alt={selectedImageForMetadata.metadata.original_filename}
-                  className="w-32 h-32 object-cover rounded"
+                  alt={selectedImageForMetadata.metadata.original_filename || 'Image metadata'}
+                  width={128}
+                  height={128}
+                  className="object-cover rounded"
+                  priority={false}
                 />
                 <div>
                   <h3 className="font-semibold">{selectedImageForMetadata.metadata.original_filename}</h3>

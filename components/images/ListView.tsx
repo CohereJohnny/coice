@@ -51,6 +51,8 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import Image from 'next/image';
+import { animations, microInteractions } from '@/lib/utils/animations';
 
 interface ImageMetadata {
   filename: string;
@@ -171,12 +173,14 @@ export default function ListView({
           return (
             <div className="w-12 h-12 border rounded overflow-hidden bg-muted flex-shrink-0">
               {imageUrl ? (
-                <img
+                <Image
                   src={imageUrl}
                   alt={image.metadata.original_filename || 'Image'}
-                  className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                  width={48}
+                  height={48}
+                  className={`object-cover cursor-pointer ${microInteractions.image.thumbnail}`}
                   onClick={() => onImagePreview?.(image)}
-                  loading="lazy"
+                  priority={false}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
@@ -491,11 +495,12 @@ export default function ListView({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row, index) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className="hover:bg-muted/50 cursor-pointer"
+                  className={`cursor-pointer ${microInteractions.card.subtle} ${animations.fadeIn}`}
+                  style={{ animationDelay: `${index * 20}ms` }}
                   onClick={(e) => handleRowClick(row.original, e)}
                 >
                   {row.getVisibleCells().map((cell) => (

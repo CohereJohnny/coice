@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog';
 import { FeatureFlagManager } from '@/components/admin/FeatureFlagManager';
 import { UserTable } from '@/components/admin/UserTable';
-import { AdminDashboard } from '@/components/admin/AdminDashboard';
-import { AuditLogViewer } from '@/components/admin/AuditLogViewer';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Users, 
   UserPlus, 
@@ -17,6 +17,47 @@ import {
 } from 'lucide-react';
 import { GroupsPanel } from './GroupsPanel';
 import { auditService } from '@/lib/services/auditService';
+
+// Dynamic imports for heavy components
+const AdminDashboard = dynamic(
+  () => import('./AdminDashboard').then(mod => ({ default: mod.AdminDashboard })),
+  {
+    loading: () => (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="h-4 w-24 mb-2" />
+                <Skeleton className="h-8 w-16 mb-1" />
+                <Skeleton className="h-3 w-20" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    ),
+    ssr: false
+  }
+);
+
+const AuditLogViewer = dynamic(
+  () => import('./AuditLogViewer').then(mod => ({ default: mod.AuditLogViewer })),
+  {
+    loading: () => (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-32" />
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      </div>
+    ),
+    ssr: false
+  }
+);
 
 interface User {
   id: string;

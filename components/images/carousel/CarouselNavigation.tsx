@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -153,10 +154,12 @@ export function CarouselNavigation({
                   )}
                   aria-label={`Go to image ${index + 1}`}
                 >
-                  <img
+                  <Image
                     src={thumbnailUrl}
                     alt={image.metadata?.original_filename || `Thumbnail ${index + 1}`}
                     className="w-full h-full object-cover"
+                    width={isMobile ? 48 : 64}
+                    height={isMobile ? 48 : 64}
                     draggable={false}
                   />
                 </button>

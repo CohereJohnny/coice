@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useCallback, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { FixedSizeGrid as Grid } from 'react-window';
 import { GridSize } from './ViewSwitcher';
 import ImageErrorBoundary from './ImageErrorBoundary';
@@ -124,11 +125,12 @@ const Cell: React.FC<CellProps> = ({ columnIndex, rowIndex, style, data }) => {
         {/* Image */}
         <div className="relative w-full h-full overflow-hidden rounded-lg">
           <ImageErrorBoundary>
-            <img
+            <Image
               src={image.signed_url || '/placeholder-image.jpg'}
               alt={image.metadata.original_filename}
               className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-              loading="lazy"
+              width={cardSize - 16}
+              height={cardSize - 16}
             />
           </ImageErrorBoundary>
 

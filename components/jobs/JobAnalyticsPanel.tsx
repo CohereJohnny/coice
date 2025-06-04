@@ -4,9 +4,11 @@
 'use client';
 
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Clock, 
   CheckCircle, 
@@ -59,6 +61,28 @@ interface JobAnalyticsPanelProps {
   loading: boolean;
   onRefresh: () => void;
 }
+
+// Dynamic import for heavy chart components (recharts library)
+const JobAnalyticsCharts = dynamic(
+  () => import('./JobAnalyticsCharts'),
+  {
+    loading: () => (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-4 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-48 w-full" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    ),
+    ssr: false
+  }
+);
 
 export function JobAnalyticsPanel({ 
   jobId, 
