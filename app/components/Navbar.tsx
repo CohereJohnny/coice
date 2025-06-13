@@ -15,42 +15,32 @@ import Image from 'next/image'
 export function Navbar() {
   const { user, profile, isAuthenticated } = useAuth()
   const { reset } = useAuthActions()
+  // Debug: Log current auth state on every render
+  console.log('Navbar user:', user, 'profile:', profile, 'isAuthenticated:', isAuthenticated)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showSearchModal, setShowSearchModal] = useState(false)
 
   const handleSignOut = async () => {
+    console.log('Sign Out clicked');
     try {
-      const supabase = createSupabaseClient()
-      
-      // Sign out from Supabase first
-      await supabase.auth.signOut()
-      
-      // Reset auth store
-      reset()
-      
-      // Clear all client-side storage
-      localStorage.clear()
-      sessionStorage.clear()
-      
-      // Try to call the logout API to clear server-side session
-      try {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-        })
-      } catch (apiError) {
-        console.log('Logout API error (continuing anyway):', apiError)
-      }
-      
-      // Force redirect to login
-      window.location.href = '/auth/login'
+      const supabase = createSupabaseClient();
+      await supabase.auth.signOut();
+      // Clear all persisted storage
+      localStorage.removeItem('auth-storage');
+      localStorage.removeItem('sb-access-token');
+      localStorage.removeItem('sb-refresh-token');
+      sessionStorage.clear();
+      // Reset Zustand store
+      reset();
+      // Force a full reload to clear any stale state before Zustand can rehydrate
+      window.location.href = '/auth/login';
     } catch (error) {
-      console.error('Sign out error:', error)
-      // Force logout anyway
-      reset()
-      localStorage.clear()
-      sessionStorage.clear()
-      window.location.href = '/auth/login'
+      console.error('Sign out error:', error);
+      reset();
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/auth/login';
     }
   }
 
@@ -204,8 +194,9 @@ export function Navbar() {
                     size="sm"
                     className="w-full justify-start text-destructive hover:text-destructive"
                     onClick={() => {
-                      setIsProfileOpen(false)
-                      handleSignOut()
+                      console.log('Sign Out button clicked');
+                      handleSignOut();
+                      setIsProfileOpen(false);
                     }}
                   >
                     Sign Out

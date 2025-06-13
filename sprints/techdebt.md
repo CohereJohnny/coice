@@ -1,0 +1,1 @@
+- [ ] Google OAuth feature flag in admin panel does not reliably update the database. Manual intervention was required to set `google_oauth` to true. Admin UI and DB can become out of sync—needs investigation and fix for reliable feature flag management.

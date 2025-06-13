@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, X, Star } from 'lucide-react';
 import { useAuth } from '@/lib/stores/auth';
-import { useFeatureFlag } from '@/lib/featureFlags';
+import { useFeatureFlag } from '@/lib/hooks/useFeatureFlag';
 import type { SearchFilters as SearchFiltersType, SearchResponse, SearchResult } from '@/app/api/search/route';
 
 interface SearchHistoryEntry {

@@ -68,24 +68,17 @@ const FEATURE_FLAG_MAPPING: Record<string, keyof FeatureFlags> = {
 };
 
 /**
- * Cache for feature flags to avoid excessive database calls
- */
-let featureFlagCache: FeatureFlags | null = null;
-let cacheTimestamp: number = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
-/**
  * Create Supabase client for feature flag access
  */
 function createSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  
+  console.log('[FeatureFlag] Supabase URL:', supabaseUrl);
+  console.log('[FeatureFlag] Supabase Key:', supabaseKey ? 'Present' : 'Missing');
   if (!supabaseUrl || !supabaseKey) {
     console.warn('Supabase configuration missing, using default feature flags');
     return null;
   }
-  
   return createClient(supabaseUrl, supabaseKey);
 }
 
@@ -106,10 +99,7 @@ async function fetchFeatureFlagsFromDatabase(): Promise<FeatureFlags> {
       .select('name, enabled')
       .order('name');
     
-    if (error) {
-      console.error('Error fetching feature flags:', error);
-      return DEFAULT_FEATURE_FLAGS;
-    }
+    console.log('[FeatureFlag] Raw data from Supabase:', data);
     
     // Start with defaults and override with database values
     const flags: FeatureFlags = { ...DEFAULT_FEATURE_FLAGS };
@@ -122,6 +112,8 @@ async function fetchFeatureFlagsFromDatabase(): Promise<FeatureFlags> {
         }
       });
     }
+
+    console.log('[FeatureFlag] Final mapped flags:', flags);
     
     return flags;
     
@@ -132,21 +124,11 @@ async function fetchFeatureFlagsFromDatabase(): Promise<FeatureFlags> {
 }
 
 /**
- * Get current feature flag configuration with caching
+ * Get current feature flag configuration (no cache)
  */
 export async function getFeatureFlags(): Promise<FeatureFlags> {
-  const now = Date.now();
-  
-  // Return cached flags if still valid
-  if (featureFlagCache && (now - cacheTimestamp) < CACHE_DURATION) {
-    return featureFlagCache;
-  }
-  
-  // Fetch fresh flags from database
-  featureFlagCache = await fetchFeatureFlagsFromDatabase();
-  cacheTimestamp = now;
-  
-  return featureFlagCache;
+  // Always fetch fresh flags from database
+  return await fetchFeatureFlagsFromDatabase();
 }
 
 /**
@@ -158,25 +140,9 @@ export async function isFeatureEnabled(feature: keyof FeatureFlags): Promise<boo
 }
 
 /**
- * Synchronous version for React components (uses cache or defaults)
- * For initial render, may use stale cache or defaults
- */
-export function useFeatureFlag(feature: keyof FeatureFlags): boolean {
-  // If we have cached data, use it
-  if (featureFlagCache) {
-    return featureFlagCache[feature];
-  }
-  
-  // Fallback to defaults for initial render
-  return DEFAULT_FEATURE_FLAGS[feature];
-}
-
-/**
  * Refresh feature flag cache (useful after admin changes)
  */
 export async function refreshFeatureFlags(): Promise<FeatureFlags> {
-  featureFlagCache = null;
-  cacheTimestamp = 0;
   return await getFeatureFlags();
 }
 
@@ -229,9 +195,6 @@ export async function updateFeatureFlag(name: string, enabled: boolean): Promise
       console.error('Error updating feature flag:', error);
       return false;
     }
-    
-    // Refresh cache after update
-    await refreshFeatureFlags();
     
     return true;
     

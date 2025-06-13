@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/stores/auth'
 import { RegisterForm } from '@/app/components/auth/RegisterForm'
 import { useEffect } from 'react'
+import FeatureFlagTest from '@/app/components/auth/FeatureFlagTest'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -16,23 +17,17 @@ export default function RegisterPage() {
   }, [isAuthenticated, loading, router])
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
+    return <div style={{ color: 'orange', fontWeight: 'bold', textAlign: 'center' }}>DEBUG: Loading state</div>;
   }
 
   if (isAuthenticated) {
-    return null // Will redirect
+    return <div style={{ color: 'green', fontWeight: 'bold', textAlign: 'center' }}>DEBUG: Authenticated state</div>;
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/50">
       <div className="w-full max-w-md">
+        <FeatureFlagTest />
         <RegisterForm
           onSuccess={() => router.push('/auth/login')}
           onSwitchToLogin={() => router.push('/auth/login')}

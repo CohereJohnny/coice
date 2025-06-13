@@ -128,25 +128,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
         console.log('AuthProvider: Auth state changed:', event, session?.user?.email)
-        
         try {
-          if (event === 'SIGNED_OUT' || !session?.user) {
-            console.log('AuthProvider: User signed out, clearing all state')
+          // Always check the current session after any auth event
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
+          if (!currentSession || event === 'SIGNED_OUT' || !session?.user) {
+            console.log('AuthProvider: User signed out or session missing, clearing all state')
             setUser(null)
             setProfile(null)
             // Clear any persisted auth data
             localStorage.removeItem('auth-storage')
             sessionStorage.clear()
-          } else if (session?.user) {
-            setUser(session.user)
-            
+            reset()
+          } else if (currentSession.user) {
+            setUser(currentSession.user)
             // Fetch user profile
             const { data: profileData, error: profileError } = await supabase
               .from('profiles')
               .select('*')
-              .eq('id', session.user.id)
+              .eq('id', currentSession.user.id)
               .single()
-            
             if (profileError) {
               console.error('AuthProvider: Error fetching profile on auth change:', profileError)
               setProfile(null)
@@ -157,6 +157,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           }
         } catch (error) {
           console.error('AuthProvider: Error in auth state change handler:', error)
+          reset()
         } finally {
           finishInit()
         }

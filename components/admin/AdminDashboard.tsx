@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useFeatureFlag } from '@/lib/featureFlags';
+import { useFeatureFlag } from '@/lib/hooks/useFeatureFlag';
 import { 
   Users, 
   Database, 

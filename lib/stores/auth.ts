@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import { User } from '@supabase/supabase-js'
 import { Database } from '../supabase'
 
@@ -31,85 +30,65 @@ const initialState: AuthState = {
 }
 
 export const useAuthStore = create<AuthStore>()(
-  persist(
-    (set) => ({
-      ...initialState,
-      
-      setUser: (user) => {
-        if (typeof window !== 'undefined') {
-          console.log('AuthStore: setUser called with:', user?.email || 'null')
-        }
-        set({ user })
-      },
-      
-      setProfile: (profile) => {
-        if (typeof window !== 'undefined') {
-          console.log('AuthStore: setProfile called with:', profile?.email || 'null')
-        }
-        set({ profile })
-      },
-      
-      setLoading: (loading) => {
-        if (typeof window !== 'undefined') {
-          console.log('AuthStore: setLoading called with:', loading)
-        }
-        set({ loading })
-      },
-      
-      setInitialized: (initialized) => {
-        if (typeof window !== 'undefined') {
-          console.log('AuthStore: setInitialized called with:', initialized)
-        }
-        set({ initialized, loading: false })
-      },
-      
-      signOut: () => {
-        if (typeof window !== 'undefined') {
-          console.log('AuthStore: signOut called')
-        }
-        set({
-          user: null,
-          profile: null,
-          loading: false,
-          initialized: true,
-        })
-      },
-      
-      reset: () => {
-        if (typeof window !== 'undefined') {
-          console.log('AuthStore: reset called')
-        }
-        set({
-          user: null,
-          profile: null,
-          loading: true,
-          initialized: false,
-        })
-      },
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({
-        user: state.user,
-        profile: state.profile,
-      }),
-      onRehydrateStorage: () => (state) => {
-        if (typeof window !== 'undefined') {
-          console.log('AuthStore: Rehydrating from storage:', {
-            hasUser: !!state?.user,
-            hasProfile: !!state?.profile,
-            userEmail: state?.user?.email
-          })
-        }
-        // Always reset loading and initialized states after rehydration
-        return {
-          ...state,
-          loading: true,
-          initialized: false,
-        }
-      },
-    }
-  )
+  (set) => ({
+    ...initialState,
+    
+    setUser: (user) => {
+      if (typeof window !== 'undefined') {
+        console.log('AuthStore: setUser called with:', user?.email || 'null')
+      }
+      set({ user })
+    },
+    
+    setProfile: (profile) => {
+      if (typeof window !== 'undefined') {
+        console.log('AuthStore: setProfile called with:', profile?.email || 'null')
+      }
+      set({ profile })
+    },
+    
+    setLoading: (loading) => {
+      if (typeof window !== 'undefined') {
+        console.log('AuthStore: setLoading called with:', loading)
+      }
+      set({ loading })
+    },
+    
+    setInitialized: (initialized) => {
+      if (typeof window !== 'undefined') {
+        console.log('AuthStore: setInitialized called with:', initialized)
+      }
+      set({ initialized, loading: false })
+    },
+    
+    signOut: () => {
+      if (typeof window !== 'undefined') {
+        console.log('AuthStore: signOut called')
+        // Clear persisted storage (no longer needed, but keep for safety)
+        localStorage.removeItem('auth-storage');
+      }
+      set({
+        user: null,
+        profile: null,
+        loading: false,
+        initialized: true,
+      })
+    },
+    
+    reset: () => {
+      if (typeof window !== 'undefined') {
+        console.log('AuthStore: reset called')
+        // Clear persisted storage (no longer needed, but keep for safety)
+        localStorage.removeItem('auth-storage');
+      }
+      set({
+        user: null,
+        profile: null,
+        loading: true,
+        initialized: false,
+      })
+    },
+  })
 )
 
 // Computed selectors

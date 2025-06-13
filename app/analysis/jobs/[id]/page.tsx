@@ -62,7 +62,7 @@ import { ResultValidationPanel } from '@/components/jobs/ResultValidationPanel';
 import type { ProgressStage, TimelineEvent } from '@/components/jobs';
 import { useJobSubscription } from '@/app/hooks/useJobSubscription';
 import { imageService } from '@/lib/services/imageService';
-import { useFeatureFlag } from '@/lib/featureFlags';
+import { useFeatureFlag } from '@/lib/hooks/useFeatureFlag';
 
 // Helper function to safely format dates
 const safeFormatDistanceToNow = (dateString: string | null | undefined): string => {
