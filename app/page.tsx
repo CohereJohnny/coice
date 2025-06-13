@@ -3,7 +3,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/lib/stores/auth';
-import { StatCard, QuickActions, RecentActivity } from '@/app/components/dashboard';
 
 // Hero component for non-authenticated users
 function HeroPage() {
@@ -89,19 +88,9 @@ function HeroPage() {
   );
 }
 
-// Simplified Dashboard component for authenticated users
+// Self-contained Dashboard component for authenticated users
 function Dashboard() {
   const { user, profile } = useAuth();
-
-  // Mock stats for now to avoid dependency issues
-  const mockStats = {
-    libraryCount: 0,
-    activeJobCount: 0,
-    totalImageCount: 0,
-    recentJobCount: 0,
-  };
-
-  const mockActivity: any[] = [];
 
   return (
     <main className="min-h-screen bg-background">
@@ -116,65 +105,196 @@ function Dashboard() {
           </p>
         </div>
 
-        {/* Dashboard Stats */}
+        {/* Dashboard Stats - Self-contained */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          <StatCard
-            title="Libraries"
-            value={mockStats.libraryCount}
-            description="Total image libraries"
-            icon={
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            }
-          />
-          
-          <StatCard
-            title="Active Jobs"
-            value={mockStats.activeJobCount}
-            description="Currently processing"
-            variant={mockStats.activeJobCount > 0 ? 'success' : 'default'}
-            icon={
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            }
-          />
-          
-          <StatCard
-            title="Total Images"
-            value={mockStats.totalImageCount}
-            description="Images in all libraries"
-            icon={
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            }
-          />
-          
-          <StatCard
-            title="Recent Jobs"
-            value={mockStats.recentJobCount}
-            description="Jobs this week"
-            icon={
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            }
-          />
+          {/* Libraries Card */}
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 className="tracking-tight text-sm font-medium">Libraries</h3>
+              <div className="h-4 w-4 text-muted-foreground">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground mt-1">Total image libraries</p>
+          </div>
+
+          {/* Active Jobs Card */}
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 className="tracking-tight text-sm font-medium">Active Jobs</h3>
+              <div className="h-4 w-4 text-muted-foreground">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground mt-1">Currently processing</p>
+          </div>
+
+          {/* Total Images Card */}
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 className="tracking-tight text-sm font-medium">Total Images</h3>
+              <div className="h-4 w-4 text-muted-foreground">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground mt-1">Images in all libraries</p>
+          </div>
+
+          {/* Recent Jobs Card */}
+          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <h3 className="tracking-tight text-sm font-medium">Recent Jobs</h3>
+              <div className="h-4 w-4 text-muted-foreground">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+            </div>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground mt-1">Jobs this week</p>
+          </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mb-8">
-          <QuickActions />
+        {/* Quick Actions - Self-contained */}
+        <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Quick Actions</h3>
+            <div className="text-muted-foreground">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                className="h-4 w-4"
+              >
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </div>
+          </div>
+          
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Link href="/libraries" className="flex flex-col items-center justify-center p-4 border rounded-lg hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors">
+              <div className="mb-2 text-current">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  className="h-8 w-8"
+                >
+                  <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                  <circle cx="12" cy="13" r="3" />
+                </svg>
+              </div>
+              <span className="text-sm font-medium text-center">Create Library</span>
+            </Link>
+
+            <Link href="/libraries" className="flex flex-col items-center justify-center p-4 border rounded-lg hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors">
+              <div className="mb-2 text-current">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  className="h-8 w-8"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7,10 12,15 17,10" />
+                  <line x1="12" x2="12" y1="15" y2="3" />
+                </svg>
+              </div>
+              <span className="text-sm font-medium text-center">Upload Images</span>
+            </Link>
+
+            <Link href="/analysis" className="flex flex-col items-center justify-center p-4 border rounded-lg hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors">
+              <div className="mb-2 text-current">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  className="h-8 w-8"
+                >
+                  <path d="M9 12l2 2 4-4" />
+                  <path d="M21 12c.552 0 1-.448 1-1V8a2 2 0 0 0-2-2h-5L9.5 3h-3A2 2 0 0 0 4 5v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3c0-.552-.448-1-1-1z" />
+                </svg>
+              </div>
+              <span className="text-sm font-medium text-center">Run Analysis</span>
+            </Link>
+
+            <Link href="/search" className="flex flex-col items-center justify-center p-4 border rounded-lg hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors">
+              <div className="mb-2 text-current">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  className="h-8 w-8"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
+                </svg>
+              </div>
+              <span className="text-sm font-medium text-center">Search Images</span>
+            </Link>
+          </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="mb-8">
-          <RecentActivity
-            activities={mockActivity}
-            maxItems={8}
-          />
+        {/* Recent Activity - Self-contained */}
+        <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Recent Activity</h3>
+            <div className="text-muted-foreground">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                className="h-4 w-4"
+              >
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+            </div>
+          </div>
+
+          <div className="text-center py-8">
+            <div className="text-muted-foreground mb-2">
+              <svg className="h-8 w-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+            </div>
+            <p className="text-sm text-muted-foreground">No recent activity</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Activity will appear here as you use the system
+            </p>
+          </div>
         </div>
 
         {/* Getting Started Section */}
