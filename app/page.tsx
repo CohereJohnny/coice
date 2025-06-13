@@ -1,205 +1,215 @@
 'use client'
 
-import { AuthGuard } from './components/auth/AuthGuard'
-import { useDashboardData } from './hooks/useDashboardData'
-import { StatCard, QuickActions, RecentActivity } from './components/dashboard'
+import Image from 'next/image';
+import Link from 'next/link';
+import { useAuth } from '@/lib/stores/auth';
+import { useDashboardData } from '@/app/hooks/useDashboardData';
+import { StatCard, QuickActions, RecentActivity } from '@/app/components/dashboard';
 
-export default function Home() {
-  const {
-    stats,
-    recentActivity,
-    isStatsLoading,
-    isActivityLoading,
-    statsError,
-    activityError,
-    isRealTimeConnected,
-    realTimeError,
-    refreshAll,
+// Hero component for non-authenticated users
+function HeroPage() {
+  return (
+    <main className="min-h-screen flex flex-col bg-background">
+      {/* Hero Section */}
+      <section
+        className="relative flex flex-col items-center justify-center flex-1 py-24 px-4 text-center bg-gradient-to-b from-blue-50 to-white overflow-hidden"
+        style={{ minHeight: '60vh' }}
+      >
+        {/* Background image with overlay */}
+        <div className="absolute inset-0 w-full h-full z-0">
+          <Image
+            src="/assets/landing/hero-bg.avif"
+            alt="COICE Hero Background"
+            fill
+            style={{ objectFit: 'cover', objectPosition: 'center' }}
+            className="opacity-60"
+            priority
+          />
+          {/* Gradient overlay for readability */}
+          <div className="absolute inset-0 bg-gradient-to-b from-blue-900/60 via-blue-800/40 to-white/80" />
+            </div>
+        {/* Hero content */}
+        <div className="relative z-10 flex flex-col items-center">
+          <Image src="/assets/coice.svg" alt="COICE Logo" width={64} height={64} className="mx-auto mb-4" priority />
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white drop-shadow-lg">COICE: Smarter Image Analysis for Teams</h1>
+          <p className="text-lg md:text-xl text-blue-100 mb-8 max-w-2xl mx-auto drop-shadow">
+            Unlock the power of AI-driven image analysis, collaboration, and insights. COICE helps you manage, analyze, and act on your image data—fast, secure, and accessible from anywhere.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/auth/register">
+              <button className="px-8 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">Get Started Free</button>
+            </Link>
+            <Link href="/auth/login">
+              <button className="px-8 py-3 rounded-lg border border-blue-100 text-blue-100 font-semibold bg-white/10 hover:bg-blue-50/20 transition">Sign In</button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Feature Highlights */}
+      <section className="py-16 px-4 bg-white">
+        <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8">
+          <div className="flex flex-col items-center text-center">
+            <Image src="/assets/landing/ai.jpg" alt="AI Analysis" width={120} height={80} className="rounded-lg mb-4" />
+            <h3 className="text-xl font-semibold mb-2">AI-Powered Image Analysis</h3>
+            <p className="text-muted-foreground">Extract insights, detect patterns, and automate workflows with advanced AI models.</p>
+          </div>
+          <div className="flex flex-col items-center text-center">
+            <Image src="/assets/landing/collaboration.jpg" alt="Collaboration" width={120} height={80} className="rounded-lg mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Team Collaboration</h3>
+            <p className="text-muted-foreground">Share, comment, and manage image libraries with robust access controls and audit trails.</p>
+          </div>
+          <div className="flex flex-col items-center text-center">
+            <Image src="/assets/landing/performance.jpg" alt="Performance" width={120} height={80} className="rounded-lg mb-4" />
+            <h3 className="text-xl font-semibold mb-2">Lightning-Fast Performance</h3>
+            <p className="text-muted-foreground">Optimized for speed and scale—instant search, real-time analytics, and secure cloud storage.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Call to Action Banner */}
+      <section className="py-12 px-4 bg-blue-50 text-center">
+        <h2 className="text-2xl md:text-3xl font-bold mb-4">Ready to transform your image workflow?</h2>
+        <Link href="/auth/register">
+          <button className="px-10 py-3 rounded-lg bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition">Start Your Free Trial</button>
+        </Link>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-8 px-4 bg-background border-t text-center text-muted-foreground text-sm">
+        <div className="mb-2">&copy; {new Date().getFullYear()} COICE. All rights reserved.</div>
+        <div className="flex justify-center gap-4">
+          <Link href="/privacy">Privacy Policy</Link>
+          <span>|</span>
+          <Link href="/terms">Terms of Service</Link>
+          <span>|</span>
+          <a href="mailto:support@coice.ai">Contact</a>
+      </div>
+      </footer>
+    </main>
+  );
+}
+
+// Dashboard component for authenticated users
+function Dashboard() {
+  const { user, profile } = useAuth();
+  const { 
+    stats, 
+    recentActivity, 
+    isLoading, 
+    error,
+    refreshAll 
   } = useDashboardData();
 
   return (
-    <AuthGuard>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Monitor your image analysis projects and recent activity
-            </p>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            {/* Refresh button */}
-            <button
-              onClick={refreshAll}
-              className="flex items-center space-x-2 px-3 py-2 text-sm border rounded-md hover:bg-gray-50 transition-colors"
-              title="Refresh dashboard data"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                className="h-4 w-4"
-              >
-                <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                <path d="M21 3v5h-5" />
-                <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                <path d="M3 21v-5h5" />
-              </svg>
-              <span>Refresh</span>
-            </button>
-            
-            {/* Real-time connection indicator */}
-            <div className="flex items-center space-x-2 text-sm">
-              <div className={`h-2 w-2 rounded-full ${
-                isRealTimeConnected 
-                  ? 'bg-green-500 animate-pulse' 
-                  : 'bg-red-500'
-              }`} />
-              <span className="text-muted-foreground">
-                {isRealTimeConnected ? 'Live' : 'Disconnected'}
-              </span>
-            </div>
-          </div>
+    <main className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 py-8">
+        {/* Welcome Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            Welcome back{profile?.display_name ? `, ${profile.display_name}` : ''}!
+          </h1>
+          <p className="text-muted-foreground">
+            Here's what's happening with your image analysis workflows.
+          </p>
         </div>
 
-        {/* Error States */}
-        {(statsError || activityError || realTimeError) && (
-          <div className="rounded-lg bg-destructive/15 border border-destructive/20 p-4">
-            <div className="text-sm text-destructive">
-              {statsError && <div>Stats Error: {statsError}</div>}
-              {activityError && <div>Activity Error: {activityError}</div>}
-              {realTimeError && <div>Real-time Error: {realTimeError}</div>}
-            </div>
-          </div>
-        )}
-
-        {/* Statistics Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Dashboard Stats */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
           <StatCard
             title="Libraries"
-            value={stats.libraryCount.toString()}
-            description="Active image collections"
-            isLoading={isStatsLoading}
+            value={stats.libraryCount}
+            description="Total image libraries"
+            isLoading={isLoading}
+            error={error}
             icon={
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
             }
           />
-          <StatCard
-            title="Total Images"
-            value={stats.totalImageCount.toString()}
-            description="Across all libraries"
-            isLoading={isStatsLoading}
-            icon={
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            }
-          />
+          
           <StatCard
             title="Active Jobs"
-            value={stats.activeJobCount.toString()}
+            value={stats.activeJobCount}
             description="Currently processing"
-            isLoading={isStatsLoading}
+            isLoading={isLoading}
+            error={error}
+            variant={stats.activeJobCount > 0 ? 'success' : 'default'}
             icon={
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             }
           />
+          
           <StatCard
-            title="Recent Jobs"
-            value={stats.recentJobCount.toString()}
-            description="Completed this week"
-            isLoading={isStatsLoading}
+            title="Total Images"
+            value={stats.totalImageCount}
+            description="Images in all libraries"
+            isLoading={isLoading}
+            error={error}
             icon={
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            }
+          />
+          
+          <StatCard
+            title="Recent Jobs"
+            value={stats.recentJobCount}
+            description="Jobs this week"
+            isLoading={isLoading}
+            error={error}
+            icon={
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             }
           />
         </div>
 
         {/* Quick Actions */}
-        <div>
+        <div className="mb-8">
           <QuickActions />
         </div>
 
-        {/* Sprint Status */}
-        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-          {/* Sprint Status */}
-          <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Sprint 13: Admin Panel & User Management</h3>
-              <div className="text-muted-foreground">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  className="h-4 w-4"
-                >
-                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                </svg>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              Complete admin functionality, user management, and access control features
-            </p>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Sprint 11 Complete</span>
-                <div className="flex items-center space-x-2">
-                  <div className="w-24 bg-green-200 rounded-full h-2">
-                    <div className="bg-green-600 h-2 rounded-full w-full"></div>
-                  </div>
-                  <span className="text-xs text-green-600 font-medium">100%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Sprint 12 Complete</span>
-                <div className="flex items-center space-x-2">
-                  <div className="w-24 bg-green-200 rounded-full h-2">
-                    <div className="bg-green-600 h-2 rounded-full w-full"></div>
-                  </div>
-                  <span className="text-xs text-green-600 font-medium">100%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Sprint 13 In Progress</span>
-                <div className="flex items-center space-x-2">
-                  <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div className="bg-blue-600 h-2 rounded-full w-[98%]"></div>
-                  </div>
-                  <span className="text-xs text-blue-600 font-medium">98%</span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t">
-              <div className="text-xs text-muted-foreground">
-                <strong>Sprint 13 Achievements:</strong> Complete admin dashboard with real-time metrics, advanced user management with TanStack Table, comprehensive audit logging with export, group management, feature flag system, notification integration, and system monitoring feature flag
-              </div>
-            </div>
-          </div>
-
-          {/* Recent Activity */}
-          <div>
-            <RecentActivity 
-              activities={recentActivity} 
-              isLoading={isActivityLoading}
-            />
-          </div>
+        {/* Recent Activity */}
+        <div className="mb-8">
+          <RecentActivity
+            activities={recentActivity}
+            isLoading={isLoading}
+            error={error}
+            maxItems={8}
+          />
         </div>
       </div>
-    </AuthGuard>
-  )
+    </main>
+  );
+}
+
+// Loading component
+function LoadingPage() {
+  return (
+    <main className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </main>
+  );
+}
+
+// Main page component with conditional rendering
+export default function HomePage() {
+  const { isAuthenticated, loading, initialized } = useAuth();
+
+  // Show loading state while authentication is being determined
+  if (loading || !initialized) {
+    return <LoadingPage />;
+  }
+
+  // Show dashboard for authenticated users, hero page for others
+  return isAuthenticated ? <Dashboard /> : <HeroPage />;
 }
