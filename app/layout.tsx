@@ -2,9 +2,6 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Toaster } from 'sonner'
-import { AuthProvider } from './components/AuthProvider'
-import { LayoutProvider } from './components/LayoutProvider'
-import { ResponsiveLayout } from './components/ResponsiveLayout'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -27,24 +24,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
-      >
-        <AuthProvider>
-          <LayoutProvider>
-            <ResponsiveLayout>
-              {children}
-            </ResponsiveLayout>
-            <Toaster 
-              position="top-right"
-              expand={true}
-              richColors={true}
-              closeButton={true}
-              duration={5000}
-            />
-          </LayoutProvider>
-        </AuthProvider>
+    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="antialiased bg-background text-foreground">
+        {children}
+        <Toaster 
+          position="top-right"
+          expand={true}
+          richColors={true}
+          closeButton={true}
+          duration={5000}
+        />
       </body>
     </html>
   )
