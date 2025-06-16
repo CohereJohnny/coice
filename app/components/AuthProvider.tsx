@@ -129,23 +129,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
       async (event: AuthChangeEvent, session: Session | null) => {
         console.log('AuthProvider: Auth state changed:', event, session?.user?.email)
         try {
-          // Always check the current session after any auth event
-          const { data: { session: currentSession } } = await supabase.auth.getSession();
-          if (!currentSession || event === 'SIGNED_OUT' || !session?.user) {
-            console.log('AuthProvider: User signed out or session missing, clearing all state')
+          if (event === 'SIGNED_OUT' || !session?.user) {
+            console.log('AuthProvider: User signed out, clearing all state immediately')
             setUser(null)
             setProfile(null)
-            // Clear any persisted auth data
+            // Clear any persisted auth data immediately
             localStorage.removeItem('auth-storage')
             sessionStorage.clear()
             reset()
-          } else if (currentSession.user) {
-            setUser(currentSession.user)
+            
+            // Force a brief delay to ensure state propagation
+            setTimeout(() => {
+              setLoading(false)
+              setInitialized(true)
+            }, 100)
+          } else if (session?.user) {
+            console.log('AuthProvider: User signed in, setting user state')
+            setUser(session.user)
             // Fetch user profile
             const { data: profileData, error: profileError } = await supabase
               .from('profiles')
               .select('*')
-              .eq('id', currentSession.user.id)
+              .eq('id', session.user.id)
               .single()
             if (profileError) {
               console.error('AuthProvider: Error fetching profile on auth change:', profileError)
@@ -154,11 +159,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
               console.log('AuthProvider: Profile updated on auth change:', profileData.email)
               setProfile(profileData)
             }
+            finishInit()
           }
         } catch (error) {
           console.error('AuthProvider: Error in auth state change handler:', error)
           reset()
-        } finally {
           finishInit()
         }
       }

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { useAuth, useAuthActions, useAuthStore } from '@/lib/stores/auth'
+import { useAuth, useAuthActions, forceLogout } from '@/lib/stores/auth'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { NotificationCenter } from '@/components/ui/NotificationCenter'
 import { Button } from '@/components/ui/button'
@@ -29,38 +29,8 @@ export function Navbar() {
     setIsLoggingOut(true)
     setIsProfileOpen(false)
     
-    try {
-      const supabase = createSupabaseClient();
-      
-      // This will trigger the auth state change event which the AuthProvider handles
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('Sign out error:', error);
-      }
-      
-      // Clear local storage
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // Reset auth store
-      reset();
-      
-      // Wait a moment for cleanup to complete
-      await new Promise(resolve => setTimeout(resolve, 200))
-      
-      // Use window.location.href for reliable redirect and UI update
-      window.location.href = '/auth/login'
-    } catch (error) {
-      console.error('Sign out error:', error);
-      // Force cleanup on any error
-      reset();
-      localStorage.clear();
-      sessionStorage.clear()
-      // Ensure redirect happens even on error
-      window.location.href = '/auth/login'
-    }
-    // Note: don't set setIsLoggingOut(false) here since we're redirecting
+    // Use the robust forceLogout utility
+    await forceLogout()
   }
 
   return (

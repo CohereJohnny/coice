@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth, useAuthActions } from '@/lib/stores/auth'
+import { useAuth, useAuthActions, forceLogout } from '@/lib/stores/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
@@ -26,32 +26,8 @@ export function Dashboard() {
   const handleLogout = async () => {
     setIsLoggingOut(true)
     
-    try {
-      const supabase = createSupabaseClient()
-      await supabase.auth.signOut()
-      
-      // Clear local storage
-      localStorage.clear()
-      sessionStorage.clear()
-      
-      // Reset auth store
-      reset()
-      
-      // Wait a moment for cleanup to complete
-      await new Promise(resolve => setTimeout(resolve, 200))
-      
-      // Use window.location.href for reliable redirect and UI update
-      window.location.href = '/auth/login'
-    } catch (error) {
-      console.error('Logout error:', error)
-      // Force logout even if there's an error
-      reset()
-      localStorage.clear()
-      sessionStorage.clear()
-      // Ensure redirect happens even on error
-      window.location.href = '/auth/login'
-    }
-    // Note: don't set setIsLoggingOut(false) here since we're redirecting
+    // Use the robust forceLogout utility
+    await forceLogout()
   }
 
   return (

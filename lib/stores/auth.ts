@@ -1,8 +1,14 @@
 import { create } from 'zustand'
-import { User } from '@supabase/supabase-js'
-import { Database } from '../supabase'
+import type { User } from '@supabase/supabase-js'
+import { createSupabaseClient } from '@/lib/supabase'
 
-type Profile = Database['public']['Tables']['profiles']['Row']
+interface Profile {
+  id: string
+  email: string
+  display_name: string | null
+  role: string
+  created_at: string
+}
 
 interface AuthState {
   user: User | null
@@ -20,7 +26,7 @@ interface AuthActions {
   reset: () => void
 }
 
-type AuthStore = AuthState & AuthActions
+interface AuthStore extends AuthState, AuthActions {}
 
 const initialState: AuthState = {
   user: null,
@@ -130,5 +136,34 @@ export const useAuthActions = () => {
     setInitialized,
     signOut,
     reset,
+  }
+}
+
+// Force logout utility for SSR compatibility
+export const forceLogout = async () => {
+  if (typeof window === 'undefined') return
+  
+  try {
+    console.log('forceLogout: Starting complete logout process')
+    
+    // 1. Sign out from Supabase
+    const supabase = createSupabaseClient()
+    await supabase.auth.signOut()
+    
+    // 2. Clear all local state immediately
+    localStorage.clear()
+    sessionStorage.clear()
+    
+    // 3. Reset auth store
+    useAuthStore.getState().reset()
+    
+    // 4. Force page reload to ensure SSR/client sync
+    window.location.replace('/auth/login')
+  } catch (error) {
+    console.error('forceLogout: Error during logout, forcing redirect anyway:', error)
+    localStorage.clear()
+    sessionStorage.clear()
+    useAuthStore.getState().reset()
+    window.location.replace('/auth/login')
   }
 } 
