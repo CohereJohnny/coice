@@ -98,10 +98,11 @@ Optimize application performance, improve UX, and add final polish features
   - Enhanced auth callback to ensure proper profile creation
   - Login confirmed working by user
 - [x] Fix logout functionality 
-  - **Issue**: Logout button in Navbar wasn't working properly
-  - **Solution**: Simplified logout flow to use Supabase client directly
-  - **Enhancement**: Added backup logout button to Dashboard for testing
-  - **Result**: Multiple logout options now available with proper state cleanup
+  - **Issue**: Logout button in Navbar wasn't working properly, and UI wasn't updating after logout
+  - **Root Cause**: Race condition between logout action and UI state updates
+  - **Solution**: Simplified logout flow to use Supabase client directly with window.location.href for reliable redirect
+  - **Enhancement**: Added backup logout button to Dashboard for testing and loading states to buttons
+  - **Result**: Logout now works with proper state cleanup and immediate UI redirect without requiring manual refresh
 
 ## Progress Notes
 
