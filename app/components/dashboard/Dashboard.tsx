@@ -24,10 +24,27 @@ export function Dashboard() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
+    console.log('handleLogout: Dashboard logout clicked')
     setIsLoggingOut(true)
     
-    // Use the robust forceLogout utility
-    await forceLogout()
+    try {
+      console.log('handleLogout: Calling forceLogout()')
+      // Use the robust forceLogout utility
+      await forceLogout()
+      
+      // Fallback: if we reach here, forceLogout didn't redirect
+      console.log('handleLogout: forceLogout completed but still here, using fallback')
+      setTimeout(() => {
+        window.location.href = '/auth/login'
+      }, 1000)
+    } catch (error) {
+      console.error('handleLogout: Error in logout process:', error)
+      // Direct fallback
+      localStorage.clear()
+      sessionStorage.clear()
+      reset()
+      window.location.href = '/auth/login'
+    }
   }
 
   return (
@@ -44,16 +61,35 @@ export function Dashboard() {
         </div>
         
         {/* Logout Button for Testing */}
-        <Button 
-          onClick={handleLogout}
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-2"
-          disabled={isLoggingOut}
-        >
-          <LogOut className="h-4 w-4" />
-          {isLoggingOut ? 'Logging Out...' : 'Logout'}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleLogout}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+            disabled={isLoggingOut}
+          >
+            <LogOut className="h-4 w-4" />
+            {isLoggingOut ? 'Logging Out...' : 'Logout'}
+          </Button>
+          
+          {/* Direct logout test button */}
+          <Button 
+            onClick={() => {
+              console.log('Direct logout clicked')
+              localStorage.clear()
+              sessionStorage.clear()
+              reset()
+              window.location.href = '/auth/login'
+            }}
+            variant="destructive"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Direct Logout
+          </Button>
+        </div>
       </div>
 
       {/* Quick Actions */}

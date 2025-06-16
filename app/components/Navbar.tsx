@@ -25,12 +25,28 @@ export function Navbar() {
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleSignOut = async () => {
-    console.log('Sign Out clicked');
+    console.log('handleSignOut: Sign Out clicked');
     setIsLoggingOut(true)
     setIsProfileOpen(false)
     
-    // Use the robust forceLogout utility
-    await forceLogout()
+    try {
+      console.log('handleSignOut: Calling forceLogout()')
+      // Use the robust forceLogout utility
+      await forceLogout()
+      
+      // Fallback: if we reach here, forceLogout didn't redirect
+      console.log('handleSignOut: forceLogout completed but still here, using fallback')
+      setTimeout(() => {
+        window.location.href = '/auth/login'
+      }, 1000)
+    } catch (error) {
+      console.error('handleSignOut: Error in logout process:', error)
+      // Direct fallback
+      localStorage.clear()
+      sessionStorage.clear()
+      reset()
+      window.location.href = '/auth/login'
+    }
   }
 
   return (

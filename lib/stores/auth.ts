@@ -141,29 +141,43 @@ export const useAuthActions = () => {
 
 // Force logout utility for SSR compatibility
 export const forceLogout = async () => {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') {
+    console.log('forceLogout: Window undefined, skipping')
+    return
+  }
   
   try {
     console.log('forceLogout: Starting complete logout process')
     
     // 1. Sign out from Supabase
     const supabase = createSupabaseClient()
-    await supabase.auth.signOut()
+    console.log('forceLogout: Calling supabase.auth.signOut()')
+    const { error } = await supabase.auth.signOut()
+    
+    if (error) {
+      console.error('forceLogout: Supabase signOut error:', error)
+    } else {
+      console.log('forceLogout: Supabase signOut successful')
+    }
     
     // 2. Clear all local state immediately
+    console.log('forceLogout: Clearing localStorage and sessionStorage')
     localStorage.clear()
     sessionStorage.clear()
     
     // 3. Reset auth store
+    console.log('forceLogout: Resetting auth store')
     useAuthStore.getState().reset()
     
     // 4. Force page reload to ensure SSR/client sync
+    console.log('forceLogout: Redirecting to /auth/login')
     window.location.replace('/auth/login')
   } catch (error) {
     console.error('forceLogout: Error during logout, forcing redirect anyway:', error)
     localStorage.clear()
     sessionStorage.clear()
     useAuthStore.getState().reset()
+    console.log('forceLogout: Force redirecting to /auth/login after error')
     window.location.replace('/auth/login')
   }
 } 
