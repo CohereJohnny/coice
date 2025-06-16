@@ -1,14 +1,9 @@
 import { create } from 'zustand'
-import type { User } from '@supabase/supabase-js'
+import { User } from '@supabase/supabase-js'
+import { Database } from '../supabase'
 import { createSupabaseClient } from '@/lib/supabase'
 
-interface Profile {
-  id: string
-  email: string
-  display_name: string | null
-  role: string
-  created_at: string
-}
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 interface AuthState {
   user: User | null
@@ -26,7 +21,7 @@ interface AuthActions {
   reset: () => void
 }
 
-interface AuthStore extends AuthState, AuthActions {}
+type AuthStore = AuthState & AuthActions
 
 const initialState: AuthState = {
   user: null,

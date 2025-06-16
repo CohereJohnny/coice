@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { useAuth, useAuthActions, forceLogout } from '@/lib/stores/auth'
+import { useAuth, useAuthActions } from '@/lib/stores/auth'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { NotificationCenter } from '@/components/ui/NotificationCenter'
 import { Button } from '@/components/ui/button'
@@ -30,18 +30,24 @@ export function Navbar() {
     setIsProfileOpen(false)
     
     try {
-      console.log('handleSignOut: Calling forceLogout()')
-      // Use the robust forceLogout utility
-      await forceLogout()
+      console.log('handleSignOut: Direct logout approach')
+      const supabase = createSupabaseClient();
       
-      // Fallback: if we reach here, forceLogout didn't redirect
-      console.log('handleSignOut: forceLogout completed but still here, using fallback')
-      setTimeout(() => {
-        window.location.href = '/auth/login'
-      }, 1000)
+      // Sign out from Supabase
+      await supabase.auth.signOut()
+      
+      // Clear all local state
+      localStorage.clear()
+      sessionStorage.clear()
+      
+      // Reset auth store
+      reset()
+      
+      // Use window.location.href for immediate redirect
+      window.location.href = '/auth/login'
     } catch (error) {
       console.error('handleSignOut: Error in logout process:', error)
-      // Direct fallback
+      // Force cleanup and redirect on error
       localStorage.clear()
       sessionStorage.clear()
       reset()
