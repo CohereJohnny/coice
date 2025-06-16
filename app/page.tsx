@@ -1,7 +1,31 @@
+'use client'
+
 import Image from 'next/image';
 import Link from 'next/link';
+import { useAuth } from '@/lib/stores/auth';
+import { Dashboard } from '@/app/components/dashboard/Dashboard';
 
 export default function HomePage() {
+  const { isAuthenticated, loading, initialized } = useAuth();
+
+  // Show loading state while auth is initializing
+  if (loading || !initialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If authenticated, show dashboard
+  if (isAuthenticated) {
+    return <Dashboard />;
+  }
+
+  // If not authenticated, show landing page
   return (
     <main className="min-h-screen flex flex-col bg-background">
       {/* Hero Section */}

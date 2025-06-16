@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createSupabaseClient } from '@/lib/supabase'
+import { toast } from 'sonner'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -18,25 +20,26 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      const supabase = createSupabaseClient()
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed')
+      if (error) {
+        setError(error.message)
+        toast.error(error.message)
+      } else if (data.user) {
+        toast.success('Logged in successfully!')
+        // The AuthProvider will handle the redirect automatically
+        router.push('/')
+        router.refresh()
       }
-
-      // Successful login - redirect to home
-      router.push('/')
-      router.refresh() // Refresh to update auth state
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      const message = err instanceof Error ? err.message : 'Login failed'
+      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -47,23 +50,25 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const response = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const supabase = createSupabaseClient()
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Google login failed')
+      if (error) {
+        setError(error.message)
+        toast.error(error.message)
+        setIsGoogleLoading(false)
       }
-
-      // Redirect to Google OAuth
-      window.location.href = data.url
+      // Don't set loading to false here as the page will redirect
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google login failed')
+      const message = err instanceof Error ? err.message : 'Google login failed'
+      setError(message)
+      toast.error(message)
       setIsGoogleLoading(false)
     }
   }
@@ -149,7 +154,7 @@ export default function LoginPage() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/auth/register" className="text-blue-600 hover:text-blue-500 font-medium">
                 Sign up here
               </Link>

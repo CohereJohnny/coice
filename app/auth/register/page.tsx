@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { createSupabaseClient } from '@/lib/supabase'
+import { toast } from 'sonner'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -33,43 +35,61 @@ export default function RegisterPage() {
     // Basic validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match')
+      toast.error('Passwords do not match')
       setIsLoading(false)
       return
     }
 
     if (formData.password.length < 6) {
       setError('Password must be at least 6 characters long')
+      toast.error('Password must be at least 6 characters long')
       setIsLoading(false)
       return
     }
 
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const supabase = createSupabaseClient()
+
+      // Sign up the user
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            display_name: formData.name,
+          },
         },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-          name: formData.name,
-        }),
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Registration failed')
+      if (error) {
+        setError(error.message)
+        toast.error(error.message)
+      } else if (data.user) {
+        // Check if email confirmation is required
+        if (!data.session) {
+          setSuccess('Registration successful! Please check your email for verification.')
+          toast.success('Registration successful! Please check your email for verification.')
+          
+          // Redirect to login after a short delay
+          setTimeout(() => {
+            router.push('/auth/login?message=Registration successful! Please check your email for verification.')
+          }, 2000)
+        } else {
+          // User is automatically signed in (email confirmation disabled)
+          setSuccess('Registration successful! Welcome to COICE!')
+          toast.success('Registration successful! Welcome to COICE!')
+          
+          // Redirect to home
+          setTimeout(() => {
+            router.push('/')
+            router.refresh()
+          }, 1000)
+        }
       }
-
-      setSuccess(data.message || 'Registration successful!')
-      
-      // Redirect to login after a short delay
-      setTimeout(() => {
-        router.push('/auth/login?message=Registration successful! Please sign in.')
-      }, 2000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
+      const message = err instanceof Error ? err.message : 'Registration failed'
+      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -80,23 +100,25 @@ export default function RegisterPage() {
     setError('')
 
     try {
-      const response = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const supabase = createSupabaseClient()
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Google signup failed')
+      if (error) {
+        setError(error.message)
+        toast.error(error.message)
+        setIsGoogleLoading(false)
       }
-
-      // Redirect to Google OAuth
-      window.location.href = data.url
+      // Don't set loading to false here as the page will redirect
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Google signup failed')
+      const message = err instanceof Error ? err.message : 'Google signup failed'
+      setError(message)
+      toast.error(message)
       setIsGoogleLoading(false)
     }
   }
