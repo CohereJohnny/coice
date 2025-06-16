@@ -25,18 +25,24 @@ export function Navbar() {
     console.log('Sign Out clicked');
     try {
       const supabase = createSupabaseClient();
-      await supabase.auth.signOut();
-      // Clear all persisted storage
-      localStorage.removeItem('auth-storage');
-      localStorage.removeItem('sb-access-token');
-      localStorage.removeItem('sb-refresh-token');
-      sessionStorage.clear();
-      // Reset Zustand store
-      reset();
-      // Force a full reload to clear any stale state before Zustand can rehydrate
+      
+      // This will trigger the auth state change event which the AuthProvider handles
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Sign out error:', error);
+        // Even if there's an error, force local cleanup
+        reset();
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+      
+      // The AuthProvider will handle the state cleanup automatically
+      // Just redirect to login page
       window.location.href = '/auth/login';
     } catch (error) {
       console.error('Sign out error:', error);
+      // Force cleanup on any error
       reset();
       localStorage.clear();
       sessionStorage.clear();

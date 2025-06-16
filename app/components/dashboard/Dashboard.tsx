@@ -1,31 +1,71 @@
 'use client'
 
-import { useAuth } from '@/lib/stores/auth'
+import { useAuth, useAuthActions } from '@/lib/stores/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { createSupabaseClient } from '@/lib/supabase'
 import { 
   Users, 
   FolderOpen, 
   ImageIcon, 
   Activity,
   PlusCircle,
-  Search
+  Search,
+  LogOut
 } from 'lucide-react'
 
 export function Dashboard() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
+  const { reset } = useAuthActions()
+
+  const handleLogout = async () => {
+    try {
+      const supabase = createSupabaseClient()
+      await supabase.auth.signOut()
+      
+      // Clear local storage
+      localStorage.clear()
+      sessionStorage.clear()
+      
+      // Reset auth store
+      reset()
+      
+      // Redirect to login
+      window.location.href = '/auth/login'
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Force logout even if there's an error
+      reset()
+      localStorage.clear()
+      sessionStorage.clear()
+      window.location.href = '/auth/login'
+    }
+  }
 
   return (
     <div className="space-y-8">
       {/* Welcome Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Welcome back, {profile?.display_name || 'User'}!
-        </h1>
-        <p className="text-muted-foreground">
-          Here&apos;s what&apos;s happening in your image analysis workspace.
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Welcome back, {profile?.display_name || user?.email || 'User'}!
+          </h1>
+          <p className="text-muted-foreground">
+            Here&apos;s what&apos;s happening in your image analysis workspace.
+          </p>
+        </div>
+        
+        {/* Logout Button for Testing */}
+        <Button 
+          onClick={handleLogout}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+        >
+          <LogOut className="h-4 w-4" />
+          Logout
+        </Button>
       </div>
 
       {/* Quick Actions */}
