@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth, useAuthActions } from '@/lib/stores/auth'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,10 +18,14 @@ import {
 } from 'lucide-react'
 
 export function Dashboard() {
+  const router = useRouter()
   const { profile, user } = useAuth()
   const { reset } = useAuthActions()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleLogout = async () => {
+    setIsLoggingOut(true)
+    
     try {
       const supabase = createSupabaseClient()
       await supabase.auth.signOut()
@@ -31,7 +37,10 @@ export function Dashboard() {
       // Reset auth store
       reset()
       
-      // Redirect to login
+      // Wait a moment for cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // Use window.location.href for reliable redirect and UI update
       window.location.href = '/auth/login'
     } catch (error) {
       console.error('Logout error:', error)
@@ -39,8 +48,10 @@ export function Dashboard() {
       reset()
       localStorage.clear()
       sessionStorage.clear()
+      // Ensure redirect happens even on error
       window.location.href = '/auth/login'
     }
+    // Note: don't set setIsLoggingOut(false) here since we're redirecting
   }
 
   return (
@@ -62,9 +73,10 @@ export function Dashboard() {
           variant="outline"
           size="sm"
           className="flex items-center gap-2"
+          disabled={isLoggingOut}
         >
           <LogOut className="h-4 w-4" />
-          Logout
+          {isLoggingOut ? 'Logging Out...' : 'Logout'}
         </Button>
       </div>
 

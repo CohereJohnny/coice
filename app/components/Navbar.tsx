@@ -1,18 +1,20 @@
 'use client'
 
 import Link from 'next/link'
-import { useAuth, useAuthActions } from '@/lib/stores/auth'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { useAuth, useAuthActions, useAuthStore } from '@/lib/stores/auth'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { NotificationCenter } from '@/components/ui/NotificationCenter'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { GlobalSearchModal } from '@/components/search'
-import { useState } from 'react'
 import { createSupabaseClient } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
 import Image from 'next/image'
 
 export function Navbar() {
+  const router = useRouter()
   const { user, profile, isAuthenticated } = useAuth()
   const { reset } = useAuthActions()
   // Debug: Log current auth state on every render
@@ -20,9 +22,13 @@ export function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [showSearchModal, setShowSearchModal] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   const handleSignOut = async () => {
     console.log('Sign Out clicked');
+    setIsLoggingOut(true)
+    setIsProfileOpen(false)
+    
     try {
       const supabase = createSupabaseClient();
       
@@ -31,23 +37,30 @@ export function Navbar() {
       
       if (error) {
         console.error('Sign out error:', error);
-        // Even if there's an error, force local cleanup
-        reset();
-        localStorage.clear();
-        sessionStorage.clear();
       }
       
-      // The AuthProvider will handle the state cleanup automatically
-      // Just redirect to login page
-      window.location.href = '/auth/login';
+      // Clear local storage
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Reset auth store
+      reset();
+      
+      // Wait a moment for cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // Use window.location.href for reliable redirect and UI update
+      window.location.href = '/auth/login'
     } catch (error) {
       console.error('Sign out error:', error);
       // Force cleanup on any error
       reset();
       localStorage.clear();
-      sessionStorage.clear();
-      window.location.href = '/auth/login';
+      sessionStorage.clear()
+      // Ensure redirect happens even on error
+      window.location.href = '/auth/login'
     }
+    // Note: don't set setIsLoggingOut(false) here since we're redirecting
   }
 
   return (
@@ -199,13 +212,10 @@ export function Navbar() {
                     variant="ghost"
                     size="sm"
                     className="w-full justify-start text-destructive hover:text-destructive"
-                    onClick={() => {
-                      console.log('Sign Out button clicked');
-                      handleSignOut();
-                      setIsProfileOpen(false);
-                    }}
+                    onClick={handleSignOut}
+                    disabled={isLoggingOut}
                   >
-                    Sign Out
+                    {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
                   </Button>
                 </div>
               )}
